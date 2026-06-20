@@ -211,7 +211,32 @@ button {
 }
 .mstat-hp { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
 .mstat-ins { background: var(--rose-bg); color: var(--rose); border: 1px solid var(--rose-bd); }
+.mstat-arm { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
 .mstat-bm { background: var(--red-bg); color: #f08080; border: 1px solid var(--red-bd); font-weight: 700; }
+
+/* controles do narrador para ajustar vida/insanidade/armadura dos jogadores */
+.nar-ctrl-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.nar-ctrl-group { display: flex; align-items: center; gap: 6px; }
+.nar-ctrl-lbl { font-size: 11px; color: var(--text3); white-space: nowrap; }
+.nar-ctrl-btns { display: flex; gap: 3px; }
+.nar-ctrl-btns button {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 5px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+}
+.nar-ctrl-btns button:hover { background: var(--surface2); color: var(--text); }
 
 /* barras */
 .bars { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
@@ -690,13 +715,26 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   border: 1px solid var(--border2);
   border-radius: var(--radius-sm);
   padding: 10px 14px;
-  cursor: pointer;
   transition: all .15s;
 }
-.campaign-item:hover { border-color: var(--accent-bd); background: var(--accent-bg); }
+.campaign-item:hover { border-color: var(--accent-bd); }
+.campaign-item-main { flex: 1; cursor: pointer; }
+.campaign-item-main:hover .campaign-item-name { color: var(--accent2); }
 .campaign-item-name { font-weight: 600; font-size: 13px; color: var(--text); }
 .campaign-item-code { font-size: 11px; color: var(--text3); font-family: monospace; margin-top: 2px; letter-spacing: .04em; }
 .campaign-item i { color: var(--text3); font-size: 16px; }
+.campaign-item-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.campaign-item-actions button {
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  padding: 5px 7px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+.campaign-item-actions button:hover { background: var(--surface); color: var(--text); }
+.campaign-item-actions button.danger:hover { background: var(--red-bg); color: #f08080; }
 
 .campaign-badge {
   display: flex;
