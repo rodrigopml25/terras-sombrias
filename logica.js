@@ -76,7 +76,10 @@ function snapshotState() {
 
 function applyData(data) {
   PLAYERS = data.PLAYERS || [];
-  PLAYERS.forEach(p => { if (!Array.isArray(p.skills)) p.skills = []; });
+  PLAYERS.forEach(p => {
+    if (!Array.isArray(p.skills)) p.skills = [];
+    if (typeof p.armadura !== 'number') p.armadura = 0;
+  });
   turnGlobal = data.turnGlobal || 1;
   INITIATIVE = data.INITIATIVE || [];
   curI = data.curI || 0;
@@ -355,6 +358,12 @@ function adjIns(id, d) {
   saveState(); renderAll();
 }
 
+function adjArmadura(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return; p.armadura = Math.max(0, (p.armadura || 0) + d);
+  saveState(); renderAll();
+}
+
 function addXP(id) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return;
@@ -396,13 +405,40 @@ function renderNarrador() {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.cls} · Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}</span>
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
       </div>
       <div class="bars">
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
         <div class="bar-wrap ins"><div class="bar-lbl">Insanidade</div><div class="bar-track"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div></div>
+      </div>
+      <div class="nar-ctrl-row">
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">❤ Vida</span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjHP(${p.id},-5)">−5</button>
+            <button onclick="adjHP(${p.id},-1)">−1</button>
+            <button onclick="adjHP(${p.id},+1)">+1</button>
+            <button onclick="adjHP(${p.id},+5)">+5</button>
+          </div>
+        </div>
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">🧠 Insanidade</span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjIns(${p.id},-10)">−10</button>
+            <button onclick="adjIns(${p.id},-5)">−5</button>
+            <button onclick="adjIns(${p.id},+5)">+5</button>
+            <button onclick="adjIns(${p.id},+10)">+10</button>
+          </div>
+        </div>
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">🛡 Armadura</span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjArmadura(${p.id},-1)">−1</button>
+            <button onclick="adjArmadura(${p.id},+1)">+1</button>
+          </div>
+        </div>
       </div>
       <div class="skills-chips">${chips}</div>
     </div>`;
@@ -996,6 +1032,8 @@ function renderUserBadge() {
 // ═══════════════════════════════════════
 
 // Busca as campanhas do usuário atual (criadas, se narrador; ou em que entrou, se jogador)
+let cachedMyCampaigns = [];
+
 function loadMyCampaignsList(callback) {
   if (!currentUser || !firebaseConfigured) return callback([]);
   const userCampsRef = firebase.database().ref('ts_users/' + currentUser.id + '/campaigns');
@@ -1007,6 +1045,75 @@ function loadMyCampaignsList(callback) {
         .then(s => Object.assign({ id }, s.val() || {}))
     )).then(list => callback(list.filter(c => c.name)));
   }).catch(() => callback([]));
+}
+
+// Re-renderiza a lista de campanhas dentro do seletor já aberto (após criar/renomear/excluir)
+function refreshCampaignList() {
+  if (!document.getElementById('campaign-list')) return;
+  loadMyCampaignsList(renderCampaignListItems);
+}
+
+function renderCampaignListItems(list) {
+  cachedMyCampaigns = list;
+  const el = document.getElementById('campaign-list');
+  if (!el) return;
+  if (!list.length) {
+    el.innerHTML = `<div style="text-align:center;color:var(--text3);font-size:12px;padding:6px 0 4px">${IS_NARRADOR ? 'Você ainda não criou nenhuma campanha.' : 'Você ainda não entrou em nenhuma campanha.'}</div>`;
+    return;
+  }
+  el.innerHTML = list.map(c => `
+    <div class="campaign-item">
+      <div class="campaign-item-main" onclick="bindCampaign('${c.id}')">
+        <div class="campaign-item-name">${c.name}</div>
+        ${IS_NARRADOR && c.code ? `<div class="campaign-item-code">Código: ${c.code}</div>` : ''}
+      </div>
+      ${IS_NARRADOR ? `
+        <div class="campaign-item-actions">
+          <button onclick="renomearCampanhaPrompt('${c.id}')" title="Renomear campanha"><i class="ti ti-edit"></i></button>
+          <button onclick="excluirCampanhaPrompt('${c.id}')" title="Excluir campanha" class="danger"><i class="ti ti-trash"></i></button>
+        </div>` : `<i class="ti ti-chevron-right"></i>`}
+    </div>`).join('');
+}
+
+function renomearCampanhaPrompt(id) {
+  const camp = cachedMyCampaigns.find(c => c.id === id);
+  const atual = camp ? camp.name : '';
+  const novoNome = prompt('Novo nome da campanha:', atual);
+  if (novoNome === null) return;
+  const nome = novoNome.trim();
+  if (!nome) return;
+  firebase.database().ref('campaigns/' + id + '/meta/name').set(nome).then(() => {
+    refreshCampaignList();
+  }).catch(() => alert('Erro ao renomear a campanha. Tente novamente.'));
+}
+
+function excluirCampanhaPrompt(id) {
+  const camp = cachedMyCampaigns.find(c => c.id === id);
+  const nome = camp ? camp.name : 'esta campanha';
+  if (!confirm(`Tem certeza que deseja excluir "${nome}"? Todos os personagens, anotações e progresso dessa campanha serão perdidos permanentemente.`)) return;
+
+  const tasks = [
+    firebase.database().ref('campaigns/' + id).remove(),
+    firebase.database().ref('ts_users/' + currentUser.id + '/campaigns/' + id).remove()
+  ];
+  if (camp && camp.code) tasks.push(firebase.database().ref('campaign_codes/' + camp.code).remove());
+
+  Promise.all(tasks).then(() => {
+    refreshCampaignList();
+  }).catch(() => alert('Erro ao excluir a campanha. Tente novamente.'));
+}
+
+// Renomeia a campanha que está ativa no momento (a partir do badge no cabeçalho)
+function renomearCampanhaAtiva() {
+  if (!activeCampaignId || !activeCampaignMeta) return;
+  const novoNome = prompt('Novo nome da campanha:', activeCampaignMeta.name);
+  if (novoNome === null) return;
+  const nome = novoNome.trim();
+  if (!nome) return;
+  firebase.database().ref('campaigns/' + activeCampaignId + '/meta/name').set(nome).then(() => {
+    activeCampaignMeta.name = nome;
+    renderCampaignBadge();
+  }).catch(() => alert('Erro ao renomear a campanha. Tente novamente.'));
 }
 
 function campaignError(msg) {
@@ -1054,22 +1161,7 @@ function showCampaignSelector() {
     if (IS_NARRADOR) criarCampanha(); else entrarComCodigo();
   });
 
-  loadMyCampaignsList(list => {
-    const el = document.getElementById('campaign-list');
-    if (!el) return;
-    if (!list.length) {
-      el.innerHTML = `<div style="text-align:center;color:var(--text3);font-size:12px;padding:6px 0 4px">${IS_NARRADOR ? 'Você ainda não criou nenhuma campanha.' : 'Você ainda não entrou em nenhuma campanha.'}</div>`;
-      return;
-    }
-    el.innerHTML = list.map(c => `
-      <div class="campaign-item" onclick="bindCampaign('${c.id}')">
-        <div>
-          <div class="campaign-item-name">${c.name}</div>
-          ${IS_NARRADOR && c.code ? `<div class="campaign-item-code">Código: ${c.code}</div>` : ''}
-        </div>
-        <i class="ti ti-chevron-right"></i>
-      </div>`).join('');
-  });
+  loadMyCampaignsList(renderCampaignListItems);
 
   setTimeout(() => {
     const el = document.getElementById(IS_NARRADOR ? 'new-camp-name' : 'join-camp-code');
@@ -1145,7 +1237,10 @@ function renderCampaignBadge() {
   const codeHtml = (IS_NARRADOR && activeCampaignMeta && activeCampaignMeta.code)
     ? `<span class="camp-code" title="Compartilhe este código com seus jogadores">${activeCampaignMeta.code}</span>`
     : '';
-  badge.innerHTML = `<i class="ti ti-map-2"></i> <strong>${name}</strong> ${codeHtml} <button onclick="trocarCampanha()" title="Trocar de campanha"><i class="ti ti-switch-horizontal"></i> Trocar</button>`;
+  const editBtn = IS_NARRADOR
+    ? `<button onclick="renomearCampanhaAtiva()" title="Renomear campanha"><i class="ti ti-edit"></i></button>`
+    : '';
+  badge.innerHTML = `<i class="ti ti-map-2"></i> <strong>${name}</strong> ${codeHtml} ${editBtn} <button onclick="trocarCampanha()" title="Trocar de campanha"><i class="ti ti-switch-horizontal"></i> Trocar</button>`;
 }
 
 // ═══════════════════════════════════════
