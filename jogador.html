@@ -127,7 +127,19 @@
         <div style="display:flex; gap:10px;">
             <div class="form-row" style="flex:1">
               <label class="form-label">Raça</label>
-              <input type="text" id="c-race" placeholder="Ex: Humano">
+              <select id="c-race" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+                <option value="" disabled selected hidden>Selecione...</option>
+                <option value="Anão">Anão</option>
+                <option value="Draenei">Draenei</option>
+                <option value="Dragão">Dragão</option>
+                <option value="Elfo">Elfo</option>
+                <option value="Etéreo">Etéreo</option>
+                <option value="Humano">Humano</option>
+                <option value="Orc">Orc</option>
+                <option value="Pandaren">Pandaren</option>
+                <option value="Tauren">Tauren</option>
+                <option value="Troll">Troll</option>
+              </select>
             </div>
             <div class="form-row" style="flex:1">
               <label class="form-label">Classe</label>
@@ -269,10 +281,10 @@
           <div id="inv-aprimos-list"></div>
         </div>
 
-        <!-- Ativas (Mega Pesada) -->
+        <!-- Liberar Vileza (Mega Pesada) -->
         <div id="inv-sec-mega" style="display:none">
           <div class="inv-sub-header">
-            <span><i class="ti ti-bolt" style="color:#c44aff"></i> Ativas</span>
+            <span><i class="ti ti-bolt" style="color:#c44aff"></i> Liberar Vileza</span>
             <button class="btn" style="padding:3px 9px;font-size:11px" onclick="addInvAtiva()"><i class="ti ti-plus"></i> Adicionar</button>
           </div>
           <div id="inv-ativas-list"></div>
