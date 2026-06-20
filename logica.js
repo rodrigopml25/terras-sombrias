@@ -94,6 +94,9 @@ let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
 let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidades agrupadas
 let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true }; // começa fechado
+let jogInvCollapsed = { armas: true, protecoes: true, itens: true }; // inventário começa fechado
+let modalInvPid = null;
+let modalInvId = null;
 
 let firebaseRef = null;
 let firebaseOnline = false;
@@ -120,6 +123,7 @@ function applyData(data) {
   PLAYERS.forEach(p => {
     if (!Array.isArray(p.skills)) p.skills = [];
     if (!Array.isArray(p.passivas)) p.passivas = [];
+    if (!Array.isArray(p.inventario)) p.inventario = [];
     ensureGeneralSkills(p);
     if (typeof p.armaduraMax !== 'number') p.armaduraMax = typeof p.armadura === 'number' ? p.armadura : 10;
     if (typeof p.armadura !== 'number') p.armadura = p.armaduraMax;
@@ -716,6 +720,7 @@ function renderJogador() {
     </div>`).join('');
 
   content.innerHTML = `
+    <div class="jog-inner-grid">
     <div class="j-sidebar">
       <div class="j-id-card">
         <div style="display:flex; justify-content: flex-end; gap: 8px; margin-bottom: -15px; position: relative; z-index: 10;">
@@ -797,7 +802,294 @@ function renderJogador() {
       </div>
       ${passivasCollapsed ? '' : `<div class="passivas-grid">${passivasHtml || '<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma passiva cadastrada ainda.</div>'}</div>`}
       ${passivasCollapsed ? '' : `<button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>`}
+    </div>
+    </div>
+
+    ${renderInventarioArea(p)}
+    `;
+}
+
+// ═══════════════════════════════════════
+// INVENTÁRIO
+// ═══════════════════════════════════════
+const INV_PESO_LABEL = { leve:'Leve', media:'Média', pesada:'Pesada', exotica:'Exótica', mega:'Mega Pesada' };
+const INV_PESO_COLOR = { leve:'var(--green)', media:'var(--amber)', pesada:'var(--red)', exotica:'var(--accent2)', mega:'#c44aff' };
+const INV_PESO_BG    = { leve:'var(--green-bg)', media:'var(--amber-bg)', pesada:'var(--red-bg)', exotica:'var(--accent-bg)', mega:'rgba(196,74,255,0.1)' };
+const INV_PESO_BD    = { leve:'var(--green-bd)', media:'var(--amber-bd)', pesada:'var(--red-bd)', exotica:'var(--accent-bd)', mega:'rgba(196,74,255,0.3)' };
+
+function renderInventarioArea(p) {
+  const inv = Array.isArray(p.inventario) ? p.inventario : [];
+  const armas     = inv.filter(i => i.tipo === 'arma');
+  const protecoes = inv.filter(i => i.tipo === 'protecao');
+  const itens     = inv.filter(i => i.tipo === 'item');
+
+  function pesoTag(item) {
+    if (!item.peso) return '';
+    return `<span class="inv-peso-tag" style="color:${INV_PESO_COLOR[item.peso]};background:${INV_PESO_BG[item.peso]};border-color:${INV_PESO_BD[item.peso]}">${INV_PESO_LABEL[item.peso]}</span>`;
+  }
+
+  function renderArmaCard(item) {
+    const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
+      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
+    const ativas = item.ativas && item.ativas.length
+      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-bolt"></i> Ativas</div>${item.ativas.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
+    return `<div class="inv-card">
+      <div class="inv-card-header">
+        <div class="inv-card-title"><i class="ti ti-sword" style="color:var(--red)"></i> ${item.name}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${pesoTag(item)}
+          <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
+        </div>
+      </div>
+      ${item.dano ? `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span></div>` : ''}
+      ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
+      ${aprimoramentos}${ativas}
     </div>`;
+  }
+
+  function renderProtecaoCard(item) {
+    const isElmo = item.subtipo === 'elmo';
+    const icone = isElmo ? 'ti-helmet' : 'ti-shield';
+    const cor   = isElmo ? 'var(--teal)' : 'var(--amber)';
+    const valLabel = isElmo ? 'Elmo' : 'Armadura';
+    return `<div class="inv-card">
+      <div class="inv-card-header">
+        <div class="inv-card-title"><i class="ti ${icone}" style="color:${cor}"></i> ${item.name}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${pesoTag(item)}
+          <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
+        </div>
+      </div>
+      ${item.valor != null ? `<div class="inv-dano"><span class="inv-dano-label">${valLabel}</span><span class="inv-dano-val">${item.valor}</span></div>` : ''}
+      ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
+    </div>`;
+  }
+
+  function renderItemCard(item) {
+    return `<div class="inv-card inv-card-item">
+      <div class="inv-card-header">
+        <div class="inv-card-title"><i class="ti ti-package" style="color:var(--text3)"></i> ${item.name}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${item.qtd != null && item.qtd !== '' ? `<span class="inv-qtd">×${item.qtd}</span>` : ''}
+          <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
+        </div>
+      </div>
+      ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
+    </div>`;
+  }
+
+  function invSection(key, label, icon, color, items, renderFn) {
+    const col = jogInvCollapsed[key];
+    const badge = col ? `<span class="gt-ready-badge" style="color:${color};background:transparent;border-color:${color}40">${items.length} item${items.length!==1?'s':''}</span>` : '';
+    return `
+      <div class="group-title group-title-toggle" onclick="toggleInvSection('${key}')">
+        <span class="gt-dot" style="background:${color}"></span>${label}
+        <span class="gt-collapse-info">${badge}</span>
+        <i class="ti ${col?'ti-chevron-down':'ti-chevron-up'} gt-chevron"></i>
+      </div>
+      ${col ? '' : `<div class="inv-grid">${items.length ? items.map(renderFn).join('') : `<div class="inv-empty">Nenhum item cadastrado.</div>`}</div>`}`;
+  }
+
+  return `<div class="inv-area">
+    <div class="inv-header">
+      <i class="ti ti-backpack" style="color:var(--accent2)"></i>
+      <span>Inventário</span>
+      <button class="btn btn-success inv-add-btn" onclick="openInvModal(${p.id})"><i class="ti ti-plus"></i> Adicionar</button>
+    </div>
+    ${invSection('armas',     '⚔️ Armas',    'ti-sword',   'var(--red)',    armas,     renderArmaCard)}
+    ${invSection('protecoes', '🛡 Proteções', 'ti-shield',  'var(--amber)',  protecoes, renderProtecaoCard)}
+    ${invSection('itens',     '📦 Itens',     'ti-package', 'var(--text3)', itens,     renderItemCard)}
+  </div>`;
+}
+
+function toggleInvSection(key) {
+  jogInvCollapsed[key] = !jogInvCollapsed[key];
+  renderJogador();
+}
+
+// ─── Modal Inventário ───
+function openInvModal(pid, defaults = {}) {
+  modalInvPid = pid;
+  modalInvId  = null;
+  _buildInvModal(defaults);
+  document.getElementById('modal-inv-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('inv-m-name').focus(), 50);
+}
+
+function editInvItem(pid, itemId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = (p.inventario || []).find(x => x.id === itemId);
+  if (!item) return;
+  modalInvPid = pid;
+  modalInvId  = itemId;
+  _buildInvModal(item);
+  document.getElementById('modal-inv-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('inv-m-name').focus(), 50);
+}
+
+function _buildInvModal(data) {
+  const tipo = data.tipo || 'arma';
+  document.getElementById('inv-modal-title').textContent = modalInvId ? 'Editar Item' : 'Novo Item';
+  document.getElementById('inv-m-del').style.display = modalInvId ? 'inline-flex' : 'none';
+
+  // tipo
+  document.querySelectorAll('.inv-tipo-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tipo === tipo);
+  });
+
+  document.getElementById('inv-m-name').value   = data.name   || '';
+  document.getElementById('inv-m-efeito').value = data.efeito || '';
+
+  // peso
+  const pesoVal = data.peso || 'leve';
+  document.querySelectorAll('.inv-peso-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.peso === pesoVal);
+  });
+
+  // dano
+  document.getElementById('inv-m-dano').value  = data.dano  || '';
+  // valor protecao
+  document.getElementById('inv-m-valor').value = data.valor != null ? data.valor : '';
+  // subtipo protecao
+  const subtipo = data.subtipo || 'armadura';
+  document.querySelectorAll('.inv-subtipo-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.sub === subtipo);
+  });
+  // qtd
+  document.getElementById('inv-m-qtd').value = data.qtd != null ? data.qtd : '';
+
+  // aprimoramentos
+  invAprimos = data.aprimoramentos ? JSON.parse(JSON.stringify(data.aprimoramentos)) : [];
+  // ativas
+  invAtivas  = data.ativas ? JSON.parse(JSON.stringify(data.ativas)) : [];
+
+  _updateInvModalSections(tipo);
+}
+
+let invAprimos = [];
+let invAtivas  = [];
+
+function _updateInvModalSections(tipo) {
+  document.getElementById('inv-sec-arma').style.display      = tipo === 'arma'     ? '' : 'none';
+  document.getElementById('inv-sec-protecao').style.display  = tipo === 'protecao' ? '' : 'none';
+  document.getElementById('inv-sec-item').style.display      = tipo === 'item'     ? '' : 'none';
+
+  const peso = _invSelectedPeso();
+  document.getElementById('inv-sec-exotica').style.display   = (tipo === 'arma' && peso === 'exotica') ? '' : 'none';
+  document.getElementById('inv-sec-mega').style.display      = (tipo === 'arma' && peso === 'mega')    ? '' : 'none';
+
+  _renderInvAprimos();
+  _renderInvAtivas();
+}
+
+function _invSelectedTipo() {
+  const b = document.querySelector('.inv-tipo-btn.active');
+  return b ? b.dataset.tipo : 'arma';
+}
+function _invSelectedPeso() {
+  const b = document.querySelector('.inv-peso-btn.active');
+  return b ? b.dataset.peso : 'leve';
+}
+function _invSelectedSub() {
+  const b = document.querySelector('.inv-subtipo-btn.active');
+  return b ? b.dataset.sub : 'armadura';
+}
+
+function invSelectTipo(tipo) {
+  document.querySelectorAll('.inv-tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.tipo === tipo));
+  _updateInvModalSections(tipo);
+}
+function invSelectPeso(peso) {
+  document.querySelectorAll('.inv-peso-btn').forEach(b => b.classList.toggle('active', b.dataset.peso === peso));
+  _updateInvModalSections(_invSelectedTipo());
+}
+function invSelectSub(sub) {
+  document.querySelectorAll('.inv-subtipo-btn').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+}
+
+function _renderInvAprimos() {
+  const el = document.getElementById('inv-aprimos-list');
+  if (!el) return;
+  el.innerHTML = invAprimos.map((a,i) => `
+    <div class="inv-extra-item">
+      <div style="flex:1">
+        <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome" oninput="invAprimos[${i}].name=this.value">
+        <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito (opcional)" oninput="invAprimos[${i}].desc=this.value">
+      </div>
+      <button onclick="invAprimos.splice(${i},1);_renderInvAprimos()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
+    </div>`).join('');
+}
+
+function _renderInvAtivas() {
+  const el = document.getElementById('inv-ativas-list');
+  if (!el) return;
+  el.innerHTML = invAtivas.map((a,i) => `
+    <div class="inv-extra-item">
+      <div style="flex:1">
+        <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome da ativa" oninput="invAtivas[${i}].name=this.value">
+        <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito secundário" oninput="invAtivas[${i}].desc=this.value">
+      </div>
+      <button onclick="invAtivas.splice(${i},1);_renderInvAtivas()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
+    </div>`).join('');
+}
+
+function addInvAprimo() { invAprimos.push({name:'',desc:''}); _renderInvAprimos(); }
+function addInvAtiva()  { invAtivas.push({name:'',desc:''});  _renderInvAtivas();  }
+
+function closeInvModal() {
+  document.getElementById('modal-inv-overlay').classList.remove('open');
+}
+
+function saveInvItem() {
+  const p = PLAYERS.find(x => x.id === modalInvPid);
+  if (!p) return;
+  if (!Array.isArray(p.inventario)) p.inventario = [];
+
+  const tipo    = _invSelectedTipo();
+  const name    = document.getElementById('inv-m-name').value.trim();
+  if (!name) { document.getElementById('inv-m-name').focus(); return; }
+
+  const efeito  = document.getElementById('inv-m-efeito').value.trim();
+  const peso    = _invSelectedPeso();
+  const dano    = document.getElementById('inv-m-dano').value.trim();
+  const valor   = document.getElementById('inv-m-valor').value.trim();
+  const subtipo = _invSelectedSub();
+  const qtdRaw  = document.getElementById('inv-m-qtd').value.trim();
+  const qtd     = qtdRaw !== '' ? parseInt(qtdRaw) : null;
+
+  const base = { name, efeito, tipo };
+  if (tipo === 'arma') {
+    Object.assign(base, { peso, dano });
+    if (peso === 'exotica') base.aprimoramentos = invAprimos.filter(a => a.name);
+    if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
+  } else if (tipo === 'protecao') {
+    Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null });
+  } else {
+    if (qtd !== null) base.qtd = qtd;
+  }
+
+  if (modalInvId) {
+    const idx = p.inventario.findIndex(x => x.id === modalInvId);
+    if (idx !== -1) p.inventario[idx] = { ...p.inventario[idx], ...base };
+  } else {
+    base.id = 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    p.inventario.push(base);
+  }
+
+  saveState();
+  renderJogador();
+  closeInvModal();
+}
+
+function deleteInvItem() {
+  if (!modalInvId || !modalInvPid) return;
+  if (!confirm('Excluir este item do inventário?')) return;
+  const p = PLAYERS.find(x => x.id === modalInvPid);
+  if (p) p.inventario = p.inventario.filter(x => x.id !== modalInvId);
+  saveState();
+  renderJogador();
+  closeInvModal();
 }
 
 // ═══════════════════════════════════════
@@ -1144,7 +1436,7 @@ function saveCharacter() {
       hp: hpMax, hpMax, agi, forca, intel,
       armadura: armaduraMax, armaduraMax,
       elmo: elmoMax, elmoMax,
-      passos, ins, skills: [], passivas: [],
+      passos, ins, skills: [], passivas: [], inventario: [],
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
     };
