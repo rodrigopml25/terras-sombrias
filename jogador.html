@@ -163,6 +163,10 @@
               <label class="form-label">Passos</label>
               <input type="number" id="c-passos" value="6" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
             </div>
+            <div class="form-row" style="flex:1">
+              <label class="form-label">Dinheiro</label>
+              <input type="number" id="c-dinheiro" value="100" min="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+            </div>
         </div>
 
         <div style="display:flex; gap:10px;">
@@ -222,6 +226,18 @@
           <div class="form-row">
             <label class="form-label">Dano (ex: 1d6, 2d8+2)</label>
             <input type="text" id="inv-m-dano" placeholder="Ex: 1d8">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Alcance</label>
+            <div class="inv-tipo-group">
+              <button class="inv-alcance-btn active" data-alcance="curto" onclick="invSelectAlcance('curto')">🎯 Curto Alcance</button>
+              <button class="inv-alcance-btn"        data-alcance="longo" onclick="invSelectAlcance('longo')">🏹 Longo Alcance</button>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:5px">Armas de longo alcance possuem munição. Armas exóticas usam cristais como munição, independente do alcance.</div>
+          </div>
+          <div class="form-row" id="inv-sec-municao" style="display:none">
+            <label class="form-label" id="inv-municao-label">Munição</label>
+            <input type="number" id="inv-m-municao" min="0" placeholder="Ex: 12" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
           </div>
         </div>
 
