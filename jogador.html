@@ -148,14 +148,6 @@
 
         <div style="display:flex; gap:10px;">
             <div class="form-row" style="flex:1">
-              <label class="form-label">Armadura (máxima)</label>
-              <input type="number" id="c-arm-max" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
-            </div>
-            <div class="form-row" style="flex:1">
-              <label class="form-label">Elmo (máximo)</label>
-              <input type="number" id="c-elm-max" value="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
-            </div>
-            <div class="form-row" style="flex:1">
               <label class="form-label">Passos</label>
               <input type="number" id="c-passos" value="6" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
             </div>
@@ -243,6 +235,14 @@
           <div class="form-row">
             <label class="form-label">Valor de proteção</label>
             <input type="number" id="inv-m-valor" placeholder="Ex: 5" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Status</label>
+            <div class="inv-tipo-group">
+              <button class="inv-equip-btn active" data-equip="1" onclick="invSelectEquip(true)"><i class="ti ti-check"></i> Equipado</button>
+              <button class="inv-equip-btn"        data-equip="0" onclick="invSelectEquip(false)">Guardado</button>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:5px">Só 1 armadura e 1 elmo podem estar equipados por vez — define o máximo da ficha.</div>
           </div>
         </div>
 
