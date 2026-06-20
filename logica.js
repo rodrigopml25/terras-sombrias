@@ -294,6 +294,9 @@ function saveState() {
 function vidaClass(hp, max) {
   const p = hp / max; return p <= .3 ? 'bfill-vida-low' : p <= .6 ? 'bfill-vida-mid' : 'bfill-vida-ok';
 }
+function maestria(attr) {
+  return Math.ceil((attr || 0) / 5);
+}
 function tipoLabel(sk) {
   if (sk.tipo==='infinite') return '∞ livre';
   if (sk.tipo==='perturn')  return '1/turno';
@@ -688,9 +691,9 @@ function renderJogador() {
       </div>
       <div class="stat-block">
         <div class="attr3">
-          <div class="am am-agi"><div class="am-lbl">AGI</div><div class="am-val">${p.agi}</div></div>
-          <div class="am am-for"><div class="am-lbl">FOR</div><div class="am-val">${p.forca}</div></div>
-          <div class="am am-int"><div class="am-lbl">INT</div><div class="am-val">${p.intel}</div></div>
+          <div class="am am-agi" title="Maestria: +${maestria(p.agi)} na rolagem (arredondado para cima de AGI/5)"><div class="am-lbl">AGI</div><div class="am-val">${p.agi}</div><div class="am-mst">+${maestria(p.agi)}</div></div>
+          <div class="am am-for" title="Maestria: +${maestria(p.forca)} na rolagem (arredondado para cima de FOR/5)"><div class="am-lbl">FOR</div><div class="am-val">${p.forca}</div><div class="am-mst">+${maestria(p.forca)}</div></div>
+          <div class="am am-int" title="Maestria: +${maestria(p.intel)} na rolagem (arredondado para cima de INT/5)"><div class="am-lbl">INT</div><div class="am-val">${p.intel}</div><div class="am-mst">+${maestria(p.intel)}</div></div>
         </div>
         <div class="equip2 equip1">
           <div class="eqm eqm-passos"><div class="eqm-lbl">Passos</div><div class="eqm-val">${p.passos}</div></div>
