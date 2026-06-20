@@ -424,6 +424,14 @@ function addXP(id) {
   saveState(); renderAll();
 }
 
+function removeXP(id) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  if (p.xp > 0) { p.xp--; }
+  else if (p.level > 1) { p.level--; p.xp = 9; }
+  saveState(); renderAll();
+}
+
 // ═══════════════════════════════════════
 // RENDER NARRADOR
 // ═══════════════════════════════════════
@@ -637,7 +645,10 @@ function renderJogador() {
           <div class="xp-lbl"><span>XP — ${p.xp}/10</span><span>Nv ${p.level}${p.level<5?' → '+(p.level+1):' (máx)'}</span></div>
           <div class="xp-track"><div class="xp-fill" style="width:${xpPct}%"></div></div>
         </div>
-        <div style="margin-top:8px;display:flex;gap:5px"><button class="btn" style="flex:1;justify-content:center" onclick="addXP(${p.id})">+ XP</button></div>
+        <div style="margin-top:8px;display:flex;gap:5px">
+          <button class="btn" style="flex:1;justify-content:center" onclick="removeXP(${p.id})">− XP</button>
+          <button class="btn" style="flex:1;justify-content:center" onclick="addXP(${p.id})">+ XP</button>
+        </div>
       </div>
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-heart" style="color:var(--red)"></i> Vida</span><span class="stat-val" style="color:${bm?'var(--red)':'var(--text)'}">${p.hp}/${p.hpMax}</span></div>
