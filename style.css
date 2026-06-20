@@ -221,6 +221,26 @@ button {
   color: var(--text3); font-size: 16px; padding: 4px; flex-shrink: 0;
 }
 .prow-edit-btn:hover { color: var(--text); }
+.prow-passiva-on { color: #b89aff; }
+.prow-passiva-on:hover { color: #b89aff; }
+
+/* bloco expansível de passivas — visível só quando o Narrador clica em "Ver passivas" naquele personagem */
+.nar-passivas-box {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bd);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.nar-passivas-title {
+  font-size: 11px; font-weight: 600; color: #b89aff;
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em;
+}
+.nar-passiva-item { padding: 6px 0; border-top: 1px solid var(--accent-bd); }
+.nar-passiva-item:first-of-type { border-top: none; padding-top: 0; }
+.nar-passiva-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.nar-passiva-desc { font-size: 11px; color: var(--text2); line-height: 1.5; white-space: pre-wrap; }
 
 /* controles do narrador para ajustar vida/insanidade/armadura dos jogadores */
 .nar-ctrl-row {
@@ -589,6 +609,27 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
 }
 .add-skill-btn:hover { background: var(--surface); color: var(--text2); }
+
+/* ═══════════════════════════════════════════
+   PASSIVAS / TALENTOS (JOGADOR)
+═══════════════════════════════════════════ */
+.passivas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 4px; }
+.passiva-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--accent-bd);
+  background: var(--accent-bg);
+  padding: 12px;
+}
+.passiva-name {
+  font-size: 13px; font-weight: 600; margin-bottom: 6px;
+  font-family: var(--font-display); letter-spacing: .02em;
+  color: #b89aff; display: flex; align-items: center; gap: 6px;
+}
+.passiva-name i { font-size: 13px; }
+.passiva-desc {
+  font-size: 11px; color: var(--text2); line-height: 1.5;
+  white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;
+}
 
 /* ═══════════════════════════════════════════
    MODAL
