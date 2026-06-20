@@ -78,9 +78,12 @@ function applyData(data) {
   PLAYERS = data.PLAYERS || [];
   PLAYERS.forEach(p => {
     if (!Array.isArray(p.skills)) p.skills = [];
-    if (typeof p.armadura !== 'number') p.armadura = 0;
-    if (typeof p.armaduraMax !== 'number') p.armaduraMax = Math.max(p.armadura, 10);
+    if (typeof p.armaduraMax !== 'number') p.armaduraMax = typeof p.armadura === 'number' ? p.armadura : 10;
+    if (typeof p.armadura !== 'number') p.armadura = p.armaduraMax;
     if (p.armadura > p.armaduraMax) p.armadura = p.armaduraMax;
+    if (typeof p.elmoMax !== 'number') p.elmoMax = typeof p.elmo === 'number' ? p.elmo : 0;
+    if (typeof p.elmo !== 'number') p.elmo = p.elmoMax;
+    if (p.elmo > p.elmoMax) p.elmo = p.elmoMax;
     if (typeof p.passos !== 'number') p.passos = 6;
   });
   turnGlobal = data.turnGlobal || 1;
@@ -355,15 +358,57 @@ function adjHP(id, d) {
   saveState(); renderAll();
 }
 
+function setHP(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  p.hp = Math.max(0, Math.min(p.hpMax, v));
+  saveState(); renderAll();
+}
+
 function adjIns(id, d) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return; p.ins = Math.max(0, Math.min(100, p.ins + d));
   saveState(); renderAll();
 }
 
+function setIns(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  p.ins = Math.max(0, Math.min(100, v));
+  saveState(); renderAll();
+}
+
 function adjArmadura(id, d) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return; p.armadura = Math.max(0, Math.min(p.armaduraMax || 0, (p.armadura || 0) + d));
+  saveState(); renderAll();
+}
+
+function setArmadura(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  p.armadura = Math.max(0, Math.min(p.armaduraMax || 0, v));
+  saveState(); renderAll();
+}
+
+function adjElmo(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return; p.elmo = Math.max(0, Math.min(p.elmoMax || 0, (p.elmo || 0) + d));
+  saveState(); renderAll();
+}
+
+function setElmo(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  p.elmo = Math.max(0, Math.min(p.elmoMax || 0, v));
   saveState(); renderAll();
 }
 
@@ -387,6 +432,7 @@ function renderNarrador() {
     const hpPct = Math.round(p.hp / p.hpMax * 100);
     const insPct = Math.round(p.ins);
     const armPct = p.armaduraMax > 0 ? Math.round(p.armadura / p.armaduraMax * 100) : 0;
+    const elmPct = p.elmoMax > 0 ? Math.round(p.elmo / p.elmoMax * 100) : 0;
     const bm = p.hp === 0;
 
     const chips = p.skills.map(sk => {
@@ -409,7 +455,7 @@ function renderNarrador() {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.cls} · Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span>
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
         <button class="prow-edit-btn" onclick="editCharacter(${p.id})" title="Editar ficha do personagem"><i class="ti ti-edit"></i></button>
@@ -418,6 +464,7 @@ function renderNarrador() {
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
         <div class="bar-wrap ins"><div class="bar-lbl">Insanidade</div><div class="bar-track"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div></div>
         <div class="bar-wrap arm"><div class="bar-lbl">Armadura</div><div class="bar-track"><div class="bar-fill bfill-arm" style="width:${armPct}%"></div></div></div>
+        <div class="bar-wrap elm"><div class="bar-lbl">Elmo</div><div class="bar-track"><div class="bar-fill bfill-elm" style="width:${elmPct}%"></div></div></div>
       </div>
       <div class="nar-ctrl-row">
         <div class="nar-ctrl-group">
@@ -425,6 +472,7 @@ function renderNarrador() {
           <div class="nar-ctrl-btns">
             <button onclick="adjHP(${p.id},-5)">−5</button>
             <button onclick="adjHP(${p.id},-1)">−1</button>
+            <input type="number" class="nar-ctrl-input" value="${p.hp}" onchange="setHP(${p.id}, this.value)">
             <button onclick="adjHP(${p.id},+1)">+1</button>
             <button onclick="adjHP(${p.id},+5)">+5</button>
           </div>
@@ -434,6 +482,7 @@ function renderNarrador() {
           <div class="nar-ctrl-btns">
             <button onclick="adjIns(${p.id},-10)">−10</button>
             <button onclick="adjIns(${p.id},-5)">−5</button>
+            <input type="number" class="nar-ctrl-input" value="${p.ins}" onchange="setIns(${p.id}, this.value)">
             <button onclick="adjIns(${p.id},+5)">+5</button>
             <button onclick="adjIns(${p.id},+10)">+10</button>
           </div>
@@ -442,7 +491,16 @@ function renderNarrador() {
           <span class="nar-ctrl-lbl">🛡 Armadura</span>
           <div class="nar-ctrl-btns">
             <button onclick="adjArmadura(${p.id},-1)">−1</button>
+            <input type="number" class="nar-ctrl-input" value="${p.armadura || 0}" onchange="setArmadura(${p.id}, this.value)">
             <button onclick="adjArmadura(${p.id},+1)">+1</button>
+          </div>
+        </div>
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">⛑ Elmo</span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjElmo(${p.id},-1)">−1</button>
+            <input type="number" class="nar-ctrl-input" value="${p.elmo || 0}" onchange="setElmo(${p.id}, this.value)">
+            <button onclick="adjElmo(${p.id},+1)">+1</button>
           </div>
         </div>
       </div>
@@ -491,6 +549,7 @@ function renderJogador() {
   const hpPct = Math.round(p.hp / p.hpMax * 100);
   const insPct = p.ins;
   const armPct = p.armaduraMax > 0 ? Math.round(p.armadura / p.armaduraMax * 100) : 0;
+  const elmPct = p.elmoMax > 0 ? Math.round(p.elmo / p.elmoMax * 100) : 0;
   const xpPct = Math.round(p.xp / 10 * 100);
   const bm = p.hp === 0;
   const temSeq = p.ins >= 25;
@@ -558,15 +617,17 @@ function renderJogador() {
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-heart" style="color:var(--red)"></i> Vida</span><span class="stat-val" style="color:${bm?'var(--red)':'var(--text)'}">${p.hp}/${p.hpMax}</span></div>
         <div class="bar-track" style="margin:5px 0"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div>
-        <div class="hp-ctrl">
+        <div class="hp-ctrl hp-ctrl-5">
           <button onclick="adjHP(${p.id},-5)">−5</button><button onclick="adjHP(${p.id},-1)">−1</button>
+          <input type="number" class="stat-input" value="${p.hp}" onchange="setHP(${p.id}, this.value)">
           <button onclick="adjHP(${p.id},+1)">+1</button><button onclick="adjHP(${p.id},+5)">+5</button>
         </div>
         <div class="bm-alert ${bm?'show':''}">⚠ Beira Morte<br><small>Emoção 1d100 ≥ 50 · Resistência 1d20 ≥ 10</small></div>
         <div class="stat-row" style="margin-top:10px"><span class="stat-lbl"><i class="ti ti-brain" style="color:var(--rose)"></i> Insanidade</span><span class="stat-val" style="color:var(--rose)">${p.ins}/100</span></div>
         <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div>
-        <div class="ins-ctrl">
+        <div class="ins-ctrl ins-ctrl-5">
           <button onclick="adjIns(${p.id},+10)">+10</button><button onclick="adjIns(${p.id},+5)">+5</button>
+          <input type="number" class="stat-input" value="${p.ins}" onchange="setIns(${p.id}, this.value)">
           <button onclick="adjIns(${p.id},-5)">−5</button><button onclick="adjIns(${p.id},-10)">−10</button>
         </div>
         <div class="seq-alert ${temSeq?'show':''}">Sequela emocional — ${Math.floor(p.ins/25)} marca(s). Role 1d6.</div>
@@ -574,8 +635,19 @@ function renderJogador() {
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-shield" style="color:var(--amber)"></i> Armadura</span><span class="stat-val" style="color:var(--amber)">${p.armadura}/${p.armaduraMax}</span></div>
         <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-arm" style="width:${armPct}%"></div></div>
-        <div class="arm-ctrl">
-          <button onclick="adjArmadura(${p.id},-1)">−1</button><button onclick="adjArmadura(${p.id},+1)">+1</button>
+        <div class="arm-ctrl arm-ctrl-3">
+          <button onclick="adjArmadura(${p.id},-1)">−1</button>
+          <input type="number" class="stat-input" value="${p.armadura}" onchange="setArmadura(${p.id}, this.value)">
+          <button onclick="adjArmadura(${p.id},+1)">+1</button>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-row"><span class="stat-lbl"><i class="ti ti-helmet" style="color:var(--teal)"></i> Elmo</span><span class="stat-val" style="color:var(--teal)">${p.elmo}/${p.elmoMax}</span></div>
+        <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-elm" style="width:${elmPct}%"></div></div>
+        <div class="arm-ctrl arm-ctrl-3">
+          <button onclick="adjElmo(${p.id},-1)">−1</button>
+          <input type="number" class="stat-input" value="${p.elmo}" onchange="setElmo(${p.id}, this.value)">
+          <button onclick="adjElmo(${p.id},+1)">+1</button>
         </div>
       </div>
       <div class="stat-block">
@@ -584,8 +656,7 @@ function renderJogador() {
           <div class="am am-for"><div class="am-lbl">FOR</div><div class="am-val">${p.forca}</div></div>
           <div class="am am-int"><div class="am-lbl">INT</div><div class="am-val">${p.intel}</div></div>
         </div>
-        <div class="equip2">
-          <div class="eqm eqm-elm"><div class="eqm-lbl">Elmo</div><div class="eqm-val">${p.elmo}</div></div>
+        <div class="equip2 equip1">
           <div class="eqm eqm-passos"><div class="eqm-lbl">Passos</div><div class="eqm-val">${p.passos}</div></div>
         </div>
       </div>
@@ -776,6 +847,7 @@ function openCharModal() {
   document.getElementById('c-for').value = '10';
   document.getElementById('c-int').value = '10';
   document.getElementById('c-arm-max').value = '10';
+  document.getElementById('c-elm-max').value = '0';
   document.getElementById('c-passos').value = '6';
   setTimeout(() => document.getElementById('c-name').focus(), 50);
 }
@@ -798,6 +870,7 @@ function editCharacter(id) {
   document.getElementById('c-for').value = p.forca;
   document.getElementById('c-int').value = p.intel;
   document.getElementById('c-arm-max').value = p.armaduraMax;
+  document.getElementById('c-elm-max').value = p.elmoMax || 0;
   document.getElementById('c-passos').value = p.passos;
 }
 
@@ -825,6 +898,7 @@ function saveCharacter() {
   const forca  = parseInt(document.getElementById('c-for').value) || 10;
   const intel  = parseInt(document.getElementById('c-int').value) || 10;
   const armaduraMax = parseInt(document.getElementById('c-arm-max').value) || 0;
+  const elmoMax = parseInt(document.getElementById('c-elm-max').value) || 0;
   const passos = parseInt(document.getElementById('c-passos').value) || 0;
 
   if (modalCharId) {
@@ -833,8 +907,16 @@ function saveCharacter() {
       p.name = name; p.race = race; p.cls = cls; p.hpMax = hpMax;
       if (p.hp > hpMax) p.hp = hpMax;
       p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
+
+      // Se o máximo aumentar, o valor atual acompanha o aumento (ex: trocou de armadura por uma melhor)
+      const armDelta = armaduraMax - (p.armaduraMax || 0);
       p.armaduraMax = armaduraMax;
-      if (p.armadura > armaduraMax) p.armadura = armaduraMax;
+      p.armadura = Math.max(0, Math.min(armaduraMax, (p.armadura || 0) + (armDelta > 0 ? armDelta : 0)));
+
+      const elmDelta = elmoMax - (p.elmoMax || 0);
+      p.elmoMax = elmoMax;
+      p.elmo = Math.max(0, Math.min(elmoMax, (p.elmo || 0) + (elmDelta > 0 ? elmDelta : 0)));
+
       p.passos = passos;
     }
   } else {
@@ -842,7 +924,9 @@ function saveCharacter() {
     PLAYERS.push({
       id: newId, name, race, cls, level: 1, xp: 0,
       hp: hpMax, hpMax, agi, forca, intel,
-      armadura: armaduraMax, armaduraMax, elmo: 0, passos, ins, skills: [],
+      armadura: armaduraMax, armaduraMax,
+      elmo: elmoMax, elmoMax,
+      passos, ins, skills: [],
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
     });
