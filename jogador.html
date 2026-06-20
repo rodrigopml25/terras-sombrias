@@ -94,6 +94,27 @@
       </div>
     </div>
 
+    <div class="modal-overlay" id="modal-passiva-overlay">
+      <div class="modal">
+        <h3 id="modal-passiva-title">Nova Passiva / Talento</h3>
+        <div class="form-row">
+          <label class="form-label">Nome</label>
+          <input type="text" id="mp-name" placeholder="Nome da passiva ou talento">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Efeito / Descrição</label>
+          <textarea id="mp-desc" placeholder="Descreva o que a passiva faz..." style="width: 100%; min-height: 80px; font-size: 12px; padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg3); color: var(--text); resize: vertical; font-family: var(--font-body); line-height: 1.5;"></textarea>
+        </div>
+        <div class="modal-btns" style="display:flex; justify-content:space-between;">
+          <button class="btn btn-danger" id="mp-btn-del" style="display:none;" onclick="deletePassiva()"><i class="ti ti-trash"></i> Excluir</button>
+          <div style="display:flex; gap:10px; margin-left:auto;">
+            <button class="btn" onclick="closePassivaModal()">Cancelar</button>
+            <button class="btn btn-primary" id="mp-btn-save" onclick="savePassiva()">Adicionar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="modal-char-overlay">
       <div class="modal">
         <h3 id="modal-char-title">Novo Personagem</h3>
