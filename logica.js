@@ -864,7 +864,7 @@ function renderInventarioArea(p) {
     const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
     const ativas = item.ativas && item.ativas.length
-      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-bolt"></i> Ativas</div>${item.ativas.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
+      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-bolt"></i> Liberar Vileza</div>${item.ativas.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
     return `<div class="inv-card">
       <div class="inv-card-header">
         <div class="inv-card-title"><i class="ti ti-sword" style="color:var(--red)"></i> ${item.name}</div>
@@ -1094,8 +1094,8 @@ function _renderInvAtivas() {
   el.innerHTML = invAtivas.map((a,i) => `
     <div class="inv-extra-item">
       <div style="flex:1">
-        <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome da ativa" oninput="invAtivas[${i}].name=this.value">
-        <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito secundário" oninput="invAtivas[${i}].desc=this.value">
+        <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome da vileza" oninput="invAtivas[${i}].name=this.value">
+        <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito ao liberar" oninput="invAtivas[${i}].desc=this.value">
       </div>
       <button onclick="invAtivas.splice(${i},1);_renderInvAtivas()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
     </div>`).join('');
@@ -1433,7 +1433,7 @@ function openCharModal() {
   const saveBtn = document.getElementById('c-btn-save');
   if (saveBtn) saveBtn.textContent = 'Criar Personagem';
   document.getElementById('c-name').value = '';
-  document.getElementById('c-race').value = '';
+  setRaceSelectValue('');
   document.getElementById('c-cls').value = '';
   document.getElementById('c-hp').value = '30';
   document.getElementById('c-ins').value = '0';
@@ -1442,6 +1442,25 @@ function openCharModal() {
   document.getElementById('c-int').value = '10';
   document.getElementById('c-passos').value = '6';
   setTimeout(() => document.getElementById('c-name').focus(), 50);
+}
+
+// Define o valor do <select> de Raça. Se a ficha tiver uma raça antiga (texto
+// livre) que não está na lista fixa atual, cria uma opção extra temporária
+// pra não perder/sobrescrever esse dado ao reabrir o modal de edição.
+function setRaceSelectValue(raca) {
+  const sel = document.getElementById('c-race');
+  if (!sel) return;
+  const existeOpcao = Array.from(sel.options).some(o => o.value === raca);
+  // remove qualquer opção "legada" adicionada anteriormente
+  Array.from(sel.querySelectorAll('option[data-legacy]')).forEach(o => o.remove());
+  if (raca && !existeOpcao) {
+    const opt = document.createElement('option');
+    opt.value = raca;
+    opt.textContent = raca + ' (raça antiga)';
+    opt.dataset.legacy = '1';
+    sel.appendChild(opt);
+  }
+  sel.value = raca || '';
 }
 
 function editCharacter(id) {
@@ -1454,7 +1473,7 @@ function editCharacter(id) {
   const saveBtn = document.getElementById('c-btn-save');
   if (saveBtn) saveBtn.textContent = 'Salvar';
   document.getElementById('c-name').value = p.name;
-  document.getElementById('c-race').value = p.race;
+  setRaceSelectValue(p.race);
   document.getElementById('c-cls').value = p.cls;
   document.getElementById('c-hp').value = p.hpMax;
   document.getElementById('c-ins').value = p.ins;
