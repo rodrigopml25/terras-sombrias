@@ -132,6 +132,15 @@ function applyData(data) {
     if (typeof p.elmo !== 'number') p.elmo = p.elmoMax;
     if (p.elmo > p.elmoMax) p.elmo = p.elmoMax;
     if (typeof p.passos !== 'number') p.passos = 6;
+    // Migração: itens de proteção criados antes do controle de "equipado" não têm
+    // esse campo ainda — equipa automaticamente o primeiro de cada tipo para não
+    // zerar a armadura/elmo de personagens já existentes.
+    ['armadura','elmo'].forEach(sub => {
+      const itensSub = p.inventario.filter(i => i.tipo === 'protecao' && i.subtipo === sub);
+      const algumDefinido = itensSub.some(i => typeof i.equipado === 'boolean');
+      if (!algumDefinido && itensSub.length) itensSub[0].equipado = true;
+    });
+    recomputeProtMax(p);
   });
   turnGlobal = data.turnGlobal || 1;
   INITIATIVE = data.INITIATIVE || [];
@@ -460,6 +469,29 @@ function setElmo(id, val) {
   if (isNaN(v)) { renderAll(); return; }
   p.elmo = Math.max(0, Math.min(p.elmoMax || 0, v));
   saveState(); renderAll();
+}
+
+// Recalcula armaduraMax/elmoMax a partir do item de proteção EQUIPADO no
+// inventário (apenas 1 armadura e 1 elmo podem estar equipados por vez).
+// Se o jogador ainda não tem nenhum item daquele tipo no inventário, o valor
+// atual é mantido (evita zerar fichas antigas que nunca usaram o inventário).
+function recomputeProtMax(p) {
+  if (!Array.isArray(p.inventario)) return;
+  ['armadura', 'elmo'].forEach(sub => {
+    const itensSub = p.inventario.filter(i => i.tipo === 'protecao' && i.subtipo === sub);
+    if (!itensSub.length) return;
+    const equipado = itensSub.find(i => i.equipado);
+    const novoMax = equipado ? (Number(equipado.valor) || 0) : 0;
+    if (sub === 'armadura') {
+      const delta = novoMax - (p.armaduraMax || 0);
+      p.armaduraMax = novoMax;
+      p.armadura = Math.max(0, Math.min(novoMax, (p.armadura || 0) + (delta > 0 ? delta : 0)));
+    } else {
+      const delta = novoMax - (p.elmoMax || 0);
+      p.elmoMax = novoMax;
+      p.elmo = Math.max(0, Math.min(novoMax, (p.elmo || 0) + (delta > 0 ? delta : 0)));
+    }
+  });
 }
 
 function addXP(id) {
@@ -852,10 +884,14 @@ function renderInventarioArea(p) {
     const icone = isElmo ? 'ti-helmet' : 'ti-shield';
     const cor   = isElmo ? 'var(--teal)' : 'var(--amber)';
     const valLabel = isElmo ? 'Elmo' : 'Armadura';
+    const equipBadge = item.equipado
+      ? `<span class="inv-equip-badge inv-equip-on" onclick="toggleEquipProt(${p.id},'${item.id}')" title="Equipado — clique para guardar"><i class="ti ti-check"></i> Equipado</span>`
+      : `<span class="inv-equip-badge inv-equip-off" onclick="toggleEquipProt(${p.id},'${item.id}')" title="Guardado — clique para equipar">Guardado</span>`;
     return `<div class="inv-card">
       <div class="inv-card-header">
         <div class="inv-card-title"><i class="ti ${icone}" style="color:${cor}"></i> ${item.name}</div>
         <div style="display:flex;align-items:center;gap:6px">
+          ${equipBadge}
           ${pesoTag(item)}
           <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
         </div>
@@ -904,6 +940,25 @@ function renderInventarioArea(p) {
 
 function toggleInvSection(key) {
   jogInvCollapsed[key] = !jogInvCollapsed[key];
+  renderJogador();
+}
+
+// Equipa/desequipa uma peça de proteção direto pelo card (sem abrir o modal).
+// Só pode haver 1 armadura e 1 elmo equipados por vez por personagem.
+function toggleEquipProt(pid, itemId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = (p.inventario || []).find(x => x.id === itemId);
+  if (!item) return;
+  const novoEstado = !item.equipado;
+  if (novoEstado) {
+    p.inventario.forEach(it => {
+      if (it.tipo === 'protecao' && it.subtipo === item.subtipo && it.id !== item.id) it.equipado = false;
+    });
+  }
+  item.equipado = novoEstado;
+  recomputeProtMax(p);
+  saveState();
   renderJogador();
 }
 
@@ -956,6 +1011,11 @@ function _buildInvModal(data) {
   document.querySelectorAll('.inv-subtipo-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.sub === subtipo);
   });
+  // equipado (proteção) — novo item já entra equipado por padrão
+  const equipadoVal = typeof data.equipado === 'boolean' ? data.equipado : true;
+  document.querySelectorAll('.inv-equip-btn').forEach(b => {
+    b.classList.toggle('active', (b.dataset.equip === '1') === equipadoVal);
+  });
   // qtd
   document.getElementById('inv-m-qtd').value = data.qtd != null ? data.qtd : '';
 
@@ -995,6 +1055,10 @@ function _invSelectedSub() {
   const b = document.querySelector('.inv-subtipo-btn.active');
   return b ? b.dataset.sub : 'armadura';
 }
+function _invSelectedEquip() {
+  const b = document.querySelector('.inv-equip-btn.active');
+  return b ? b.dataset.equip === '1' : true;
+}
 
 function invSelectTipo(tipo) {
   document.querySelectorAll('.inv-tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.tipo === tipo));
@@ -1006,6 +1070,9 @@ function invSelectPeso(peso) {
 }
 function invSelectSub(sub) {
   document.querySelectorAll('.inv-subtipo-btn').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+}
+function invSelectEquip(equipado) {
+  document.querySelectorAll('.inv-equip-btn').forEach(b => b.classList.toggle('active', (b.dataset.equip === '1') === equipado));
 }
 
 function _renderInvAprimos() {
@@ -1055,6 +1122,7 @@ function saveInvItem() {
   const dano    = document.getElementById('inv-m-dano').value.trim();
   const valor   = document.getElementById('inv-m-valor').value.trim();
   const subtipo = _invSelectedSub();
+  const equipado = _invSelectedEquip();
   const qtdRaw  = document.getElementById('inv-m-qtd').value.trim();
   const qtd     = qtdRaw !== '' ? parseInt(qtdRaw) : null;
 
@@ -1064,18 +1132,30 @@ function saveInvItem() {
     if (peso === 'exotica') base.aprimoramentos = invAprimos.filter(a => a.name);
     if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
   } else if (tipo === 'protecao') {
-    Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null });
+    Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, equipado });
   } else {
     if (qtd !== null) base.qtd = qtd;
   }
 
+  let savedId;
   if (modalInvId) {
     const idx = p.inventario.findIndex(x => x.id === modalInvId);
     if (idx !== -1) p.inventario[idx] = { ...p.inventario[idx], ...base };
+    savedId = modalInvId;
   } else {
     base.id = 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
     p.inventario.push(base);
+    savedId = base.id;
   }
+
+  // Só pode haver 1 armadura e 1 elmo equipados por vez por personagem
+  if (tipo === 'protecao' && equipado) {
+    p.inventario.forEach(it => {
+      if (it.tipo === 'protecao' && it.subtipo === subtipo && it.id !== savedId) it.equipado = false;
+    });
+  }
+
+  if (tipo === 'protecao') recomputeProtMax(p);
 
   saveState();
   renderJogador();
@@ -1086,7 +1166,11 @@ function deleteInvItem() {
   if (!modalInvId || !modalInvPid) return;
   if (!confirm('Excluir este item do inventário?')) return;
   const p = PLAYERS.find(x => x.id === modalInvPid);
-  if (p) p.inventario = p.inventario.filter(x => x.id !== modalInvId);
+  if (p) {
+    const removido = (p.inventario || []).find(x => x.id === modalInvId);
+    p.inventario = p.inventario.filter(x => x.id !== modalInvId);
+    if (removido && removido.tipo === 'protecao') recomputeProtMax(p);
+  }
   saveState();
   renderJogador();
   closeInvModal();
@@ -1356,8 +1440,6 @@ function openCharModal() {
   document.getElementById('c-agi').value = '10';
   document.getElementById('c-for').value = '10';
   document.getElementById('c-int').value = '10';
-  document.getElementById('c-arm-max').value = '10';
-  document.getElementById('c-elm-max').value = '0';
   document.getElementById('c-passos').value = '6';
   setTimeout(() => document.getElementById('c-name').focus(), 50);
 }
@@ -1379,8 +1461,6 @@ function editCharacter(id) {
   document.getElementById('c-agi').value = p.agi;
   document.getElementById('c-for').value = p.forca;
   document.getElementById('c-int').value = p.intel;
-  document.getElementById('c-arm-max').value = p.armaduraMax;
-  document.getElementById('c-elm-max').value = p.elmoMax || 0;
   document.getElementById('c-passos').value = p.passos;
 }
 
@@ -1407,8 +1487,6 @@ function saveCharacter() {
   const agi    = parseInt(document.getElementById('c-agi').value) || 10;
   const forca  = parseInt(document.getElementById('c-for').value) || 10;
   const intel  = parseInt(document.getElementById('c-int').value) || 10;
-  const armaduraMax = parseInt(document.getElementById('c-arm-max').value) || 0;
-  const elmoMax = parseInt(document.getElementById('c-elm-max').value) || 0;
   const passos = parseInt(document.getElementById('c-passos').value) || 0;
 
   if (modalCharId) {
@@ -1417,16 +1495,6 @@ function saveCharacter() {
       p.name = name; p.race = race; p.cls = cls; p.hpMax = hpMax;
       if (p.hp > hpMax) p.hp = hpMax;
       p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
-
-      // Se o máximo aumentar, o valor atual acompanha o aumento (ex: trocou de armadura por uma melhor)
-      const armDelta = armaduraMax - (p.armaduraMax || 0);
-      p.armaduraMax = armaduraMax;
-      p.armadura = Math.max(0, Math.min(armaduraMax, (p.armadura || 0) + (armDelta > 0 ? armDelta : 0)));
-
-      const elmDelta = elmoMax - (p.elmoMax || 0);
-      p.elmoMax = elmoMax;
-      p.elmo = Math.max(0, Math.min(elmoMax, (p.elmo || 0) + (elmDelta > 0 ? elmDelta : 0)));
-
       p.passos = passos;
     }
   } else {
@@ -1434,8 +1502,8 @@ function saveCharacter() {
     const novo = {
       id: newId, name, race, cls, level: 1, xp: 0,
       hp: hpMax, hpMax, agi, forca, intel,
-      armadura: armaduraMax, armaduraMax,
-      elmo: elmoMax, elmoMax,
+      armadura: 0, armaduraMax: 0,
+      elmo: 0, elmoMax: 0,
       passos, ins, skills: [], passivas: [], inventario: [],
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
