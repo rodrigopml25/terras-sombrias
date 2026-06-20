@@ -582,10 +582,13 @@ function renderJogador() {
   p.skills.forEach(sk => grupos[sk.color] && grupos[sk.color].push(sk));
   const nomesGrupo = { green: 'Técnicas — Agilidade', red: 'Golpes — Força', blue: 'Feitiços — Intelecto', gray: 'Neutras' };
   const dotColor = {green:'#6db33f', red:'#c94040', blue:'#4a8fd4', gray:'#7a7e95'};
+  const attrGrupo = { green: p.agi, red: p.forca, blue: p.intel, gray: null };
 
   let skillsHtml = '';
   ['green','red','blue','gray'].forEach(cor => {
     if (!grupos[cor].length) return;
+    const mst = attrGrupo[cor] != null ? maestria(attrGrupo[cor]) : null;
+    const mstTag = mst != null ? `<span class="sk-tag sk-tag-mst">+${mst} maestria</span>` : '';
     const cards = grupos[cor].map(sk => {
       const ready = isReady(sk);
       const state = sk.tipo==='infinite' ? 'ready' : ready ? 'ready' : sk.cdRestante>0 ? 'cooldown' : 'exhausted';
@@ -607,6 +610,7 @@ function renderJogador() {
         <div class="sk-tags">
           <span class="sk-tag">${sk.cost===0?'0 ações':sk.cost===1?'1 ação':'2 ações'}</span>
           <span class="sk-tag">${tipoLabel(sk)}</span>
+          ${mstTag}
         </div>
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
             ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
@@ -619,7 +623,7 @@ function renderJogador() {
         </div>
       </div>`;
     }).join('');
-    skillsHtml += `<div class="group-title"><span class="gt-dot" style="background:${dotColor[cor]}"></span>${nomesGrupo[cor]}</div>
+    skillsHtml += `<div class="group-title"><span class="gt-dot" style="background:${dotColor[cor]}"></span>${nomesGrupo[cor]}${mst != null ? ` <span class="group-title-mst">(+${mst})</span>` : ''}</div>
                    <div class="skills-grid">${cards}</div>`;
   });
 
