@@ -132,6 +132,7 @@ function applyData(data) {
     if (typeof p.elmo !== 'number') p.elmo = p.elmoMax;
     if (p.elmo > p.elmoMax) p.elmo = p.elmoMax;
     if (typeof p.passos !== 'number') p.passos = 6;
+    if (typeof p.dinheiro !== 'number') p.dinheiro = 100;
     // Migração: itens de proteção criados antes do controle de "equipado" não têm
     // esse campo ainda — equipa automaticamente o primeiro de cada tipo para não
     // zerar a armadura/elmo de personagens já existentes.
@@ -471,6 +472,21 @@ function setElmo(id, val) {
   saveState(); renderAll();
 }
 
+function adjDinheiro(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return; p.dinheiro = Math.max(0, (p.dinheiro || 0) + d);
+  saveState(); renderAll();
+}
+
+function setDinheiro(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  p.dinheiro = Math.max(0, v);
+  saveState(); renderAll();
+}
+
 // Recalcula armaduraMax/elmoMax a partir do item de proteção EQUIPADO no
 // inventário (apenas 1 armadura e 1 elmo podem estar equipados por vez).
 // Se o jogador ainda não tem nenhum item daquele tipo no inventário, o valor
@@ -574,7 +590,7 @@ function renderNarrador() {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.cls} · Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
         <button class="prow-edit-btn ${skillsExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarSkills(${p.id})" title="Ver habilidades agrupadas por atributo"><i class="ti ti-sword"></i></button>
@@ -622,6 +638,16 @@ function renderNarrador() {
             <button onclick="adjElmo(${p.id},-1)">−1</button>
             <input type="number" class="nar-ctrl-input" value="${p.elmo || 0}" onchange="setElmo(${p.id}, this.value)">
             <button onclick="adjElmo(${p.id},+1)">+1</button>
+          </div>
+        </div>
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">💰 Dinheiro</span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjDinheiro(${p.id},-10)">−10</button>
+            <button onclick="adjDinheiro(${p.id},-1)">−1</button>
+            <input type="number" class="nar-ctrl-input" value="${p.dinheiro || 0}" onchange="setDinheiro(${p.id}, this.value)">
+            <button onclick="adjDinheiro(${p.id},+1)">+1</button>
+            <button onclick="adjDinheiro(${p.id},+10)">+10</button>
           </div>
         </div>
       </div>
@@ -816,6 +842,14 @@ function renderJogador() {
           <div class="eqm eqm-passos"><div class="eqm-lbl">Passos</div><div class="eqm-val">${p.passos}</div></div>
         </div>
       </div>
+      <div class="stat-block">
+        <div class="stat-row"><span class="stat-lbl"><i class="ti ti-coin" style="color:var(--amber)"></i> Dinheiro</span><span class="stat-val" style="color:var(--amber)">${p.dinheiro || 0}</span></div>
+        <div class="hp-ctrl hp-ctrl-5">
+          <button onclick="adjDinheiro(${p.id},-10)">−10</button><button onclick="adjDinheiro(${p.id},-1)">−1</button>
+          <input type="number" class="stat-input" value="${p.dinheiro || 0}" onchange="setDinheiro(${p.id}, this.value)">
+          <button onclick="adjDinheiro(${p.id},+1)">+1</button><button onclick="adjDinheiro(${p.id},+10)">+10</button>
+        </div>
+      </div>
     </div>
 
     <div class="skills-area">
@@ -848,6 +882,7 @@ const INV_PESO_LABEL = { leve:'Leve', media:'Média', pesada:'Pesada', exotica:'
 const INV_PESO_COLOR = { leve:'var(--green)', media:'var(--amber)', pesada:'var(--red)', exotica:'var(--accent2)', mega:'#c44aff' };
 const INV_PESO_BG    = { leve:'var(--green-bg)', media:'var(--amber-bg)', pesada:'var(--red-bg)', exotica:'var(--accent-bg)', mega:'rgba(196,74,255,0.1)' };
 const INV_PESO_BD    = { leve:'var(--green-bd)', media:'var(--amber-bd)', pesada:'var(--red-bd)', exotica:'var(--accent-bd)', mega:'rgba(196,74,255,0.3)' };
+const INV_ALCANCE_LABEL = { curto: 'Curto Alcance', longo: 'Longo Alcance' };
 
 function renderInventarioArea(p) {
   const inv = Array.isArray(p.inventario) ? p.inventario : [];
@@ -860,6 +895,29 @@ function renderInventarioArea(p) {
     return `<span class="inv-peso-tag" style="color:${INV_PESO_COLOR[item.peso]};background:${INV_PESO_BG[item.peso]};border-color:${INV_PESO_BD[item.peso]}">${INV_PESO_LABEL[item.peso]}</span>`;
   }
 
+  function alcanceTag(item) {
+    if (!item.alcance) return '';
+    const isLongo = item.alcance === 'longo';
+    return `<span class="inv-peso-tag" style="color:${isLongo?'var(--teal)':'var(--text3)'};background:${isLongo?'var(--teal-bg)':'var(--bg3)'};border-color:${isLongo?'var(--teal-bd)':'var(--border)'}">${INV_ALCANCE_LABEL[item.alcance]}</span>`;
+  }
+
+  function municaoRow(item) {
+    const usaCristal = item.peso === 'exotica';
+    const precisaMunicao = item.alcance === 'longo' || usaCristal;
+    if (!precisaMunicao) return '';
+    const label = usaCristal ? 'Cristais' : 'Munição';
+    const icon  = usaCristal ? 'ti-diamond' : 'ti-target-arrow';
+    const color = usaCristal ? 'var(--accent2)' : 'var(--teal)';
+    return `<div class="inv-municao-row">
+      <span class="inv-municao-lbl"><i class="ti ${icon}" style="color:${color}"></i> ${label}</span>
+      <div class="inv-municao-ctrl">
+        <button onclick="adjInvMunicao(${p.id},'${item.id}',-1)">−</button>
+        <span class="inv-municao-val">${item.municao || 0}</span>
+        <button onclick="adjInvMunicao(${p.id},'${item.id}',+1)">+</button>
+      </div>
+    </div>`;
+  }
+
   function renderArmaCard(item) {
     const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
@@ -869,12 +927,14 @@ function renderInventarioArea(p) {
       <div class="inv-card-header">
         <div class="inv-card-title"><i class="ti ti-sword" style="color:var(--red)"></i> ${item.name}</div>
         <div style="display:flex;align-items:center;gap:6px">
+          ${alcanceTag(item)}
           ${pesoTag(item)}
           <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
         </div>
       </div>
       ${item.dano ? `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span></div>` : ''}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
+      ${municaoRow(item)}
       ${aprimoramentos}${ativas}
     </div>`;
   }
@@ -943,6 +1003,18 @@ function toggleInvSection(key) {
   renderJogador();
 }
 
+// Ajusta a munição (ou cristais, no caso de armas exóticas) de uma arma
+// diretamente pelo card, sem precisar abrir o modal de edição.
+function adjInvMunicao(pid, itemId, d) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = (p.inventario || []).find(x => x.id === itemId);
+  if (!item) return;
+  item.municao = Math.max(0, (item.municao || 0) + d);
+  saveState();
+  renderJogador();
+}
+
 // Equipa/desequipa uma peça de proteção direto pelo card (sem abrir o modal).
 // Só pode haver 1 armadura e 1 elmo equipados por vez por personagem.
 function toggleEquipProt(pid, itemId) {
@@ -1004,6 +1076,13 @@ function _buildInvModal(data) {
 
   // dano
   document.getElementById('inv-m-dano').value  = data.dano  || '';
+  // alcance (arma)
+  const alcanceVal = data.alcance || 'curto';
+  document.querySelectorAll('.inv-alcance-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.alcance === alcanceVal);
+  });
+  // munição / cristais (arma de longo alcance ou exótica)
+  document.getElementById('inv-m-municao').value = data.municao != null ? data.municao : '';
   // valor protecao
   document.getElementById('inv-m-valor').value = data.valor != null ? data.valor : '';
   // subtipo protecao
@@ -1039,6 +1118,13 @@ function _updateInvModalSections(tipo) {
   document.getElementById('inv-sec-exotica').style.display   = (tipo === 'arma' && peso === 'exotica') ? '' : 'none';
   document.getElementById('inv-sec-mega').style.display      = (tipo === 'arma' && peso === 'mega')    ? '' : 'none';
 
+  // Munição (armas de longo alcance) ou Cristais (armas exóticas, qualquer alcance)
+  const alcance = _invSelectedAlcance();
+  const precisaMunicao = tipo === 'arma' && (alcance === 'longo' || peso === 'exotica');
+  document.getElementById('inv-sec-municao').style.display = precisaMunicao ? '' : 'none';
+  const municaoLabel = document.getElementById('inv-municao-label');
+  if (municaoLabel) municaoLabel.textContent = peso === 'exotica' ? 'Cristais' : 'Munição';
+
   _renderInvAprimos();
   _renderInvAtivas();
 }
@@ -1059,6 +1145,10 @@ function _invSelectedEquip() {
   const b = document.querySelector('.inv-equip-btn.active');
   return b ? b.dataset.equip === '1' : true;
 }
+function _invSelectedAlcance() {
+  const b = document.querySelector('.inv-alcance-btn.active');
+  return b ? b.dataset.alcance : 'curto';
+}
 
 function invSelectTipo(tipo) {
   document.querySelectorAll('.inv-tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.tipo === tipo));
@@ -1073,6 +1163,10 @@ function invSelectSub(sub) {
 }
 function invSelectEquip(equipado) {
   document.querySelectorAll('.inv-equip-btn').forEach(b => b.classList.toggle('active', (b.dataset.equip === '1') === equipado));
+}
+function invSelectAlcance(alcance) {
+  document.querySelectorAll('.inv-alcance-btn').forEach(b => b.classList.toggle('active', b.dataset.alcance === alcance));
+  _updateInvModalSections(_invSelectedTipo());
 }
 
 function _renderInvAprimos() {
@@ -1120,6 +1214,9 @@ function saveInvItem() {
   const efeito  = document.getElementById('inv-m-efeito').value.trim();
   const peso    = _invSelectedPeso();
   const dano    = document.getElementById('inv-m-dano').value.trim();
+  const alcance = _invSelectedAlcance();
+  const municaoRaw = document.getElementById('inv-m-municao').value.trim();
+  const municao = municaoRaw !== '' ? Math.max(0, parseInt(municaoRaw)) : 0;
   const valor   = document.getElementById('inv-m-valor').value.trim();
   const subtipo = _invSelectedSub();
   const equipado = _invSelectedEquip();
@@ -1128,7 +1225,8 @@ function saveInvItem() {
 
   const base = { name, efeito, tipo };
   if (tipo === 'arma') {
-    Object.assign(base, { peso, dano });
+    Object.assign(base, { peso, dano, alcance });
+    if (alcance === 'longo' || peso === 'exotica') base.municao = municao;
     if (peso === 'exotica') base.aprimoramentos = invAprimos.filter(a => a.name);
     if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
   } else if (tipo === 'protecao') {
@@ -1441,6 +1539,7 @@ function openCharModal() {
   document.getElementById('c-for').value = '10';
   document.getElementById('c-int').value = '10';
   document.getElementById('c-passos').value = '6';
+  document.getElementById('c-dinheiro').value = '100';
   setTimeout(() => document.getElementById('c-name').focus(), 50);
 }
 
@@ -1481,6 +1580,7 @@ function editCharacter(id) {
   document.getElementById('c-for').value = p.forca;
   document.getElementById('c-int').value = p.intel;
   document.getElementById('c-passos').value = p.passos;
+  document.getElementById('c-dinheiro').value = (typeof p.dinheiro === 'number') ? p.dinheiro : 100;
 }
 
 function deleteCharacter(id) {
@@ -1507,6 +1607,8 @@ function saveCharacter() {
   const forca  = parseInt(document.getElementById('c-for').value) || 10;
   const intel  = parseInt(document.getElementById('c-int').value) || 10;
   const passos = parseInt(document.getElementById('c-passos').value) || 0;
+  const dinheiroEl = document.getElementById('c-dinheiro');
+  const dinheiro = dinheiroEl && dinheiroEl.value.trim() !== '' ? Math.max(0, parseInt(dinheiroEl.value)) : 100;
 
   if (modalCharId) {
     const p = PLAYERS.find(x => x.id === modalCharId);
@@ -1514,7 +1616,7 @@ function saveCharacter() {
       p.name = name; p.race = race; p.cls = cls; p.hpMax = hpMax;
       if (p.hp > hpMax) p.hp = hpMax;
       p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
-      p.passos = passos;
+      p.passos = passos; p.dinheiro = dinheiro;
     }
   } else {
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
@@ -1523,7 +1625,7 @@ function saveCharacter() {
       hp: hpMax, hpMax, agi, forca, intel,
       armadura: 0, armaduraMax: 0,
       elmo: 0, elmoMax: 0,
-      passos, ins, skills: [], passivas: [], inventario: [],
+      passos, ins, dinheiro, skills: [], passivas: [], inventario: [],
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
     };
