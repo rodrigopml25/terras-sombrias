@@ -93,7 +93,7 @@ let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
 let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidades agrupadas
-let jogSkillsCollapsed = {}; // { 'green'|'red'|'blue'|'gray'|'passivas': true/false } — estado local do jogador
+let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true }; // começa fechado
 
 let firebaseRef = null;
 let firebaseOnline = false;
