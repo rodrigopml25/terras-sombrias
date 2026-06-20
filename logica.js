@@ -56,10 +56,19 @@ let modalCharId = null;
 
 let firebaseRef = null;
 let firebaseOnline = false;
+let firebaseConfigured = false;
 let saveDebounceTimer = null;
 let lastWrittenJSON = null;
 let pendingSave = false;
 let pendingSaveSafetyTimer = null;
+
+// ═══════════════════════════════════════
+// CAMPANHAS
+// ═══════════════════════════════════════
+let activeCampaignId = null;     // id da campanha atualmente carregada
+let activeCampaignMeta = null;   // { name, code, ownerId }
+let dataListenerRef = null;      // ref do listener .on('value') atual (p/ poder desligar ao trocar campanha)
+let dataListenerHandler = null;
 
 function snapshotState() {
   return { PLAYERS, turnGlobal, INITIATIVE, curI, notes };
@@ -75,7 +84,8 @@ function applyData(data) {
 }
 
 function initDataLocal() {
-  const saved = localStorage.getItem('rpg_dashboard_data');
+  const localKey = 'rpg_dashboard_data_' + (activeCampaignId || 'local');
+  const saved = localStorage.getItem(localKey);
   if (saved) {
     applyData(JSON.parse(saved));
   } else {
@@ -99,73 +109,149 @@ function setSyncStatus(status) {
 
 function initFirebaseSync() {
   const cfg = window.FIREBASE_CONFIG;
-  const configured = cfg && cfg.apiKey && !String(cfg.apiKey).includes('COLE_AQUI');
+  firebaseConfigured = !!(cfg && cfg.apiKey && !String(cfg.apiKey).includes('COLE_AQUI'));
 
-  if (typeof firebase === 'undefined' || !configured) {
+  if (typeof firebase === 'undefined' || !firebaseConfigured) {
+    firebaseConfigured = false;
     setSyncStatus('off');
+    activeCampaignId = 'local';
     initDataLocal();
     afterFirebaseReady();
     return;
   }
 
-  setSyncStatus('connecting');
+  setSyncStatus('off');
   try {
-    let app;
-    try { app = firebase.app(); } catch(e) { app = firebase.initializeApp(cfg); }
-    firebaseRef = app.database().ref('rpg_dashboard_data');
+    try { firebase.app(); } catch(e) { firebase.initializeApp(cfg); }
   } catch (err) {
     console.error('Erro ao iniciar Firebase:', err);
     setSyncStatus('error');
+    firebaseConfigured = false;
+    activeCampaignId = 'local';
     initDataLocal();
     afterFirebaseReady();
     return;
   }
 
-  firebaseRef.once('value').then(snapshot => {
+  firebaseOnline = true;
+  ensureUsersNode();
+  afterFirebaseReady();
+}
+
+// Chamado quando Firebase termina de inicializar (com ou sem erro)
+// Mostra login se necessário, ou segue para a seleção/carregamento de campanha
+function afterFirebaseReady() {
+  if (!currentUser) {
+    showLoginScreen();
+  } else {
+    proceedAfterLogin();
+  }
+}
+
+// Decide o que mostrar depois de logado: modo local (sem campanhas),
+// retomar a campanha ativa salva na sessão, ou pedir para escolher/entrar numa campanha.
+function proceedAfterLogin() {
+  renderUserBadge();
+  if (!firebaseConfigured) {
+    renderAll();
+    return;
+  }
+  if (currentUser.activeCampaignId) {
+    bindCampaign(currentUser.activeCampaignId);
+  } else {
+    showCampaignSelector();
+  }
+}
+
+// Carrega e passa a sincronizar os dados de UMA campanha específica.
+// Desliga o listener da campanha anterior (se houver) antes de trocar.
+function bindCampaign(campaignId) {
+  if (dataListenerRef && dataListenerHandler) {
+    dataListenerRef.off('value', dataListenerHandler);
+  }
+  dataListenerRef = null;
+  dataListenerHandler = null;
+
+  const overlay = document.getElementById('campaign-overlay');
+  if (overlay) overlay.remove();
+
+  activeCampaignId = campaignId;
+  activeCampaignMeta = null;
+  if (currentUser) {
+    currentUser.activeCampaignId = campaignId;
+    setCurrentUser(currentUser);
+  }
+
+  setSyncStatus('connecting');
+
+  const metaRef = firebase.database().ref('campaigns/' + campaignId + '/meta');
+  const dataRef = firebase.database().ref('campaigns/' + campaignId + '/data');
+  firebaseRef = dataRef;
+
+  metaRef.once('value').then(snap => {
+    activeCampaignMeta = snap.val() || { name: 'Campanha' };
+    renderCampaignBadge();
+  });
+
+  dataRef.once('value').then(snapshot => {
     const data = snapshot.val();
     if (data) {
       applyData(data);
     } else {
       PLAYERS = JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
+      turnGlobal = 1; INITIATIVE = []; curI = 0;
+      notes = {geral:'', missão:'', inimigos:'', locais:''};
       lastWrittenJSON = JSON.stringify(snapshotState());
-      firebaseRef.set(snapshotState());
+      dataRef.set(snapshotState());
     }
     firebaseOnline = true;
     setSyncStatus('on');
-    ensureUsersNode();
-    afterFirebaseReady();
+    renderAll();
 
-    firebaseRef.on('value', snapshot => {
+    dataListenerHandler = snapshot2 => {
       if (pendingSave) return;
-      const incoming = snapshot.val();
+      const incoming = snapshot2.val();
       if (!incoming) return;
       const incomingJSON = JSON.stringify(incoming);
       if (incomingJSON === lastWrittenJSON) return;
       applyData(incoming);
-      // Só re-renderiza se já está logado
       if (currentUser) renderAll();
-    });
+    };
+    dataRef.on('value', dataListenerHandler);
+    dataListenerRef = dataRef;
   }).catch(err => {
-    console.error('Erro ao conectar ao Firebase:', err);
+    console.error('Erro ao carregar dados da campanha:', err);
     setSyncStatus('error');
-    initDataLocal();
-    afterFirebaseReady();
   });
 }
 
-// Chamado quando Firebase termina de inicializar (com ou sem erro)
-// Mostra login se necessário, ou renderiza direto
-function afterFirebaseReady() {
-  if (!currentUser) {
-    showLoginScreen();
-  } else {
-    renderUserBadge();
-    renderAll();
+// Sai da campanha atual e volta para a tela de seleção/entrada por código
+function trocarCampanha() {
+  if (dataListenerRef && dataListenerHandler) {
+    dataListenerRef.off('value', dataListenerHandler);
   }
+  dataListenerRef = null;
+  dataListenerHandler = null;
+  firebaseRef = null;
+  activeCampaignId = null;
+  activeCampaignMeta = null;
+  PLAYERS = []; INITIATIVE = []; curI = 0;
+  notes = {geral:'', missão:'', inimigos:'', locais:''};
+  turnGlobal = 1;
+
+  if (currentUser) {
+    delete currentUser.activeCampaignId;
+    setCurrentUser(currentUser);
+  }
+  const badge = document.getElementById('campaign-badge');
+  if (badge) badge.remove();
+  renderAll();
+  showCampaignSelector();
 }
 
 function saveState() {
-  localStorage.setItem('rpg_dashboard_data', JSON.stringify(snapshotState()));
+  const localKey = 'rpg_dashboard_data_' + (activeCampaignId || 'local');
+  localStorage.setItem(localKey, JSON.stringify(snapshotState()));
   if (!firebaseRef) return;
 
   pendingSave = true;
@@ -734,7 +820,7 @@ function renderAll() {
 // TELA DE LOGIN
 // ═══════════════════════════════════════
 function ensureUsersNode() {
-  if (!firebaseRef) return;
+  if (!firebaseConfigured) return;
   firebase.database().ref('ts_users').once('value').then(snap => {
     if (!snap.exists()) firebase.database().ref('ts_users').set({ _init: true });
   });
@@ -835,11 +921,10 @@ async function doLogin() {
   const role = IS_NARRADOR ? 'narrator' : 'player';
 
   // Modo offline
-  if (!firebaseRef) {
+  if (!firebaseConfigured) {
     setCurrentUser({ id: 'local_' + username, name: username, role });
     document.getElementById('login-overlay').remove();
-    renderUserBadge();
-    renderAll();
+    proceedAfterLogin();
     return;
   }
 
@@ -855,8 +940,7 @@ async function doLogin() {
     if (IS_JOGADOR && u.role === 'narrator') { loginError('Use a página do Narrador para esta conta.'); return; }
     setCurrentUser({ id: username, name: u.name, role: u.role || 'player' });
     document.getElementById('login-overlay').remove();
-    renderUserBadge();
-    renderAll();
+    proceedAfterLogin();
   }).catch(() => loginError('Erro de conexão. Tente novamente.'));
 }
 
@@ -869,11 +953,10 @@ async function doRegister() {
   if (pass.length < 4)     { loginError('Senha deve ter pelo menos 4 caracteres.'); return; }
   if (!/^[a-z0-9_]+$/.test(username)) { loginError('Usuário só pode ter letras, números e _'); return; }
 
-  if (!firebaseRef) {
+  if (!firebaseConfigured) {
     setCurrentUser({ id: 'local_' + username, name, role: 'player' });
     document.getElementById('login-overlay').remove();
-    renderUserBadge();
-    renderAll();
+    proceedAfterLogin();
     return;
   }
 
@@ -884,8 +967,7 @@ async function doRegister() {
     ref.set({ name, hash, role: IS_NARRADOR ? 'narrator' : 'player' }).then(() => {
       setCurrentUser({ id: username, name, role: 'player' });
       document.getElementById('login-overlay').remove();
-      renderUserBadge();
-      renderAll();
+      proceedAfterLogin();
     });
   }).catch(() => loginError('Erro ao criar conta. Tente novamente.'));
 }
@@ -907,6 +989,163 @@ function renderUserBadge() {
       <i class="ti ti-logout"></i> Sair
     </button>`;
   header.appendChild(badge);
+}
+
+// ═══════════════════════════════════════
+// TELA DE SELEÇÃO DE CAMPANHA
+// ═══════════════════════════════════════
+
+// Busca as campanhas do usuário atual (criadas, se narrador; ou em que entrou, se jogador)
+function loadMyCampaignsList(callback) {
+  if (!currentUser || !firebaseConfigured) return callback([]);
+  const userCampsRef = firebase.database().ref('ts_users/' + currentUser.id + '/campaigns');
+  userCampsRef.once('value').then(snap => {
+    const ids = snap.val() ? Object.keys(snap.val()) : [];
+    if (!ids.length) return callback([]);
+    Promise.all(ids.map(id =>
+      firebase.database().ref('campaigns/' + id + '/meta').once('value')
+        .then(s => Object.assign({ id }, s.val() || {}))
+    )).then(list => callback(list.filter(c => c.name)));
+  }).catch(() => callback([]));
+}
+
+function campaignError(msg) {
+  const el = document.getElementById('campaign-error');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+
+function showCampaignSelector() {
+  if (document.getElementById('campaign-overlay')) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'campaign-overlay';
+  overlay.className = 'fullscreen-overlay';
+  overlay.innerHTML = `
+    <div class="login-box" style="max-width:400px">
+      <div class="login-logo">Terras <span>Sombrias</span></div>
+      <div class="login-sub">${IS_NARRADOR ? 'Suas Campanhas' : 'Entrar em uma Campanha'}</div>
+
+      <div id="campaign-error" class="login-error" style="display:none"></div>
+
+      <div id="campaign-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+        <div style="text-align:center;color:var(--text3);font-size:12px;padding:10px">Carregando…</div>
+      </div>
+
+      ${IS_NARRADOR ? `
+        <div class="form-row">
+          <label class="form-label">Criar nova campanha</label>
+          <input type="text" id="new-camp-name" placeholder="Ex: A Maldição de Karnak">
+        </div>
+        <button class="btn btn-primary login-btn" onclick="criarCampanha()"><i class="ti ti-plus"></i> Criar Campanha</button>
+      ` : `
+        <div class="form-row">
+          <label class="form-label">Código da campanha</label>
+          <input type="text" id="join-camp-code" placeholder="Ex: AB12CD" style="text-transform:uppercase">
+        </div>
+        <button class="btn btn-primary login-btn" onclick="entrarComCodigo()"><i class="ti ti-door-enter"></i> Entrar na Campanha</button>
+      `}
+
+      <div class="login-toggle"><a href="#" onclick="logout(); return false;">Sair da conta</a></div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (IS_NARRADOR) criarCampanha(); else entrarComCodigo();
+  });
+
+  loadMyCampaignsList(list => {
+    const el = document.getElementById('campaign-list');
+    if (!el) return;
+    if (!list.length) {
+      el.innerHTML = `<div style="text-align:center;color:var(--text3);font-size:12px;padding:6px 0 4px">${IS_NARRADOR ? 'Você ainda não criou nenhuma campanha.' : 'Você ainda não entrou em nenhuma campanha.'}</div>`;
+      return;
+    }
+    el.innerHTML = list.map(c => `
+      <div class="campaign-item" onclick="bindCampaign('${c.id}')">
+        <div>
+          <div class="campaign-item-name">${c.name}</div>
+          ${IS_NARRADOR && c.code ? `<div class="campaign-item-code">Código: ${c.code}</div>` : ''}
+        </div>
+        <i class="ti ti-chevron-right"></i>
+      </div>`).join('');
+  });
+
+  setTimeout(() => {
+    const el = document.getElementById(IS_NARRADOR ? 'new-camp-name' : 'join-camp-code');
+    if (el) el.focus();
+  }, 100);
+}
+
+function generateCampaignCode() {
+  // Sem caracteres ambíguos (sem 0/O, 1/I)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function criarCampanha() {
+  const nameInput = document.getElementById('new-camp-name');
+  const name = (nameInput.value || '').trim();
+  if (!name) { campaignError('Dê um nome para a campanha.'); nameInput.focus(); return; }
+
+  const tryCreate = (attempt) => {
+    if (attempt > 5) { campaignError('Erro ao gerar um código único. Tente novamente.'); return; }
+    const code = generateCampaignCode();
+    const codeRef = firebase.database().ref('campaign_codes/' + code);
+    codeRef.once('value').then(snap => {
+      if (snap.exists()) { tryCreate(attempt + 1); return; }
+      const newCampRef = firebase.database().ref('campaigns').push();
+      const id = newCampRef.key;
+      const meta = { name, code, ownerId: currentUser.id, createdAt: Date.now() };
+      Promise.all([
+        newCampRef.child('meta').set(meta),
+        codeRef.set(id),
+        firebase.database().ref('ts_users/' + currentUser.id + '/campaigns/' + id).set(true)
+      ]).then(() => {
+        bindCampaign(id);
+      }).catch(() => campaignError('Erro ao criar campanha. Tente novamente.'));
+    }).catch(() => campaignError('Erro de conexão. Tente novamente.'));
+  };
+  tryCreate(0);
+}
+
+function entrarComCodigo() {
+  const input = document.getElementById('join-camp-code');
+  const code = (input.value || '').trim().toUpperCase();
+  if (!code) { campaignError('Digite o código da campanha.'); input.focus(); return; }
+
+  firebase.database().ref('campaign_codes/' + code).once('value').then(snap => {
+    const id = snap.val();
+    if (!id) { campaignError('Código não encontrado. Confira com o Narrador.'); return; }
+    firebase.database().ref('ts_users/' + currentUser.id + '/campaigns/' + id).set(true).then(() => {
+      bindCampaign(id);
+    }).catch(() => campaignError('Erro ao entrar na campanha. Tente novamente.'));
+  }).catch(() => campaignError('Erro de conexão. Tente novamente.'));
+}
+
+// Badge no header mostrando a campanha ativa (+ código, para o Narrador) e botão de trocar
+function renderCampaignBadge() {
+  if (!activeCampaignId || activeCampaignId === 'local') return;
+  const header = document.querySelector('.header');
+  if (!header) return;
+
+  let badge = document.getElementById('campaign-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'campaign-badge';
+    badge.className = 'campaign-badge';
+    const syncStatus = document.getElementById('sync-status');
+    if (syncStatus && syncStatus.parentNode) syncStatus.parentNode.insertBefore(badge, syncStatus.nextSibling);
+    else header.appendChild(badge);
+  }
+
+  const name = activeCampaignMeta ? activeCampaignMeta.name : '…';
+  const codeHtml = (IS_NARRADOR && activeCampaignMeta && activeCampaignMeta.code)
+    ? `<span class="camp-code" title="Compartilhe este código com seus jogadores">${activeCampaignMeta.code}</span>`
+    : '';
+  badge.innerHTML = `<i class="ti ti-map-2"></i> <strong>${name}</strong> ${codeHtml} <button onclick="trocarCampanha()" title="Trocar de campanha"><i class="ti ti-switch-horizontal"></i> Trocar</button>`;
 }
 
 // ═══════════════════════════════════════
