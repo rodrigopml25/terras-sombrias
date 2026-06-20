@@ -92,6 +92,7 @@ let modalCharId = null;
 let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
+let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidades agrupadas
 
 let firebaseRef = null;
 let firebaseOnline = false;
@@ -487,20 +488,49 @@ function renderNarrador() {
     const elmPct = p.elmoMax > 0 ? Math.round(p.elmo / p.elmoMax * 100) : 0;
     const bm = p.hp === 0;
 
-    const chips = p.skills.map(sk => {
-      const ready = isReady(sk);
-      let extra = '';
-      if (sk.tipo === 'turno_N' && sk.cdRestante > 0) extra = `<span class="chip-cd">⏳${sk.cdRestante}</span>`;
-      else if ((sk.tipo==='luta'||sk.tipo==='sessao') && sk.usosAtuais < sk.usosMax) extra = `<span class="chip-cd">${sk.usosAtuais}/${sk.usosMax}</span>`;
+    // ── Habilidades agrupadas por atributo ──
+    const gruposNar = { green:[], red:[], blue:[], gray:[] };
+    p.skills.forEach(sk => gruposNar[sk.color] && gruposNar[sk.color].push(sk));
+    const narGrupoInfo = {
+      green: { label: 'Agilidade', icon: '🏃', attr: p.agi },
+      red:   { label: 'Força',     icon: '⚔️',  attr: p.forca },
+      blue:  { label: 'Intelecto', icon: '✨',  attr: p.intel },
+      gray:  { label: 'Neutras',   icon: '⚙️',  attr: null },
+    };
 
-      const descTooltip = sk.desc ? `Efeito: ${sk.desc}\n\n` : '';
-      const statusTooltip = ready ? 'Status: Pronta para uso' : `Status: Indisponível (${tipoLabel(sk)})`;
-      const finalTooltip = `${sk.name}\n${descTooltip}${statusTooltip}`;
+    const skillsExpanded = !!narSkillsExpanded[p.id];
+    const passivasExpanded = !!narPassivasExpanded[p.id];
 
-      return `<div class="skill-chip sc-${sk.color} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${finalTooltip}">
-        <span class="chip-dot"></span><span class="chip-name">${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${extra}
+    let gruposHtml = '';
+    ['green','red','blue','gray'].forEach(cor => {
+      if (!gruposNar[cor].length) return;
+      const info = narGrupoInfo[cor];
+      const mst = info.attr != null ? maestria(info.attr) : null;
+      const chips = gruposNar[cor].map(sk => {
+        const ready = isReady(sk);
+        let extra = '';
+        if (sk.tipo === 'turno_N' && sk.cdRestante > 0) extra = `<span class="chip-cd">⏳${sk.cdRestante}</span>`;
+        else if ((sk.tipo==='luta'||sk.tipo==='sessao') && sk.usosAtuais < sk.usosMax) extra = `<span class="chip-cd">${sk.usosAtuais}/${sk.usosMax}</span>`;
+        const descTooltip = sk.desc ? `Efeito: ${sk.desc}\n\n` : '';
+        const statusTooltip = ready ? 'Pronta para uso' : `Indisponível (${tipoLabel(sk)})`;
+        return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${descTooltip}${statusTooltip}">
+          <span class="chip-dot"></span><span class="chip-name">${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${extra}
+        </div>`;
+      }).join('');
+      gruposHtml += `<div class="nar-skill-group">
+        <div class="nar-skill-group-header sc-${cor}">
+          <span>${info.icon} ${info.label}${mst != null ? ` <span class="nar-skill-mst">+${mst} maestria</span>` : ''}</span>
+          <span class="nar-skill-count">${gruposNar[cor].length} habilidade${gruposNar[cor].length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="skills-chips">${chips}</div>
       </div>`;
-    }).join('');
+    });
+
+    // ── Passivas ──
+    const passivasList = Array.isArray(p.passivas) ? p.passivas : [];
+    const passivasHtml = passivasList.length
+      ? passivasList.map(pas => `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div></div>`).join('')
+      : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
     return `<div class="prow ${bm ? 'beira-morte' : ''}">
       <div class="prow-header">
@@ -510,17 +540,10 @@ function renderNarrador() {
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span>
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
-        <button class="prow-edit-btn ${narPassivasExpanded[p.id] ? 'prow-passiva-on' : ''}" onclick="toggleNarPassivas(${p.id})" title="Ver passivas / talentos (visível só para o Narrador)"><i class="ti ti-sparkles"></i></button>
+        <button class="prow-edit-btn ${skillsExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarSkills(${p.id})" title="Ver habilidades agrupadas por atributo"><i class="ti ti-sword"></i></button>
+        <button class="prow-edit-btn ${passivasExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarPassivas(${p.id})" title="Ver passivas / talentos"><i class="ti ti-sparkles"></i></button>
         <button class="prow-edit-btn" onclick="editCharacter(${p.id})" title="Editar ficha do personagem"><i class="ti ti-edit"></i></button>
       </div>
-      ${narPassivasExpanded[p.id] ? `<div class="nar-passivas-box">
-        <div class="nar-passivas-title"><i class="ti ti-sparkles"></i> Passivas / Talentos de ${p.name}</div>
-        ${(p.passivas && p.passivas.length) ? p.passivas.map(pas => `
-          <div class="nar-passiva-item">
-            <div class="nar-passiva-name">${pas.name}</div>
-            <div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>
-          </div>`).join('') : '<div style="font-size:12px;color:var(--text3)">Nenhuma passiva cadastrada para este personagem.</div>'}
-      </div>` : ''}
       <div class="bars">
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
         <div class="bar-wrap ins"><div class="bar-lbl">Insanidade</div><div class="bar-track"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div></div>
@@ -565,7 +588,11 @@ function renderNarrador() {
           </div>
         </div>
       </div>
-      <div class="skills-chips">${chips}</div>
+      ${skillsExpanded ? `<div class="nar-skills-box">${gruposHtml}</div>` : ''}
+      ${passivasExpanded ? `<div class="nar-passivas-box">
+        <div class="nar-passivas-title"><i class="ti ti-sparkles"></i> Passivas / Talentos</div>
+        ${passivasHtml}
+      </div>` : ''}
     </div>`;
   }).join('');
 }
@@ -990,6 +1017,11 @@ function savePassiva() {
 // Narrador: alterna a exibição das passivas de um personagem específico (sem sincronizar entre dispositivos)
 function toggleNarPassivas(pid) {
   narPassivasExpanded[pid] = !narPassivasExpanded[pid];
+  renderNarrador();
+}
+
+function toggleNarSkills(pid) {
+  narSkillsExpanded[pid] = !narSkillsExpanded[pid];
   renderNarrador();
 }
 
