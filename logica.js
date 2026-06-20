@@ -93,6 +93,7 @@ let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
 let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidades agrupadas
+let jogSkillsCollapsed = {}; // { 'green'|'red'|'blue'|'gray'|'passivas': true/false } — estado local do jogador
 
 let firebaseRef = null;
 let firebaseOnline = false;
@@ -651,9 +652,12 @@ function renderJogador() {
   let skillsHtml = '';
   ['green','red','blue','gray'].forEach(cor => {
     if (!grupos[cor].length) return;
+    const collapsed = !!jogSkillsCollapsed[cor];
     const mst = attrGrupo[cor] != null ? maestria(attrGrupo[cor]) : null;
     const mstTag = mst != null ? `<span class="sk-tag sk-tag-mst">+${mst} maestria</span>` : '';
-    const cards = grupos[cor].map(sk => {
+    const readyCount = grupos[cor].filter(sk => isReady(sk)).length;
+    const totalCount = grupos[cor].length;
+    const cards = collapsed ? '' : grupos[cor].map(sk => {
       const ready = isReady(sk);
       const state = sk.tipo==='infinite' ? 'ready' : ready ? 'ready' : sk.cdRestante>0 ? 'cooldown' : 'exhausted';
       let cdHtml = '', dotsHtml = '';
@@ -687,12 +691,20 @@ function renderJogador() {
         </div>
       </div>`;
     }).join('');
-    skillsHtml += `<div class="group-title"><span class="gt-dot" style="background:${dotColor[cor]}"></span>${nomesGrupo[cor]}${mst != null ? ` <span class="group-title-mst">(+${mst})</span>` : ''}</div>
-                   <div class="skills-grid">${cards}</div>`;
+
+    skillsHtml += `
+      <div class="group-title group-title-toggle" onclick="toggleJogSkillGroup('${cor}')">
+        <span class="gt-dot" style="background:${dotColor[cor]}"></span>
+        ${nomesGrupo[cor]}${mst != null ? ` <span class="group-title-mst">(+${mst})</span>` : ''}
+        <span class="gt-collapse-info">${collapsed ? `<span class="gt-ready-badge">${readyCount}/${totalCount} prontas</span>` : ''}</span>
+        <i class="ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron"></i>
+      </div>
+      ${collapsed ? '' : `<div class="skills-grid">${cards}</div>`}`;
   });
 
   const passivasList = Array.isArray(p.passivas) ? p.passivas : [];
-  const passivasHtml = passivasList.map(pas => `
+  const passivasCollapsed = !!jogSkillsCollapsed['passivas'];
+  const passivasHtml = passivasCollapsed ? '' : passivasList.map(pas => `
     <div class="passiva-card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div class="passiva-name"><i class="ti ti-sparkles"></i> ${pas.name}</div>
@@ -778,9 +790,13 @@ function renderJogador() {
       ${skillsHtml}
       <button class="add-skill-btn" onclick="openModal(${p.id})"><i class="ti ti-plus"></i> Adicionar habilidade</button>
 
-      <div class="group-title" style="margin-top:24px"><span class="gt-dot" style="background:var(--accent2)"></span>Passivas — Talentos</div>
-      <div class="passivas-grid">${passivasHtml || '<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma passiva cadastrada ainda.</div>'}</div>
-      <button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>
+      <div class="group-title group-title-toggle" style="margin-top:24px" onclick="toggleJogSkillGroup('passivas')">
+        <span class="gt-dot" style="background:var(--accent2)"></span>Passivas — Talentos
+        <span class="gt-collapse-info">${passivasCollapsed ? `<span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${passivasList.length} talento${passivasList.length !== 1 ? 's' : ''}</span>` : ''}</span>
+        <i class="ti ${passivasCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron"></i>
+      </div>
+      ${passivasCollapsed ? '' : `<div class="passivas-grid">${passivasHtml || '<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma passiva cadastrada ainda.</div>'}</div>`}
+      ${passivasCollapsed ? '' : `<button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>`}
     </div>`;
 }
 
@@ -1023,6 +1039,11 @@ function toggleNarPassivas(pid) {
 function toggleNarSkills(pid) {
   narSkillsExpanded[pid] = !narSkillsExpanded[pid];
   renderNarrador();
+}
+
+function toggleJogSkillGroup(cor) {
+  jogSkillsCollapsed[cor] = !jogSkillsCollapsed[cor];
+  renderJogador();
 }
 
 // ═══════════════════════════════════════
