@@ -666,3 +666,69 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 #user-badge {
   margin-left: auto;
 }
+
+/* ═══════════════════════════════════════════
+   CAMPANHAS
+═══════════════════════════════════════════ */
+.fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 14, 0.92);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.campaign-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.campaign-item:hover { border-color: var(--accent-bd); background: var(--accent-bg); }
+.campaign-item-name { font-weight: 600; font-size: 13px; color: var(--text); }
+.campaign-item-code { font-size: 11px; color: var(--text3); font-family: monospace; margin-top: 2px; letter-spacing: .04em; }
+.campaign-item i { color: var(--text3); font-size: 16px; }
+
+.campaign-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  padding: 4px 6px 4px 12px;
+  font-size: 12px;
+  color: var(--text2);
+}
+.campaign-badge i.ti-map-2 { color: var(--accent2); }
+.campaign-badge strong { color: var(--text); font-weight: 600; }
+.campaign-badge .camp-code {
+  font-family: monospace;
+  letter-spacing: .05em;
+  background: var(--bg3);
+  padding: 1px 7px;
+  border-radius: 4px;
+  color: var(--accent2);
+}
+.campaign-badge button {
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.campaign-badge button:hover { color: var(--text); background: var(--surface2); }
