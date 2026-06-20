@@ -242,6 +242,52 @@ button {
 .nar-passiva-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
 .nar-passiva-desc { font-size: 11px; color: var(--text2); line-height: 1.5; white-space: pre-wrap; }
 
+/* Habilidades agrupadas por atributo — painel do Narrador */
+.nar-skills-box {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.nar-skill-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nar-skill-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+}
+.nar-skill-group-header.sc-green { color: var(--green); border-color: var(--green-bd); }
+.nar-skill-group-header.sc-red   { color: var(--red);   border-color: var(--red-bd);   }
+.nar-skill-group-header.sc-blue  { color: var(--blue);  border-color: var(--blue-bd);  }
+.nar-skill-group-header.sc-gray  { color: var(--gray);  border-color: var(--gray-bd);  }
+.nar-skill-mst {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.8;
+  text-transform: none;
+  margin-left: 4px;
+}
+.nar-skill-count {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text3);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 /* controles do narrador para ajustar vida/insanidade/armadura dos jogadores */
 .nar-ctrl-row {
   display: flex;
