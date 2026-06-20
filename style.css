@@ -537,6 +537,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 }
 .group-title::after { content:''; flex:1; height:1px; background: var(--border); }
 .group-title .gt-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.group-title-mst { color: var(--text2); font-weight: 700; letter-spacing: 0; text-transform: none; }
 
 .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 4px; }
 
@@ -569,6 +570,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .sk-red   .sk-tag { background: var(--red-dim);   color: #f0a0a0; }
 .sk-blue  .sk-tag { background: var(--blue-dim);  color: #90c0f0; }
 .sk-gray  .sk-tag { background: var(--gray-dim);  color: #b0b4cc; }
+.sk-tag-mst { font-weight: 700; }
 
 .sk-bottom { display: flex; align-items: center; gap: 7px; }
 .sk-btn {
