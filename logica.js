@@ -79,6 +79,9 @@ function applyData(data) {
   PLAYERS.forEach(p => {
     if (!Array.isArray(p.skills)) p.skills = [];
     if (typeof p.armadura !== 'number') p.armadura = 0;
+    if (typeof p.armaduraMax !== 'number') p.armaduraMax = Math.max(p.armadura, 10);
+    if (p.armadura > p.armaduraMax) p.armadura = p.armaduraMax;
+    if (typeof p.passos !== 'number') p.passos = 6;
   });
   turnGlobal = data.turnGlobal || 1;
   INITIATIVE = data.INITIATIVE || [];
@@ -360,7 +363,7 @@ function adjIns(id, d) {
 
 function adjArmadura(id, d) {
   const p = PLAYERS.find(x => x.id === id);
-  if (!p) return; p.armadura = Math.max(0, (p.armadura || 0) + d);
+  if (!p) return; p.armadura = Math.max(0, Math.min(p.armaduraMax || 0, (p.armadura || 0) + d));
   saveState(); renderAll();
 }
 
@@ -383,6 +386,7 @@ function renderNarrador() {
     const av = AVATARS[i % AVATARS.length];
     const hpPct = Math.round(p.hp / p.hpMax * 100);
     const insPct = Math.round(p.ins);
+    const armPct = p.armaduraMax > 0 ? Math.round(p.armadura / p.armaduraMax * 100) : 0;
     const bm = p.hp === 0;
 
     const chips = p.skills.map(sk => {
@@ -405,13 +409,15 @@ function renderNarrador() {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.cls} · Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span>
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
+        <button class="prow-edit-btn" onclick="editCharacter(${p.id})" title="Editar ficha do personagem"><i class="ti ti-edit"></i></button>
       </div>
       <div class="bars">
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
         <div class="bar-wrap ins"><div class="bar-lbl">Insanidade</div><div class="bar-track"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div></div>
+        <div class="bar-wrap arm"><div class="bar-lbl">Armadura</div><div class="bar-track"><div class="bar-fill bfill-arm" style="width:${armPct}%"></div></div></div>
       </div>
       <div class="nar-ctrl-row">
         <div class="nar-ctrl-group">
@@ -484,6 +490,7 @@ function renderJogador() {
   const av = AVATARS[i % AVATARS.length];
   const hpPct = Math.round(p.hp / p.hpMax * 100);
   const insPct = p.ins;
+  const armPct = p.armaduraMax > 0 ? Math.round(p.armadura / p.armaduraMax * 100) : 0;
   const xpPct = Math.round(p.xp / 10 * 100);
   const bm = p.hp === 0;
   const temSeq = p.ins >= 25;
@@ -565,14 +572,21 @@ function renderJogador() {
         <div class="seq-alert ${temSeq?'show':''}">Sequela emocional — ${Math.floor(p.ins/25)} marca(s). Role 1d6.</div>
       </div>
       <div class="stat-block">
+        <div class="stat-row"><span class="stat-lbl"><i class="ti ti-shield" style="color:var(--amber)"></i> Armadura</span><span class="stat-val" style="color:var(--amber)">${p.armadura}/${p.armaduraMax}</span></div>
+        <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-arm" style="width:${armPct}%"></div></div>
+        <div class="arm-ctrl">
+          <button onclick="adjArmadura(${p.id},-1)">−1</button><button onclick="adjArmadura(${p.id},+1)">+1</button>
+        </div>
+      </div>
+      <div class="stat-block">
         <div class="attr3">
           <div class="am am-agi"><div class="am-lbl">AGI</div><div class="am-val">${p.agi}</div></div>
           <div class="am am-for"><div class="am-lbl">FOR</div><div class="am-val">${p.forca}</div></div>
           <div class="am am-int"><div class="am-lbl">INT</div><div class="am-val">${p.intel}</div></div>
         </div>
         <div class="equip2">
-          <div class="eqm eqm-arm"><div class="eqm-lbl">Armadura</div><div class="eqm-val">${p.armadura}</div></div>
           <div class="eqm eqm-elm"><div class="eqm-lbl">Elmo</div><div class="eqm-val">${p.elmo}</div></div>
+          <div class="eqm eqm-passos"><div class="eqm-lbl">Passos</div><div class="eqm-val">${p.passos}</div></div>
         </div>
       </div>
     </div>
@@ -749,6 +763,10 @@ function saveSkill() {
 function openCharModal() {
   modalCharId = null;
   document.getElementById('modal-char-overlay').classList.add('open');
+  const titleEl = document.getElementById('modal-char-title');
+  if (titleEl) titleEl.textContent = 'Novo Personagem';
+  const saveBtn = document.getElementById('c-btn-save');
+  if (saveBtn) saveBtn.textContent = 'Criar Personagem';
   document.getElementById('c-name').value = '';
   document.getElementById('c-race').value = '';
   document.getElementById('c-cls').value = '';
@@ -757,6 +775,8 @@ function openCharModal() {
   document.getElementById('c-agi').value = '10';
   document.getElementById('c-for').value = '10';
   document.getElementById('c-int').value = '10';
+  document.getElementById('c-arm-max').value = '10';
+  document.getElementById('c-passos').value = '6';
   setTimeout(() => document.getElementById('c-name').focus(), 50);
 }
 
@@ -765,6 +785,10 @@ function editCharacter(id) {
   if (!p) return;
   modalCharId = id;
   document.getElementById('modal-char-overlay').classList.add('open');
+  const titleEl = document.getElementById('modal-char-title');
+  if (titleEl) titleEl.textContent = 'Editar Personagem';
+  const saveBtn = document.getElementById('c-btn-save');
+  if (saveBtn) saveBtn.textContent = 'Salvar';
   document.getElementById('c-name').value = p.name;
   document.getElementById('c-race').value = p.race;
   document.getElementById('c-cls').value = p.cls;
@@ -773,6 +797,8 @@ function editCharacter(id) {
   document.getElementById('c-agi').value = p.agi;
   document.getElementById('c-for').value = p.forca;
   document.getElementById('c-int').value = p.intel;
+  document.getElementById('c-arm-max').value = p.armaduraMax;
+  document.getElementById('c-passos').value = p.passos;
 }
 
 function deleteCharacter(id) {
@@ -798,6 +824,8 @@ function saveCharacter() {
   const agi    = parseInt(document.getElementById('c-agi').value) || 10;
   const forca  = parseInt(document.getElementById('c-for').value) || 10;
   const intel  = parseInt(document.getElementById('c-int').value) || 10;
+  const armaduraMax = parseInt(document.getElementById('c-arm-max').value) || 0;
+  const passos = parseInt(document.getElementById('c-passos').value) || 0;
 
   if (modalCharId) {
     const p = PLAYERS.find(x => x.id === modalCharId);
@@ -805,13 +833,16 @@ function saveCharacter() {
       p.name = name; p.race = race; p.cls = cls; p.hpMax = hpMax;
       if (p.hp > hpMax) p.hp = hpMax;
       p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
+      p.armaduraMax = armaduraMax;
+      if (p.armadura > armaduraMax) p.armadura = armaduraMax;
+      p.passos = passos;
     }
   } else {
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
     PLAYERS.push({
       id: newId, name, race, cls, level: 1, xp: 0,
       hp: hpMax, hpMax, agi, forca, intel,
-      armadura: 0, elmo: 0, ins, skills: [],
+      armadura: armaduraMax, armaduraMax, elmo: 0, passos, ins, skills: [],
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
     });
