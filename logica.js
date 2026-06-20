@@ -31,6 +31,42 @@ function logout() {
 // ═══════════════════════════════════════
 const DEFAULT_PLAYERS = [];
 
+// Habilidades gerais — todo personagem possui. cor segue o atributo:
+// green = Agilidade, red = Força, blue = Intelecto, gray = Neutro.
+// "0 recarga" no material original = uso livre (infinite); "1 recarga" = recarrega por turno (perturn).
+const GENERAL_SKILLS = [
+  { name: 'Arremesso',     color: 'red',  cost: 1, tipo: 'infinite', desc: 'Faça um teste de Arremesso para arremessar um objeto que você consiga carregar. Se acertar um Alvo que possa receber Dano e que não tenha sido atingido por uma arma, cause: Leve → 1d4; Médio → 1d6; Pesado → 1d8 e Mega Pesado → 1d10 de dano.' },
+  { name: 'Acrobacia',     color: 'green', cost: 1, tipo: 'perturn', desc: 'Faça um teste de Acrobacia para fazer uma manobra. Caso queira se movimentar, consumirá a Ação de Movimento também e receberá um deslocamento extra para a maestria de Peso: Leve +6 casas; Médio +4 casas; Pesado +2 casas ou Mega Pesado +1 casa.' },
+  { name: 'Arsenal',       color: 'gray', cost: 1, tipo: 'perturn', desc: 'Equipe uma Arma, troque de Arma OU pegue e equipe uma Arma do chão.' },
+  { name: 'Beber Poção',   color: 'gray', cost: 1, tipo: 'infinite', desc: 'Consuma uma Poção. Se for de Cura: Cure apenas 1d20 de Vida OU Cure apenas 10 de Vida (Requer uma Poção).' },
+  { name: 'Empurrar',      color: 'red',  cost: 1, tipo: 'perturn', desc: 'Faça um Teste de Empurrar para deslocar um Objeto ou alguém que você aguenta em 1d2 Casa(s); para cada Maestria de Peso superior que você tiver em relação ao Alvo, empurrará +2 casas.' },
+  { name: 'Correr',        color: 'gray', cost: 1, tipo: 'perturn', desc: 'Ganha mais uma ação de movimento neste turno.' },
+  { name: 'Engajar',       color: 'gray', cost: 1, tipo: 'perturn', desc: 'Neste turno pode se mover perto de inimigos sem ser atacado.' },
+  { name: 'Recurso',       color: 'gray', cost: 1, tipo: 'perturn', desc: 'Pegue um objeto na sua mochila, para cada 1 dos Dados = 25 de Dinheiro: Pequeno - 1d2; Médio - 1d4; Grande - 1d6 OU Poção de cura - 2.' },
+  { name: 'Teste Mental',  color: 'blue', cost: 1, tipo: 'perturn', desc: 'Faça um teste de uma área intelectual ou de Emoção, esse último é 1d100 − Insanidade.' },
+  { name: 'Furtividade',   color: 'green', cost: 1, tipo: 'perturn', desc: 'Faça um teste de Furtividade; a dificuldade varia conforme o grau de luminosidade ao qual está exposto. Se estiver totalmente exposto à luz, não pode fazer o teste.' },
+];
+
+function makeGeneralSkill(def) {
+  return {
+    id: 'sk_geral_' + def.name.toLowerCase().replace(/\s+/g, '_'),
+    name: def.name, desc: def.desc, color: def.color, cost: def.cost, tipo: def.tipo,
+    usosMax: def.tipo === 'infinite' ? 99 : 1,
+    usosAtuais: def.tipo === 'infinite' ? 99 : 1,
+    cdRestante: 0, turnosRecarga: 1
+  };
+}
+
+// Garante que um personagem tenha todas as habilidades gerais, sem duplicar
+// e sem resetar o progresso (usos/cooldown) das que ele já possui.
+function ensureGeneralSkills(p) {
+  if (!Array.isArray(p.skills)) p.skills = [];
+  GENERAL_SKILLS.forEach(def => {
+    const jaTem = p.skills.some(sk => sk.id === 'sk_geral_' + def.name.toLowerCase().replace(/\s+/g, '_'));
+    if (!jaTem) p.skills.push(makeGeneralSkill(def));
+  });
+}
+
 const AVATARS = [
   {bg:'#0a1e18', color:'#2aaa82'},
   {bg:'#0f1a2e', color:'#4a8fd4'},
@@ -82,6 +118,7 @@ function applyData(data) {
   PLAYERS.forEach(p => {
     if (!Array.isArray(p.skills)) p.skills = [];
     if (!Array.isArray(p.passivas)) p.passivas = [];
+    ensureGeneralSkills(p);
     if (typeof p.armaduraMax !== 'number') p.armaduraMax = typeof p.armadura === 'number' ? p.armadura : 10;
     if (typeof p.armadura !== 'number') p.armadura = p.armaduraMax;
     if (p.armadura > p.armaduraMax) p.armadura = p.armaduraMax;
@@ -1049,7 +1086,7 @@ function saveCharacter() {
     }
   } else {
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
-    PLAYERS.push({
+    const novo = {
       id: newId, name, race, cls, level: 1, xp: 0,
       hp: hpMax, hpMax, agi, forca, intel,
       armadura: armaduraMax, armaduraMax,
@@ -1057,7 +1094,9 @@ function saveCharacter() {
       passos, ins, skills: [], passivas: [],
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
-    });
+    };
+    ensureGeneralSkills(novo);
+    PLAYERS.push(novo);
     modalCharId = newId;
   }
 
