@@ -587,6 +587,27 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .group-title .gt-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .group-title-mst { color: var(--text2); font-weight: 700; letter-spacing: 0; text-transform: none; }
 
+.group-title-toggle {
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 6px 6px;
+  margin: 0 -6px;
+  transition: background .15s;
+}
+.group-title-toggle:hover { background: var(--surface); }
+.group-title-toggle::after { display: none; }
+.gt-chevron { font-size: 14px; color: var(--text3); flex-shrink: 0; margin-left: auto; }
+.gt-collapse-info { display: flex; align-items: center; gap: 6px; margin-left: 2px; }
+.gt-ready-badge {
+  font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(109,179,63,0.12);
+  border: 1px solid rgba(109,179,63,0.3);
+  color: var(--green);
+  text-transform: none; letter-spacing: 0;
+}
+
 .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 4px; }
 
 .skill-card {
