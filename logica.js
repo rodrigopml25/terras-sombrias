@@ -1,0 +1,988 @@
+// ═══════════════════════════════════════
+// SISTEMA DE LOGIN
+// ═══════════════════════════════════════
+// currentUser = { id, name, role: 'player'|'narrator' }
+// Persiste em sessionStorage para durar só enquanto a aba estiver aberta.
+let currentUser = null;
+
+function loginInit() {
+  // Tenta restaurar sessão anterior
+  try {
+    const saved = sessionStorage.getItem('ts_session');
+    if (saved) currentUser = JSON.parse(saved);
+  } catch(e) { currentUser = null; }
+}
+
+function setCurrentUser(user) {
+  currentUser = user;
+  sessionStorage.setItem('ts_session', JSON.stringify(user));
+}
+
+function logout() {
+  currentUser = null;
+  sessionStorage.removeItem('ts_session');
+  // Recarrega para mostrar tela de login
+  location.reload();
+}
+
+// ═══════════════════════════════════════
+// DADOS INICIAIS
+// ═══════════════════════════════════════
+// Antes aqui tinha 4 personagens de exemplo (Aelindra, Brok, Lyra, Dusk)
+// usados só para teste. Removidos — toda sessão nova começa vazia, e os
+// personagens são criados pelo botão "Novo Personagem".
+const DEFAULT_PLAYERS = [];
+
+const AVATARS = [
+  {bg:'#0a1e18', color:'#2aaa82'},
+  {bg:'#0f1a2e', color:'#4a8fd4'},
+  {bg:'#1a1228', color:'#9a7cdf'},
+  {bg:'#220f0f', color:'#c94040'},
+];
+const NOTETAGS = ['Geral','Missão','Inimigos','Locais'];
+
+// ═══════════════════════════════════════
+// ESTADO LOCAL (Sincronizado via Firebase Realtime Database,
+// com cache local em LocalStorage como apoio)
+// ═══════════════════════════════════════
+let PLAYERS = [];
+let turnGlobal = 1;
+let INITIATIVE = [];
+let curI = 0;
+let notes = {geral:'', missão:'', inimigos:'', locais:''};
+let activeNote = 'geral';
+
+let modalPid = null;
+let modalSkid = null; // Guarda o ID da habilidade caso esteja em edição
+let modalColor = 'green';
+let modalCharId = null; // Guarda o ID do personagem caso esteja em edição
+
+let firebaseRef = null;       // referência do Realtime Database, quando configurado
+let firebaseOnline = false;   // se a sincronização em nuvem está ativa
+let saveDebounceTimer = null; // evita escrever no Firebase em toda tecla digitada
+let lastWrittenJSON = null;   // último estado que NÓS escrevemos, para ignorar o eco do listener
+let pendingSave = false;          // true enquanto temos uma mudança local ainda não confirmada no Firebase
+let pendingSaveSafetyTimer = null; // evita travar pendingSave em true para sempre se algo falhar
+
+function snapshotState() {
+  return { PLAYERS, turnGlobal, INITIATIVE, curI, notes };
+}
+
+function applyData(data) {
+  PLAYERS = data.PLAYERS || [];
+  // O Firebase Realtime Database remove arrays vazios ao salvar (ex: skills:[]
+  // de um personagem recém-criado sem habilidades). Aqui garantimos que toda
+  // mudança vindo da nuvem sempre tenha uma lista de habilidades válida.
+  PLAYERS.forEach(p => { if (!Array.isArray(p.skills)) p.skills = []; });
+  turnGlobal = data.turnGlobal || 1;
+  INITIATIVE = data.INITIATIVE || [];
+  curI = data.curI || 0;
+  notes = data.notes || {geral:'', missão:'', inimigos:'', locais:''};
+}
+
+// Fallback usado apenas se o Firebase não estiver configurado
+// (mantém o app funcionando, mas sem sincronizar entre computadores)
+function initDataLocal() {
+  const saved = localStorage.getItem('rpg_dashboard_data');
+  if (saved) {
+    applyData(JSON.parse(saved));
+  } else {
+    PLAYERS = JSON.parse(JSON.stringify(DEFAULT_PLAYERS)); // clone
+  }
+}
+
+function setSyncStatus(status) {
+  // status: 'off' | 'connecting' | 'on' | 'error'
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  const map = {
+    off:        {text: '○ Sem sincronização', color: 'var(--text3)'},
+    connecting: {text: '◐ Conectando…',       color: 'var(--text3)'},
+    on:         {text: '● Sincronizado',      color: 'var(--green)'},
+    error:      {text: '● Erro de conexão',   color: '#f08080'},
+  };
+  const s = map[status] || map.off;
+  el.textContent = s.text;
+  el.style.color = s.color;
+}
+
+function initFirebaseSync() {
+  const cfg = window.FIREBASE_CONFIG;
+  const configured = cfg && cfg.apiKey && !String(cfg.apiKey).includes('COLE_AQUI');
+
+  if (typeof firebase === 'undefined' || !configured) {
+    setSyncStatus('off');
+    initDataLocal();
+    renderAll();
+    return;
+  }
+
+  setSyncStatus('connecting');
+  try {
+    let app;
+    try {
+      app = firebase.app(); // lança se não existe nenhum app ainda
+    } catch(e) {
+      app = firebase.initializeApp(cfg);
+    }
+    firebaseRef = app.database().ref('rpg_dashboard_data');
+  } catch (err) {
+    console.error('Erro ao iniciar Firebase:', err);
+    setSyncStatus('error');
+    initDataLocal();
+    renderAll();
+    return;
+  }
+
+  firebaseRef.once('value').then(snapshot => {
+    const data = snapshot.val();
+    if (data) {
+      applyData(data);
+    } else {
+      // Primeira vez: ninguém ainda salvou nada na nuvem.
+      PLAYERS = JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
+      lastWrittenJSON = JSON.stringify(snapshotState());
+      firebaseRef.set(snapshotState());
+    }
+    firebaseOnline = true;
+    setSyncStatus('on');
+    ensureUsersNode();
+    renderAll();
+
+    // A partir daqui, qualquer mudança feita em QUALQUER computador
+    // (jogador ou narrador) chega aqui automaticamente.
+    firebaseRef.on('value', snapshot => {
+      if (pendingSave) return; // temos uma edição local ainda não salva: não sobrescrever
+      const incoming = snapshot.val();
+      if (!incoming) return;
+      const incomingJSON = JSON.stringify(incoming);
+      if (incomingJSON === lastWrittenJSON) return; // eco da nossa própria escrita
+      applyData(incoming);
+      renderAll();
+    });
+  }).catch(err => {
+    console.error('Erro ao conectar ao Firebase:', err);
+    setSyncStatus('error');
+    initDataLocal();
+    renderAll();
+  });
+}
+
+function saveState() {
+  // Cache local imediato (funciona mesmo se a internet cair por um instante)
+  localStorage.setItem('rpg_dashboard_data', JSON.stringify(snapshotState()));
+
+  if (!firebaseRef) return; // Firebase não configurado: só salva localmente
+
+  // Marca que há uma mudança local pendente, para o listener não sobrescrevê-la
+  // enquanto ela ainda não foi gravada na nuvem.
+  pendingSave = true;
+  clearTimeout(pendingSaveSafetyTimer);
+  pendingSaveSafetyTimer = setTimeout(() => { pendingSave = false; }, 5000); // rede de segurança
+
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(() => {
+    const json = JSON.stringify(snapshotState());
+    lastWrittenJSON = json;
+    firebaseRef.set(JSON.parse(json)).then(() => {
+      pendingSave = false;
+      clearTimeout(pendingSaveSafetyTimer);
+      setSyncStatus('on');
+    }).catch(err => {
+      console.error('Erro ao salvar no Firebase:', err);
+      pendingSave = false;
+      clearTimeout(pendingSaveSafetyTimer);
+      setSyncStatus('error');
+    });
+  }, 300);
+}
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function vidaClass(hp, max) {
+  const p = hp / max; return p <= .3 ? 'bfill-vida-low' : p <= .6 ? 'bfill-vida-mid' : 'bfill-vida-ok';
+}
+function tipoLabel(sk) {
+  if (sk.tipo==='infinite') return '∞ livre';
+  if (sk.tipo==='perturn')  return '1/turno';
+  if (sk.tipo==='luta')     return sk.usosMax + 'x/luta';
+  if (sk.tipo==='sessao')   return sk.usosMax + 'x/sessão';
+  if (sk.tipo==='turno_N')  return sk.turnosRecarga + '⏳ turnos';
+  return '';
+}
+function isReady(sk) {
+  if (sk.tipo==='infinite') return true;
+  if (sk.tipo==='perturn')  return sk.usosAtuais > 0;
+  if (sk.tipo==='luta' || sk.tipo==='sessao') return sk.usosAtuais > 0;
+  if (sk.tipo==='turno_N')  return sk.cdRestante === 0 && sk.usosAtuais > 0;
+  return false;
+}
+
+// ═══════════════════════════════════════
+// AÇÕES GLOBAIS
+// ═══════════════════════════════════════
+function useSkill(pid, skid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skid);
+  if (!sk || !isReady(sk) || sk.tipo === 'infinite') return;
+  sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
+  if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
+  saveState();
+  renderAll();
+}
+
+function nextTurnGlobal() {
+  turnGlobal++;
+  PLAYERS.forEach(p => p.skills.forEach(sk => {
+    if (sk.tipo === 'perturn') { sk.usosAtuais = sk.usosMax; }
+    if (sk.tipo === 'turno_N' && sk.cdRestante > 0) {
+      sk.cdRestante--;
+      if (sk.cdRestante === 0) sk.usosAtuais = sk.usosMax;
+    }
+  }));
+  saveState();
+  renderAll();
+}
+
+function resetLuta() {
+  if (!confirm('Resetar todos os usos por luta e reiniciar os turnos?')) return;
+  
+  turnGlobal = 1; 
+
+  PLAYERS.forEach(p => p.skills.forEach(sk => {
+    if (['perturn','luta','turno_N'].includes(sk.tipo)) { 
+      sk.usosAtuais = sk.usosMax; 
+      sk.cdRestante = 0; 
+    }
+  }));
+  
+  saveState();
+  renderAll();
+}
+
+function resetSessao() {
+  if (!confirm('Resetar todos os usos por sessão?')) return;
+  PLAYERS.forEach(p => p.skills.forEach(sk => { sk.usosAtuais = sk.usosMax; sk.cdRestante = 0; }));
+  saveState();
+  renderAll();
+}
+
+function adjHP(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return; p.hp = Math.max(0, Math.min(p.hpMax, p.hp + d));
+  saveState(); renderAll();
+}
+
+function adjIns(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return; p.ins = Math.max(0, Math.min(100, p.ins + d));
+  saveState(); renderAll();
+}
+
+function addXP(id) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  if (p.xp >= 10 && p.level < 5) { p.xp = 0; p.level++; }
+  else if (p.xp < 10) p.xp++;
+  saveState(); renderAll();
+}
+
+// ═══════════════════════════════════════
+// RENDER NARRADOR
+// ═══════════════════════════════════════
+function renderNarrador() {
+  const container = document.getElementById('nar-players');
+  if (!container) return;
+
+  container.innerHTML = PLAYERS.map((p, i) => {
+    const av = AVATARS[i % AVATARS.length];
+    const hpPct = Math.round(p.hp / p.hpMax * 100);
+    const insPct = Math.round(p.ins);
+    const bm = p.hp === 0;
+
+    const chips = p.skills.map(sk => {
+      const ready = isReady(sk);
+      let extra = '';
+      if (sk.tipo === 'turno_N' && sk.cdRestante > 0) extra = `<span class="chip-cd">⏳${sk.cdRestante}</span>`;
+      else if ((sk.tipo==='luta'||sk.tipo==='sessao') && sk.usosAtuais < sk.usosMax) extra = `<span class="chip-cd">${sk.usosAtuais}/${sk.usosMax}</span>`;
+      
+      const descTooltip = sk.desc ? `Efeito: ${sk.desc}\n\n` : '';
+      const statusTooltip = ready ? 'Status: Pronta para uso' : `Status: Indisponível (${tipoLabel(sk)})`;
+      const finalTooltip = `${sk.name}\n${descTooltip}${statusTooltip}`;
+
+      return `<div class="skill-chip sc-${sk.color} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${finalTooltip}">
+        <span class="chip-dot"></span><span class="chip-name">${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${extra}
+      </div>`;
+    }).join('');
+
+    return `<div class="prow ${bm ? 'beira-morte' : ''}">
+      <div class="prow-header">
+        <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
+        <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.cls} · Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div class="mini-stats">
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>
+          ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
+        </div>
+      </div>
+      <div class="bars">
+        <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
+        <div class="bar-wrap ins"><div class="bar-lbl">Insanidade</div><div class="bar-track"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div></div>
+      </div>
+      <div class="skills-chips">${chips}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// RENDER JOGADOR
+// ═══════════════════════════════════════
+function getMyPlayers() {
+  // Narrador vê todos; jogador só vê os seus
+  if (!currentUser || currentUser.role === 'narrator') return PLAYERS;
+  return PLAYERS.filter(p => p.ownerId === currentUser.id || p.ownerId == null);
+}
+
+function renderPsel() {
+  const psel = document.getElementById('psel');
+  if (!psel) return;
+  const myPlayers = getMyPlayers();
+  const currentVal = psel.value; 
+  psel.innerHTML = myPlayers.map(p => `<option value="${p.id}">${p.name} — ${p.race} ${p.cls}</option>`).join('');
+  if (currentVal && myPlayers.find(p => p.id == currentVal)) psel.value = currentVal;
+}
+
+function renderJogador() {
+  const content = document.getElementById('jog-content');
+  const psel = document.getElementById('psel');
+  if (!content || !psel) return;
+
+  if (!PLAYERS || PLAYERS.length === 0) {
+    content.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text3); width: 100%; grid-column: span 2;">Nenhum personagem disponível. Crie um novo!</div>';
+    return;
+  }
+
+  const myPlayers = getMyPlayers();
+  if (!myPlayers || myPlayers.length === 0) {
+    content.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text3); width: 100%; grid-column: span 2;">Você ainda não tem personagens. Crie um novo clicando em "Novo Personagem"!</div>';
+    return;
+  }
+
+  const pid = parseInt(psel.value) || myPlayers[0].id;
+  const p = myPlayers.find(x => x.id === pid) || myPlayers[0];
+  const i = PLAYERS.indexOf(p);
+  const av = AVATARS[i % AVATARS.length];
+  const hpPct = Math.round(p.hp / p.hpMax * 100);
+  const insPct = p.ins;
+  const xpPct = Math.round(p.xp / 10 * 100);
+  const bm = p.hp === 0;
+  const temSeq = p.ins >= 25;
+
+  const grupos = { green:[], red:[], blue:[], gray:[] };
+  p.skills.forEach(sk => grupos[sk.color] && grupos[sk.color].push(sk));
+  const nomesGrupo = { green: 'Técnicas — Agilidade', red: 'Golpes — Força', blue: 'Feitiços — Intelecto', gray: 'Neutras' };
+  const dotColor = {green:'#6db33f', red:'#c94040', blue:'#4a8fd4', gray:'#7a7e95'};
+
+  let skillsHtml = '';
+  ['green','red','blue','gray'].forEach(cor => {
+    if (!grupos[cor].length) return;
+    const cards = grupos[cor].map(sk => {
+      const ready = isReady(sk);
+      const state = sk.tipo==='infinite' ? 'ready' : ready ? 'ready' : sk.cdRestante>0 ? 'cooldown' : 'exhausted';
+      let cdHtml = '', dotsHtml = '';
+      if (sk.tipo === 'turno_N') cdHtml = sk.cdRestante > 0 ? `<span class="sk-cd">⏳ ${sk.cdRestante} turno${sk.cdRestante>1?'s':''}</span>` : `<span class="sk-cd">Pronta</span>`;
+      else if (sk.tipo==='luta' || sk.tipo==='sessao') {
+        const spent = sk.usosMax - sk.usosAtuais;
+        dotsHtml = `<div class="sk-dots">${Array.from({length:sk.usosMax},(_,di)=>`<div class="sdot ${di<spent?'spent':''}"></div>`).join('')}</div>`;
+      } else if (sk.tipo === 'perturn') cdHtml = `<span class="sk-cd">${ready ? 'Pronta' : 'Usada'}</span>`;
+      else if (sk.tipo === 'infinite') cdHtml = `<span class="sk-cd">∞</span>`;
+      
+      return `<div class="skill-card sk-${cor} ${state}" onclick="useSkill(${p.id},'${sk.id}')">
+        
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div class="sk-name">${sk.name}</div>
+          <button onclick="event.stopPropagation(); editSkill(${p.id}, '${sk.id}')" title="Editar" style="background:none; border:none; color:var(--text3); cursor:pointer; padding:0; margin-left:8px;">
+            <i class="ti ti-edit" style="font-size:16px;"></i>
+          </button>
+        </div>
+
+        <div class="sk-tags">
+          <span class="sk-tag">${sk.cost===1?'1 ação':'2 ações'}</span>
+          <span class="sk-tag">${tipoLabel(sk)}</span>
+        </div>
+        
+        <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
+            ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
+        </div>
+
+        <div class="sk-bottom">
+          <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${(!ready||sk.tipo==='infinite')?'disabled':''}>
+            ${sk.tipo==='infinite' ? 'Livre' : 'Usar'}
+          </button>
+          ${dotsHtml}${cdHtml}
+        </div>
+      </div>`;
+    }).join('');
+    skillsHtml += `<div class="group-title"><span class="gt-dot" style="background:${dotColor[cor]}"></span>${nomesGrupo[cor]}</div>
+                   <div class="skills-grid">${cards}</div>`;
+  });
+
+  content.innerHTML = `
+    <div class="j-sidebar">
+      <div class="j-id-card">
+        <div style="display:flex; justify-content: flex-end; gap: 8px; margin-bottom: -15px; position: relative; z-index: 10;">
+            <button onclick="editCharacter(${p.id})" title="Editar Personagem" style="background:none; border:none; color:var(--text3); cursor:pointer;"><i class="ti ti-edit" style="font-size:18px;"></i></button>
+            <button onclick="deleteCharacter(${p.id})" title="Excluir Personagem" style="background:none; border:none; color:var(--red); cursor:pointer;"><i class="ti ti-trash" style="font-size:18px;"></i></button>
+        </div>
+        <div class="char-av-big" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
+        <div class="char-name">${p.name}</div><div class="char-sub">${p.race} · ${p.cls}</div>
+        <div class="xp-bar-wrap">
+          <div class="xp-lbl"><span>XP — ${p.xp}/10</span><span>Nv ${p.level}${p.level<5?' → '+(p.level+1):' (máx)'}</span></div>
+          <div class="xp-track"><div class="xp-fill" style="width:${xpPct}%"></div></div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:5px"><button class="btn" style="flex:1;justify-content:center" onclick="addXP(${p.id})">+ XP</button></div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-row"><span class="stat-lbl"><i class="ti ti-heart" style="color:var(--red)"></i> Vida</span><span class="stat-val" style="color:${bm?'var(--red)':'var(--text)'}">${p.hp}/${p.hpMax}</span></div>
+        <div class="bar-track" style="margin:5px 0"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div>
+        <div class="hp-ctrl">
+          <button onclick="adjHP(${p.id},-5)">−5</button><button onclick="adjHP(${p.id},-1)">−1</button>
+          <button onclick="adjHP(${p.id},+1)">+1</button><button onclick="adjHP(${p.id},+5)">+5</button>
+        </div>
+        <div class="bm-alert ${bm?'show':''}">⚠ Beira Morte<br><small>Emoção 1d100 ≥ 50 · Resistência 1d20 ≥ 10</small></div>
+
+        <div class="stat-row" style="margin-top:10px"><span class="stat-lbl"><i class="ti ti-brain" style="color:var(--rose)"></i> Insanidade</span><span class="stat-val" style="color:var(--rose)">${p.ins}/100</span></div>
+        <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div>
+        <div class="ins-ctrl">
+          <button onclick="adjIns(${p.id},+10)">+10</button><button onclick="adjIns(${p.id},+5)">+5</button>
+          <button onclick="adjIns(${p.id},-5)">−5</button><button onclick="adjIns(${p.id},-10)">−10</button>
+        </div>
+        <div class="seq-alert ${temSeq?'show':''}">Sequela emocional — ${Math.floor(p.ins/25)} marca(s). Role 1d6.</div>
+      </div>
+      <div class="stat-block">
+        <div class="attr3">
+          <div class="am am-agi"><div class="am-lbl">AGI</div><div class="am-val">${p.agi}</div></div>
+          <div class="am am-for"><div class="am-lbl">FOR</div><div class="am-val">${p.forca}</div></div>
+          <div class="am am-int"><div class="am-lbl">INT</div><div class="am-val">${p.intel}</div></div>
+        </div>
+        <div class="equip2">
+          <div class="eqm eqm-arm"><div class="eqm-lbl">Armadura</div><div class="eqm-val">${p.armadura}</div></div>
+          <div class="eqm eqm-elm"><div class="eqm-lbl">Elmo</div><div class="eqm-val">${p.elmo}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="skills-area">
+      <div class="legend">
+        <span class="leg-item"><span class="leg-dot" style="background:var(--green)"></span>Pronta</span>
+        <span class="leg-item"><span class="leg-dot" style="background:var(--text3)"></span>Usada / em recarga</span>
+        <span class="leg-item" style="color:var(--text3)">⏳ = turnos restantes &nbsp;·&nbsp; ● = usos gastos</span>
+      </div>
+      ${skillsHtml}
+      <button class="add-skill-btn" onclick="openModal(${p.id})"><i class="ti ti-plus"></i> Adicionar habilidade</button>
+    </div>`;
+}
+
+// ═══════════════════════════════════════
+// INICIATIVA & NOTAS (Narrador)
+// ═══════════════════════════════════════
+function rollInit() {
+  INITIATIVE = PLAYERS.map(p => ({name:p.name, roll:Math.floor(Math.random()*20)+1, type:'ally'}))
+    .concat([{name:'Inimigo A', roll:Math.floor(Math.random()*20)+1, type:'enemy'},{name:'Inimigo B', roll:Math.floor(Math.random()*20)+1, type:'enemy'}])
+    .sort((a,b) => b.roll - a.roll);
+  curI = 0; saveState(); renderInit();
+}
+function renderInit() {
+  const el = document.getElementById('init-list');
+  if (!el || !INITIATIVE.length) return;
+  el.innerHTML = INITIATIVE.map((it,i) => `
+    <div class="iitem ${i===curI?'cur':''}">
+      <span class="inum">${it.roll}</span><span class="iname">${it.name}</span><span class="itype ${it.type==='enemy'?'it-en':'it-al'}">${it.type==='enemy'?'Inimigo':'Aliado'}</span>
+    </div>`).join('');
+}
+function nextI() { curI = (curI+1) % Math.max(INITIATIVE.length,1); saveState(); renderInit(); }
+function prevI() { curI = (curI-1+Math.max(INITIATIVE.length,1)) % Math.max(INITIATIVE.length,1); saveState(); renderInit(); }
+
+function renderNoteTags() {
+  const ntags = document.getElementById('ntags');
+  const notaArea = document.getElementById('nota-area');
+  if (!ntags || !notaArea) return;
+  ntags.innerHTML = NOTETAGS.map(t => `<span class="ntag ${t.toLowerCase()===activeNote?'on':''}" onclick="switchNota('${t.toLowerCase()}')">${t}</span>`).join('');
+  notaArea.value = notes[activeNote] || '';
+}
+function switchNota(t) { activeNote = t; renderNoteTags(); }
+function saveNota() {
+  const notaArea = document.getElementById('nota-area');
+  if (!notaArea) return;
+  notes[activeNote] = notaArea.value; saveState();
+}
+
+// ═══════════════════════════════════════
+// MODAL HABILIDADE (Jogador)
+// ═══════════════════════════════════════
+function openModal(pid) {
+  modalPid = pid;
+  modalSkid = null; // null significa "Criar nova"
+  modalColor = 'green';
+  
+  document.getElementById('modal-title').textContent = 'Nova Habilidade';
+  document.getElementById('m-btn-del').style.display = 'none';
+  document.getElementById('m-btn-save').textContent = 'Adicionar';
+
+  document.getElementById('m-name').value = '';
+  if(document.getElementById('m-desc')) document.getElementById('m-desc').value = '';
+  document.getElementById('m-cost').value = '1';
+  document.getElementById('m-tipo').value = 'perturn';
+  document.getElementById('m-usos').value = '2';
+  document.getElementById('m-turnos').value = '2';
+  
+  document.querySelectorAll('.color-opt').forEach(el => el.classList.remove('selected'));
+  document.querySelector('.co-green').classList.add('selected');
+  
+  updateModal();
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('m-name').focus(), 50);
+}
+
+function editSkill(pid, skid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const sk = p.skills.find(x => x.id === skid);
+  if (!sk) return;
+
+  modalPid = pid;
+  modalSkid = skid; // ID preenchido significa "Editando"
+  modalColor = sk.color;
+
+  document.getElementById('modal-title').textContent = 'Editar Habilidade';
+  document.getElementById('m-btn-del').style.display = 'inline-block';
+  document.getElementById('m-btn-save').textContent = 'Salvar';
+
+  document.getElementById('m-name').value = sk.name;
+  if(document.getElementById('m-desc')) document.getElementById('m-desc').value = sk.desc || '';
+  document.getElementById('m-cost').value = sk.cost.toString();
+  document.getElementById('m-tipo').value = sk.tipo;
+  document.getElementById('m-usos').value = sk.usosMax || 2;
+  document.getElementById('m-turnos').value = sk.turnosRecarga || 2;
+
+  document.querySelectorAll('.color-opt').forEach(el => el.classList.remove('selected'));
+  document.querySelector(`.co-${sk.color}`).classList.add('selected');
+
+  updateModal();
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('m-name').focus(), 50);
+}
+
+function deleteSkill() {
+  if (!modalSkid || !modalPid) return;
+  if (!confirm('Tem certeza que deseja excluir esta habilidade? Esta ação não pode ser desfeita.')) return;
+
+  const p = PLAYERS.find(x => x.id === modalPid);
+  if (p) {
+    p.skills = p.skills.filter(x => x.id !== modalSkid);
+    saveState();
+    renderAll();
+  }
+  closeModal();
+}
+
+function closeModal() {
+  const overlay = document.getElementById('modal-overlay');
+  if(overlay) overlay.classList.remove('open');
+}
+
+function selColor(c, el) {
+  modalColor = c;
+  document.querySelectorAll('.color-opt').forEach(x => x.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function updateModal() {
+  const tipo = document.getElementById('m-tipo').value;
+  document.getElementById('m-usos-row').style.display = (tipo==='luta'||tipo==='sessao') ? 'block' : 'none';
+  document.getElementById('m-turnos-row').style.display = tipo==='turno_N' ? 'block' : 'none';
+  if (tipo==='luta') document.getElementById('m-usos-label').textContent = 'Usos por luta';
+  if (tipo==='sessao') document.getElementById('m-usos-label').textContent = 'Usos por sessão';
+}
+
+function saveSkill() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) { document.getElementById('m-name').focus(); return; }
+  
+  const desc = document.getElementById('m-desc') ? document.getElementById('m-desc').value.trim() : '';
+  const tipo = document.getElementById('m-tipo').value;
+  const cost = parseInt(document.getElementById('m-cost').value);
+  const usosMax = parseInt(document.getElementById('m-usos').value) || 2;
+  const turnosRecarga = parseInt(document.getElementById('m-turnos').value) || 2;
+  
+  const p = PLAYERS.find(x => x.id === modalPid);
+  
+  if (p) {
+    if (modalSkid) {
+      // Atualizar habilidade existente
+      const sk = p.skills.find(x => x.id === modalSkid);
+      if (sk) {
+        sk.name = name;
+        sk.desc = desc;
+        sk.color = modalColor;
+        sk.cost = cost;
+        sk.tipo = tipo;
+
+        if (tipo === 'infinite') {
+          sk.usosMax = 99;
+          sk.usosAtuais = 99;
+          sk.cdRestante = 0;
+        } else {
+          sk.usosMax = usosMax;
+          sk.turnosRecarga = turnosRecarga;
+          sk.usosAtuais = Math.min(sk.usosAtuais, usosMax);
+        }
+      }
+    } else {
+      // Criar nova habilidade
+      p.skills.push({
+        id: 'sk_' + Date.now(),
+        name, desc, color: modalColor, cost, tipo,
+        usosMax: tipo==='infinite'?99:usosMax,
+        usosAtuais: tipo==='infinite'?99:usosMax,
+        cdRestante: 0, turnosRecarga
+      });
+    }
+    saveState();
+    renderAll();
+  }
+  closeModal();
+}
+
+// ═══════════════════════════════════════
+// MODAL DE PERSONAGENS (CRIAR/EDITAR/EXCLUIR)
+// ═══════════════════════════════════════
+function openCharModal() {
+  modalCharId = null; // Null significa "Criar novo"
+  document.getElementById('modal-char-overlay').classList.add('open');
+  
+  document.getElementById('c-name').value = '';
+  document.getElementById('c-race').value = '';
+  document.getElementById('c-cls').value = '';
+  document.getElementById('c-hp').value = '30';
+  document.getElementById('c-ins').value = '0';
+  document.getElementById('c-agi').value = '10';
+  document.getElementById('c-for').value = '10';
+  document.getElementById('c-int').value = '10';
+  
+  setTimeout(() => document.getElementById('c-name').focus(), 50);
+}
+
+function editCharacter(id) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+
+  modalCharId = id; // Define que estamos editando
+  document.getElementById('modal-char-overlay').classList.add('open');
+
+  document.getElementById('c-name').value = p.name;
+  document.getElementById('c-race').value = p.race;
+  document.getElementById('c-cls').value = p.cls;
+  document.getElementById('c-hp').value = p.hpMax;
+  document.getElementById('c-ins').value = p.ins;
+  document.getElementById('c-agi').value = p.agi;
+  document.getElementById('c-for').value = p.forca;
+  document.getElementById('c-int').value = p.intel;
+}
+
+function deleteCharacter(id) {
+  if (!confirm('Tem certeza que deseja excluir este personagem? Esta ação não pode ser desfeita.')) return;
+  
+  PLAYERS = PLAYERS.filter(x => x.id !== id);
+  saveState();
+  
+  const psel = document.getElementById('psel');
+  if (psel && PLAYERS.length > 0) {
+    psel.value = PLAYERS[0].id;
+  }
+  
+  renderAll();
+}
+
+function closeCharModal() {
+  const overlay = document.getElementById('modal-char-overlay');
+  if(overlay) overlay.classList.remove('open');
+}
+
+function saveCharacter() {
+  const name = document.getElementById('c-name').value.trim() || 'Desconhecido';
+  const race = document.getElementById('c-race').value.trim() || 'Sem Raça';
+  const cls = document.getElementById('c-cls').value.trim() || 'Aventureiro';
+  const hpMax = parseInt(document.getElementById('c-hp').value) || 30;
+  const ins = parseInt(document.getElementById('c-ins').value) || 0;
+  const agi = parseInt(document.getElementById('c-agi').value) || 10;
+  const forca = parseInt(document.getElementById('c-for').value) || 10;
+  const intel = parseInt(document.getElementById('c-int').value) || 10;
+
+  if (modalCharId) {
+    // Atualizar personagem existente
+    const p = PLAYERS.find(x => x.id === modalCharId);
+    if (p) {
+      p.name = name;
+      p.race = race;
+      p.cls = cls;
+      p.hpMax = hpMax;
+      if (p.hp > hpMax) p.hp = hpMax; 
+      p.ins = ins;
+      p.agi = agi;
+      p.forca = forca;
+      p.intel = intel;
+    }
+  } else {
+    // Criar novo personagem
+    const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
+    const newChar = {
+      id: newId, name: name, race: race, cls: cls, level: 1, xp: 0,
+      hp: hpMax, hpMax: hpMax, agi: agi, forca: forca, intel: intel, 
+      armadura: 0, elmo: 0, ins: ins, skills: [],
+      ownerId: currentUser ? currentUser.id : null,
+      ownerName: currentUser ? currentUser.name : null
+    };
+    PLAYERS.push(newChar);
+    modalCharId = newId; 
+  }
+
+  saveState();
+  renderAll(); 
+  
+  const psel = document.getElementById('psel');
+  if(psel) {
+    psel.value = modalCharId; 
+  }
+  
+  renderJogador();
+  closeCharModal();
+}
+
+// ═══════════════════════════════════════
+// LISTENERS & INICIALIZAÇÃO
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  const overlay = document.getElementById('modal-overlay');
+  if(overlay) overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+  const charOverlay = document.getElementById('modal-char-overlay');
+  if(charOverlay) charOverlay.addEventListener('click', e => { if (e.target === charOverlay) closeCharModal(); });
+});
+
+document.addEventListener('keydown', e => { 
+  if (e.key === 'Escape') {
+    closeModal(); 
+    closeCharModal();
+  }
+});
+
+function renderAll() {
+  const tn = document.getElementById('turn-num');
+  if (tn) tn.textContent = turnGlobal;
+  
+  renderNarrador();
+  renderNoteTags();
+  renderInit();
+  
+  if (document.getElementById('psel')) {
+    // Na página do jogador, exige login
+    if (!currentUser) {
+      showLoginScreen();
+      return;
+    }
+    renderUserBadge();
+    renderPsel(); 
+    renderJogador();
+  }
+}
+
+// Versão que atualiza só o status de sync sem re-renderizar tudo
+// Usada pelo Firebase antes do login estar completo
+function renderSyncOnly() {
+  // já feito via setSyncStatus diretamente
+}
+
+// ═══════════════════════════════════════
+// TELA DE LOGIN (apenas jogador.html)
+// ═══════════════════════════════════════
+
+// Garante que existe um nó "users" no Firebase com estrutura mínima
+function ensureUsersNode() {
+  if (!firebaseRef) return;
+  const usersRef = firebase.database().ref('ts_users');
+  usersRef.once('value').then(snap => {
+    if (!snap.exists()) {
+      // Cria conta de narrador padrão (sem senha = acesso livre) só como referência
+      usersRef.set({ _init: true });
+    }
+  });
+}
+
+// Mostra a tela de login flutuando sobre tudo
+function showLoginScreen() {
+  // Só exibe na página do jogador
+  if (!document.getElementById('psel')) return;
+
+  // Se já está logado, mostra botão de logout no header e segue
+  if (currentUser) {
+    renderUserBadge();
+    return;
+  }
+
+  // Cria overlay de login
+  const overlay = document.createElement('div');
+  overlay.id = 'login-overlay';
+  overlay.innerHTML = `
+    <div class="login-box">
+      <div class="login-logo">Terras <span>Sombras</span></div>
+      <div class="login-sub">Acesso do Jogador</div>
+
+      <div id="login-error" class="login-error" style="display:none"></div>
+
+      <div id="login-panel">
+        <div class="form-row">
+          <label class="form-label">Usuário</label>
+          <input type="text" id="login-user" placeholder="Seu nome de usuário" autocomplete="username">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Senha</label>
+          <input type="password" id="login-pass" placeholder="Sua senha" autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary login-btn" onclick="doLogin()">Entrar</button>
+        <div class="login-toggle">Não tem conta? <a href="#" onclick="showRegisterPanel(); return false;">Criar conta</a></div>
+      </div>
+
+      <div id="register-panel" style="display:none">
+        <div class="form-row">
+          <label class="form-label">Nome do jogador</label>
+          <input type="text" id="reg-name" placeholder="Ex: João">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Usuário</label>
+          <input type="text" id="reg-user" placeholder="Nome de login único">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Senha</label>
+          <input type="password" id="reg-pass" placeholder="Mínimo 4 caracteres">
+        </div>
+        <button class="btn btn-primary login-btn" onclick="doRegister()">Criar Conta</button>
+        <div class="login-toggle">Já tem conta? <a href="#" onclick="showLoginPanel(); return false;">Entrar</a></div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Enter nos inputs faz login/cadastro
+  overlay.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (document.getElementById('login-panel').style.display !== 'none') doLogin();
+    else doRegister();
+  });
+
+  setTimeout(() => document.getElementById('login-user').focus(), 100);
+}
+
+function showLoginPanel() {
+  document.getElementById('login-panel').style.display = '';
+  document.getElementById('register-panel').style.display = 'none';
+  document.getElementById('login-error').style.display = 'none';
+  setTimeout(() => document.getElementById('login-user').focus(), 50);
+}
+
+function showRegisterPanel() {
+  document.getElementById('login-panel').style.display = 'none';
+  document.getElementById('register-panel').style.display = '';
+  document.getElementById('login-error').style.display = 'none';
+  setTimeout(() => document.getElementById('reg-name').focus(), 50);
+}
+
+function loginError(msg) {
+  const el = document.getElementById('login-error');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+
+// Hash simples (não é criptografia real, mas evita senha em texto puro no Firebase)
+async function hashPass(pass) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin() {
+  const username = (document.getElementById('login-user').value || '').trim().toLowerCase();
+  const pass = document.getElementById('login-pass').value || '';
+  if (!username || !pass) { loginError('Preencha usuário e senha.'); return; }
+
+  if (!firebaseRef) {
+    // Modo offline: login local simples
+    setCurrentUser({ id: 'local_' + username, name: username, role: 'player' });
+    document.getElementById('login-overlay').remove();
+    renderUserBadge();
+    renderAll();
+    return;
+  }
+
+  const hash = await hashPass(pass);
+  const ref = firebase.database().ref('ts_users/' + username);
+  ref.once('value').then(snap => {
+    const u = snap.val();
+    if (!u) { loginError('Usuário não encontrado.'); return; }
+    if (u.hash !== hash) { loginError('Senha incorreta.'); return; }
+    setCurrentUser({ id: username, name: u.name, role: 'player' });
+    document.getElementById('login-overlay').remove();
+    renderUserBadge();
+    renderPsel();
+    renderJogador();
+  }).catch(() => loginError('Erro de conexão. Tente novamente.'));
+}
+
+async function doRegister() {
+  const name = (document.getElementById('reg-name').value || '').trim();
+  const username = (document.getElementById('reg-user').value || '').trim().toLowerCase().replace(/\s+/g, '_');
+  const pass = document.getElementById('reg-pass').value || '';
+  if (!name) { loginError('Informe seu nome.'); return; }
+  if (!username) { loginError('Informe um nome de usuário.'); return; }
+  if (pass.length < 4) { loginError('Senha deve ter pelo menos 4 caracteres.'); return; }
+  if (!/^[a-z0-9_]+$/.test(username)) { loginError('Usuário só pode ter letras, números e _'); return; }
+
+  if (!firebaseRef) {
+    setCurrentUser({ id: 'local_' + username, name, role: 'player' });
+    document.getElementById('login-overlay').remove();
+    renderUserBadge();
+    renderAll();
+    return;
+  }
+
+  const hash = await hashPass(pass);
+  const ref = firebase.database().ref('ts_users/' + username);
+  ref.once('value').then(snap => {
+    if (snap.exists()) { loginError('Este nome de usuário já existe. Escolha outro.'); return; }
+    ref.set({ name, hash }).then(() => {
+      setCurrentUser({ id: username, name, role: 'player' });
+      document.getElementById('login-overlay').remove();
+      renderUserBadge();
+      renderPsel();
+      renderJogador();
+    });
+  }).catch(() => loginError('Erro ao criar conta. Tente novamente.'));
+}
+
+function renderUserBadge() {
+  if (!currentUser) return;
+  const header = document.querySelector('.header');
+  if (!header) return;
+  // Remove badge anterior se existir
+  const old = document.getElementById('user-badge');
+  if (old) old.remove();
+
+  const badge = document.createElement('div');
+  badge.id = 'user-badge';
+  badge.style.cssText = 'margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; color:var(--text2)';
+  badge.innerHTML = `
+    <i class="ti ti-user-circle" style="font-size:16px"></i>
+    <span>${currentUser.name}</span>
+    <button class="btn" style="padding:3px 10px; font-size:11px" onclick="logout()">
+      <i class="ti ti-logout"></i> Sair
+    </button>`;
+  header.appendChild(badge);
+}
+

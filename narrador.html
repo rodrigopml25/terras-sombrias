@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terras Sombras — Narrador</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-logo">Terras <span>Sombras</span> (Narrador)</div>
+      <div class="header-sep"></div>
+      <div class="turn-pill">
+        <i class="ti ti-hourglass"></i>
+        Turno <strong id="turn-num">1</strong>
+      </div>
+      <div id="sync-status" style="font-size:11px; color:var(--text3); margin-left:10px;" title="Status da sincronização com o Jogador">○ Sem sincronização</div>
+      <div class="header-actions">
+        <button class="btn btn-success" onclick="nextTurnGlobal()"><i class="ti ti-arrow-right"></i> Próximo Turno</button>
+        <button class="btn btn-danger" onclick="resetLuta()"><i class="ti ti-swords"></i> Reset Luta</button>
+        <button class="btn" onclick="resetSessao()"><i class="ti ti-refresh"></i> Reset Sessão</button>
+      </div>
+    </header>
+
+    <div class="view active" style="padding-top: 20px;">
+      <div class="nar-layout">
+        <div class="nar-players" id="nar-players"></div>
+        <div class="nar-side">
+          <div class="card">
+            <div class="card-title"><i class="ti ti-swords"></i> Iniciativa <button class="btn" style="margin-left:auto;padding:3px 9px;font-size:11px" onclick="rollInit()">Rolar 1d20</button></div>
+            <div class="init-list" id="init-list">
+              <div style="font-size:12px;color:var(--text3);text-align:center;padding:10px">Clique em "Rolar 1d20" para iniciar</div>
+            </div>
+            <div class="init-btns" style="margin-top:8px">
+              <button class="btn" onclick="prevI()"><i class="ti ti-chevron-left"></i> Anterior</button>
+              <button class="btn" onclick="nextI()">Próximo <i class="ti ti-chevron-right"></i></button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title"><i class="ti ti-notes"></i> Anotações</div>
+            <div class="ntags" id="ntags"></div>
+            <textarea id="nota-area" placeholder="Notas da sessão..." oninput="saveNota()"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="logica.js"></script>
+  </body>
+</html>

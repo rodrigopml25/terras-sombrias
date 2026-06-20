@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terras Sombras — Jogador</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-logo">Terras <span>Sombras</span> (Jogador)</div>
+      <div class="header-sep"></div>
+      <div class="turn-pill">
+        <i class="ti ti-hourglass"></i>
+        Turno <strong id="turn-num">1</strong>
+      </div>
+      <div id="sync-status" style="font-size:11px; color:var(--text3); margin-left:10px;" title="Status da sincronização com o Narrador">○ Sem sincronização</div>
+    </header>
+</div>
+    <div class="view active" style="padding-top: 20px;">
+      <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
+        <select id="psel" onchange="renderJogador()" style="background: var(--bg3); color: var(--text); border: 1px solid var(--border); padding: 5px; border-radius: 4px;">
+    </select>
+        <button class="btn btn-success" onclick="openCharModal()"><i class="ti ti-user-plus"></i> Novo Personagem</button>
+      </div>
+      <div class="jog-layout" id="jog-content"></div>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay">
+      <div class="modal">
+        <h3 id="modal-title">Nova Habilidade</h3>
+        <div class="form-row">
+          <label class="form-label">Nome</label>
+          <input type="text" id="m-name" placeholder="Nome da habilidade">
+        </div>
+        
+        <div class="form-row">
+          <label class="form-label">Efeito / Descrição</label>
+          <textarea id="m-desc" placeholder="Descreva o que a habilidade faz..." style="width: 100%; min-height: 60px; font-size: 12px; padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg3); color: var(--text); resize: vertical; font-family: var(--font-body); line-height: 1.5;"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">Tipo</label>
+            <div class="color-picker" id="color-picker">
+              <div class="color-opt co-green selected" onclick="selColor('green',this)" title="Técnica (Agilidade)"><span class="color-dot"></span></div>
+              <div class="color-opt co-red"   onclick="selColor('red',this)"   title="Golpe (Força)"><span class="color-dot"></span></div>
+              <div class="color-opt co-blue"  onclick="selColor('blue',this)"  title="Feitiço (Intelecto)"><span class="color-dot"></span></div>
+              <div class="color-opt co-gray"  onclick="selColor('gray',this)"  title="Neutra"><span class="color-dot"></span></div>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:5px;font-size:11px;color:var(--text3)">
+              <span style="color:var(--green)">Verde</span> ·
+              <span style="color:#f08080">Vermelho</span> ·
+              <span style="color:var(--blue)">Azul</span> ·
+              <span style="color:var(--gray)">Cinza</span>
+            </div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Custo em ações</label>
+          <select id="m-cost">
+            <option value="1">1 ação</option>
+            <option value="2">2 ações</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Tipo de recarga</label>
+            <select id="m-tipo" onchange="updateModal()">
+              <option value="perturn">1 uso por turno (recarrega automaticamente)</option>
+              <option value="infinite">Ilimitada (∞ livre)</option>
+              <option value="luta">N usos por luta</option>
+              <option value="sessao">N usos por sessão</option>
+              <option value="turno_N">Cooldown em N turnos</option>
+            </select>
+        </div>
+        <div class="form-row" id="m-usos-row" style="display:none">
+          <label class="form-label" id="m-usos-label">Quantidade de usos</label>
+          <input type="number" id="m-usos" min="1" max="20" value="2" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;width:80px">
+        </div>
+        <div class="form-row" id="m-turnos-row" style="display:none">
+          <label class="form-label">Turnos de cooldown</label>
+          <input type="number" id="m-turnos" min="1" max="20" value="2" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;width:80px">
+        </div>
+        
+        <div class="modal-btns" style="display:flex; justify-content:space-between;">
+          <button class="btn btn-danger" id="m-btn-del" style="display:none;" onclick="deleteSkill()"><i class="ti ti-trash"></i> Excluir</button>
+          <div style="display:flex; gap:10px; margin-left:auto;">
+            <button class="btn" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" id="m-btn-save" onclick="saveSkill()">Adicionar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-char-overlay">
+      <div class="modal">
+        <h3>Novo Personagem</h3>
+        <div class="form-row">
+          <label class="form-label">Nome</label>
+          <input type="text" id="c-name" placeholder="Nome do personagem">
+        </div>
+        
+        <div style="display:flex; gap:10px;">
+            <div class="form-row" style="flex:1">
+              <label class="form-label">Raça</label>
+              <input type="text" id="c-race" placeholder="Ex: Humano">
+            </div>
+            <div class="form-row" style="flex:1">
+              <label class="form-label">Classe</label>
+              <input type="text" id="c-cls" placeholder="Ex: Guerreiro">
+            </div>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <div class="form-row" style="flex:1">
+              <label class="form-label">Vida (HP)</label>
+              <input type="number" id="c-hp" value="30" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+            </div>
+            <div class="form-row" style="flex:1">
+              <label class="form-label">Insanidade</label>
+              <input type="number" id="c-ins" value="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+            </div>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <div class="form-row" style="flex:1">
+              <label class="form-label">AGI</label>
+              <input type="number" id="c-agi" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+            </div>
+            <div class="form-row" style="flex:1">
+              <label class="form-label">FOR</label>
+              <input type="number" id="c-for" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+            </div>
+            <div class="form-row" style="flex:1">
+              <label class="form-label">INT</label>
+              <input type="number" id="c-int" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+            </div>
+        </div>
+
+        <div class="modal-btns">
+          <button class="btn" onclick="closeCharModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveCharacter()">Criar Personagem</button>
+        </div>
+      </div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="logica.js"></script>
+  </body>
+</html>
