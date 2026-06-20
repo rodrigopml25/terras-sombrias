@@ -2,11 +2,13 @@
 // SISTEMA DE LOGIN
 // ═══════════════════════════════════════
 // currentUser = { id, name, role: 'player'|'narrator' }
-// Persiste em sessionStorage para durar só enquanto a aba estiver aberta.
 let currentUser = null;
 
+// Detecta qual página está aberta
+const IS_JOGADOR  = !!document.getElementById('psel');
+const IS_NARRADOR = !!document.getElementById('nar-players');
+
 function loginInit() {
-  // Tenta restaurar sessão anterior
   try {
     const saved = sessionStorage.getItem('ts_session');
     if (saved) currentUser = JSON.parse(saved);
@@ -21,16 +23,12 @@ function setCurrentUser(user) {
 function logout() {
   currentUser = null;
   sessionStorage.removeItem('ts_session');
-  // Recarrega para mostrar tela de login
   location.reload();
 }
 
 // ═══════════════════════════════════════
 // DADOS INICIAIS
 // ═══════════════════════════════════════
-// Antes aqui tinha 4 personagens de exemplo (Aelindra, Brok, Lyra, Dusk)
-// usados só para teste. Removidos — toda sessão nova começa vazia, e os
-// personagens são criados pelo botão "Novo Personagem".
 const DEFAULT_PLAYERS = [];
 
 const AVATARS = [
@@ -42,8 +40,7 @@ const AVATARS = [
 const NOTETAGS = ['Geral','Missão','Inimigos','Locais'];
 
 // ═══════════════════════════════════════
-// ESTADO LOCAL (Sincronizado via Firebase Realtime Database,
-// com cache local em LocalStorage como apoio)
+// ESTADO LOCAL
 // ═══════════════════════════════════════
 let PLAYERS = [];
 let turnGlobal = 1;
@@ -53,16 +50,16 @@ let notes = {geral:'', missão:'', inimigos:'', locais:''};
 let activeNote = 'geral';
 
 let modalPid = null;
-let modalSkid = null; // Guarda o ID da habilidade caso esteja em edição
+let modalSkid = null;
 let modalColor = 'green';
-let modalCharId = null; // Guarda o ID do personagem caso esteja em edição
+let modalCharId = null;
 
-let firebaseRef = null;       // referência do Realtime Database, quando configurado
-let firebaseOnline = false;   // se a sincronização em nuvem está ativa
-let saveDebounceTimer = null; // evita escrever no Firebase em toda tecla digitada
-let lastWrittenJSON = null;   // último estado que NÓS escrevemos, para ignorar o eco do listener
-let pendingSave = false;          // true enquanto temos uma mudança local ainda não confirmada no Firebase
-let pendingSaveSafetyTimer = null; // evita travar pendingSave em true para sempre se algo falhar
+let firebaseRef = null;
+let firebaseOnline = false;
+let saveDebounceTimer = null;
+let lastWrittenJSON = null;
+let pendingSave = false;
+let pendingSaveSafetyTimer = null;
 
 function snapshotState() {
   return { PLAYERS, turnGlobal, INITIATIVE, curI, notes };
@@ -70,9 +67,6 @@ function snapshotState() {
 
 function applyData(data) {
   PLAYERS = data.PLAYERS || [];
-  // O Firebase Realtime Database remove arrays vazios ao salvar (ex: skills:[]
-  // de um personagem recém-criado sem habilidades). Aqui garantimos que toda
-  // mudança vindo da nuvem sempre tenha uma lista de habilidades válida.
   PLAYERS.forEach(p => { if (!Array.isArray(p.skills)) p.skills = []; });
   turnGlobal = data.turnGlobal || 1;
   INITIATIVE = data.INITIATIVE || [];
@@ -80,19 +74,16 @@ function applyData(data) {
   notes = data.notes || {geral:'', missão:'', inimigos:'', locais:''};
 }
 
-// Fallback usado apenas se o Firebase não estiver configurado
-// (mantém o app funcionando, mas sem sincronizar entre computadores)
 function initDataLocal() {
   const saved = localStorage.getItem('rpg_dashboard_data');
   if (saved) {
     applyData(JSON.parse(saved));
   } else {
-    PLAYERS = JSON.parse(JSON.stringify(DEFAULT_PLAYERS)); // clone
+    PLAYERS = JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
   }
 }
 
 function setSyncStatus(status) {
-  // status: 'off' | 'connecting' | 'on' | 'error'
   const el = document.getElementById('sync-status');
   if (!el) return;
   const map = {
@@ -113,24 +104,20 @@ function initFirebaseSync() {
   if (typeof firebase === 'undefined' || !configured) {
     setSyncStatus('off');
     initDataLocal();
-    renderAll();
+    afterFirebaseReady();
     return;
   }
 
   setSyncStatus('connecting');
   try {
     let app;
-    try {
-      app = firebase.app(); // lança se não existe nenhum app ainda
-    } catch(e) {
-      app = firebase.initializeApp(cfg);
-    }
+    try { app = firebase.app(); } catch(e) { app = firebase.initializeApp(cfg); }
     firebaseRef = app.database().ref('rpg_dashboard_data');
   } catch (err) {
     console.error('Erro ao iniciar Firebase:', err);
     setSyncStatus('error');
     initDataLocal();
-    renderAll();
+    afterFirebaseReady();
     return;
   }
 
@@ -139,7 +126,6 @@ function initFirebaseSync() {
     if (data) {
       applyData(data);
     } else {
-      // Primeira vez: ninguém ainda salvou nada na nuvem.
       PLAYERS = JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
       lastWrittenJSON = JSON.stringify(snapshotState());
       firebaseRef.set(snapshotState());
@@ -147,38 +133,44 @@ function initFirebaseSync() {
     firebaseOnline = true;
     setSyncStatus('on');
     ensureUsersNode();
-    renderAll();
+    afterFirebaseReady();
 
-    // A partir daqui, qualquer mudança feita em QUALQUER computador
-    // (jogador ou narrador) chega aqui automaticamente.
     firebaseRef.on('value', snapshot => {
-      if (pendingSave) return; // temos uma edição local ainda não salva: não sobrescrever
+      if (pendingSave) return;
       const incoming = snapshot.val();
       if (!incoming) return;
       const incomingJSON = JSON.stringify(incoming);
-      if (incomingJSON === lastWrittenJSON) return; // eco da nossa própria escrita
+      if (incomingJSON === lastWrittenJSON) return;
       applyData(incoming);
-      renderAll();
+      // Só re-renderiza se já está logado
+      if (currentUser) renderAll();
     });
   }).catch(err => {
     console.error('Erro ao conectar ao Firebase:', err);
     setSyncStatus('error');
     initDataLocal();
-    renderAll();
+    afterFirebaseReady();
   });
 }
 
+// Chamado quando Firebase termina de inicializar (com ou sem erro)
+// Mostra login se necessário, ou renderiza direto
+function afterFirebaseReady() {
+  if (!currentUser) {
+    showLoginScreen();
+  } else {
+    renderUserBadge();
+    renderAll();
+  }
+}
+
 function saveState() {
-  // Cache local imediato (funciona mesmo se a internet cair por um instante)
   localStorage.setItem('rpg_dashboard_data', JSON.stringify(snapshotState()));
+  if (!firebaseRef) return;
 
-  if (!firebaseRef) return; // Firebase não configurado: só salva localmente
-
-  // Marca que há uma mudança local pendente, para o listener não sobrescrevê-la
-  // enquanto ela ainda não foi gravada na nuvem.
   pendingSave = true;
   clearTimeout(pendingSaveSafetyTimer);
-  pendingSaveSafetyTimer = setTimeout(() => { pendingSave = false; }, 5000); // rede de segurança
+  pendingSaveSafetyTimer = setTimeout(() => { pendingSave = false; }, 5000);
 
   clearTimeout(saveDebounceTimer);
   saveDebounceTimer = setTimeout(() => {
@@ -247,16 +239,13 @@ function nextTurnGlobal() {
 
 function resetLuta() {
   if (!confirm('Resetar todos os usos por luta e reiniciar os turnos?')) return;
-  
-  turnGlobal = 1; 
-
+  turnGlobal = 1;
   PLAYERS.forEach(p => p.skills.forEach(sk => {
-    if (['perturn','luta','turno_N'].includes(sk.tipo)) { 
-      sk.usosAtuais = sk.usosMax; 
-      sk.cdRestante = 0; 
+    if (['perturn','luta','turno_N'].includes(sk.tipo)) {
+      sk.usosAtuais = sk.usosMax;
+      sk.cdRestante = 0;
     }
   }));
-  
   saveState();
   renderAll();
 }
@@ -306,7 +295,7 @@ function renderNarrador() {
       let extra = '';
       if (sk.tipo === 'turno_N' && sk.cdRestante > 0) extra = `<span class="chip-cd">⏳${sk.cdRestante}</span>`;
       else if ((sk.tipo==='luta'||sk.tipo==='sessao') && sk.usosAtuais < sk.usosMax) extra = `<span class="chip-cd">${sk.usosAtuais}/${sk.usosMax}</span>`;
-      
+
       const descTooltip = sk.desc ? `Efeito: ${sk.desc}\n\n` : '';
       const statusTooltip = ready ? 'Status: Pronta para uso' : `Status: Indisponível (${tipoLabel(sk)})`;
       const finalTooltip = `${sk.name}\n${descTooltip}${statusTooltip}`;
@@ -338,7 +327,6 @@ function renderNarrador() {
 // RENDER JOGADOR
 // ═══════════════════════════════════════
 function getMyPlayers() {
-  // Narrador vê todos; jogador só vê os seus
   if (!currentUser || currentUser.role === 'narrator') return PLAYERS;
   return PLAYERS.filter(p => p.ownerId === currentUser.id || p.ownerId == null);
 }
@@ -347,7 +335,7 @@ function renderPsel() {
   const psel = document.getElementById('psel');
   if (!psel) return;
   const myPlayers = getMyPlayers();
-  const currentVal = psel.value; 
+  const currentVal = psel.value;
   psel.innerHTML = myPlayers.map(p => `<option value="${p.id}">${p.name} — ${p.race} ${p.cls}</option>`).join('');
   if (currentVal && myPlayers.find(p => p.id == currentVal)) psel.value = currentVal;
 }
@@ -396,25 +384,21 @@ function renderJogador() {
         dotsHtml = `<div class="sk-dots">${Array.from({length:sk.usosMax},(_,di)=>`<div class="sdot ${di<spent?'spent':''}"></div>`).join('')}</div>`;
       } else if (sk.tipo === 'perturn') cdHtml = `<span class="sk-cd">${ready ? 'Pronta' : 'Usada'}</span>`;
       else if (sk.tipo === 'infinite') cdHtml = `<span class="sk-cd">∞</span>`;
-      
+
       return `<div class="skill-card sk-${cor} ${state}" onclick="useSkill(${p.id},'${sk.id}')">
-        
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
           <div class="sk-name">${sk.name}</div>
           <button onclick="event.stopPropagation(); editSkill(${p.id}, '${sk.id}')" title="Editar" style="background:none; border:none; color:var(--text3); cursor:pointer; padding:0; margin-left:8px;">
             <i class="ti ti-edit" style="font-size:16px;"></i>
           </button>
         </div>
-
         <div class="sk-tags">
           <span class="sk-tag">${sk.cost===1?'1 ação':'2 ações'}</span>
           <span class="sk-tag">${tipoLabel(sk)}</span>
         </div>
-        
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
             ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
         </div>
-
         <div class="sk-bottom">
           <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${(!ready||sk.tipo==='infinite')?'disabled':''}>
             ${sk.tipo==='infinite' ? 'Livre' : 'Usar'}
@@ -450,7 +434,6 @@ function renderJogador() {
           <button onclick="adjHP(${p.id},+1)">+1</button><button onclick="adjHP(${p.id},+5)">+5</button>
         </div>
         <div class="bm-alert ${bm?'show':''}">⚠ Beira Morte<br><small>Emoção 1d100 ≥ 50 · Resistência 1d20 ≥ 10</small></div>
-
         <div class="stat-row" style="margin-top:10px"><span class="stat-lbl"><i class="ti ti-brain" style="color:var(--rose)"></i> Insanidade</span><span class="stat-val" style="color:var(--rose)">${p.ins}/100</span></div>
         <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div>
         <div class="ins-ctrl">
@@ -518,13 +501,13 @@ function saveNota() {
 }
 
 // ═══════════════════════════════════════
-// MODAL HABILIDADE (Jogador)
+// MODAL HABILIDADE
 // ═══════════════════════════════════════
 function openModal(pid) {
   modalPid = pid;
-  modalSkid = null; // null significa "Criar nova"
+  modalSkid = null;
   modalColor = 'green';
-  
+
   document.getElementById('modal-title').textContent = 'Nova Habilidade';
   document.getElementById('m-btn-del').style.display = 'none';
   document.getElementById('m-btn-save').textContent = 'Adicionar';
@@ -535,10 +518,10 @@ function openModal(pid) {
   document.getElementById('m-tipo').value = 'perturn';
   document.getElementById('m-usos').value = '2';
   document.getElementById('m-turnos').value = '2';
-  
+
   document.querySelectorAll('.color-opt').forEach(el => el.classList.remove('selected'));
   document.querySelector('.co-green').classList.add('selected');
-  
+
   updateModal();
   document.getElementById('modal-overlay').classList.add('open');
   setTimeout(() => document.getElementById('m-name').focus(), 50);
@@ -551,7 +534,7 @@ function editSkill(pid, skid) {
   if (!sk) return;
 
   modalPid = pid;
-  modalSkid = skid; // ID preenchido significa "Editando"
+  modalSkid = skid;
   modalColor = sk.color;
 
   document.getElementById('modal-title').textContent = 'Editar Habilidade';
@@ -576,7 +559,6 @@ function editSkill(pid, skid) {
 function deleteSkill() {
   if (!modalSkid || !modalPid) return;
   if (!confirm('Tem certeza que deseja excluir esta habilidade? Esta ação não pode ser desfeita.')) return;
-
   const p = PLAYERS.find(x => x.id === modalPid);
   if (p) {
     p.skills = p.skills.filter(x => x.id !== modalSkid);
@@ -608,38 +590,23 @@ function updateModal() {
 function saveSkill() {
   const name = document.getElementById('m-name').value.trim();
   if (!name) { document.getElementById('m-name').focus(); return; }
-  
+
   const desc = document.getElementById('m-desc') ? document.getElementById('m-desc').value.trim() : '';
   const tipo = document.getElementById('m-tipo').value;
   const cost = parseInt(document.getElementById('m-cost').value);
   const usosMax = parseInt(document.getElementById('m-usos').value) || 2;
   const turnosRecarga = parseInt(document.getElementById('m-turnos').value) || 2;
-  
+
   const p = PLAYERS.find(x => x.id === modalPid);
-  
   if (p) {
     if (modalSkid) {
-      // Atualizar habilidade existente
       const sk = p.skills.find(x => x.id === modalSkid);
       if (sk) {
-        sk.name = name;
-        sk.desc = desc;
-        sk.color = modalColor;
-        sk.cost = cost;
-        sk.tipo = tipo;
-
-        if (tipo === 'infinite') {
-          sk.usosMax = 99;
-          sk.usosAtuais = 99;
-          sk.cdRestante = 0;
-        } else {
-          sk.usosMax = usosMax;
-          sk.turnosRecarga = turnosRecarga;
-          sk.usosAtuais = Math.min(sk.usosAtuais, usosMax);
-        }
+        sk.name = name; sk.desc = desc; sk.color = modalColor; sk.cost = cost; sk.tipo = tipo;
+        if (tipo === 'infinite') { sk.usosMax = 99; sk.usosAtuais = 99; sk.cdRestante = 0; }
+        else { sk.usosMax = usosMax; sk.turnosRecarga = turnosRecarga; sk.usosAtuais = Math.min(sk.usosAtuais, usosMax); }
       }
     } else {
-      // Criar nova habilidade
       p.skills.push({
         id: 'sk_' + Date.now(),
         name, desc, color: modalColor, cost, tipo,
@@ -655,12 +622,11 @@ function saveSkill() {
 }
 
 // ═══════════════════════════════════════
-// MODAL DE PERSONAGENS (CRIAR/EDITAR/EXCLUIR)
+// MODAL PERSONAGEM
 // ═══════════════════════════════════════
 function openCharModal() {
-  modalCharId = null; // Null significa "Criar novo"
+  modalCharId = null;
   document.getElementById('modal-char-overlay').classList.add('open');
-  
   document.getElementById('c-name').value = '';
   document.getElementById('c-race').value = '';
   document.getElementById('c-cls').value = '';
@@ -669,17 +635,14 @@ function openCharModal() {
   document.getElementById('c-agi').value = '10';
   document.getElementById('c-for').value = '10';
   document.getElementById('c-int').value = '10';
-  
   setTimeout(() => document.getElementById('c-name').focus(), 50);
 }
 
 function editCharacter(id) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return;
-
-  modalCharId = id; // Define que estamos editando
+  modalCharId = id;
   document.getElementById('modal-char-overlay').classList.add('open');
-
   document.getElementById('c-name').value = p.name;
   document.getElementById('c-race').value = p.race;
   document.getElementById('c-cls').value = p.cls;
@@ -692,15 +655,10 @@ function editCharacter(id) {
 
 function deleteCharacter(id) {
   if (!confirm('Tem certeza que deseja excluir este personagem? Esta ação não pode ser desfeita.')) return;
-  
   PLAYERS = PLAYERS.filter(x => x.id !== id);
   saveState();
-  
   const psel = document.getElementById('psel');
-  if (psel && PLAYERS.length > 0) {
-    psel.value = PLAYERS[0].id;
-  }
-  
+  if (psel && PLAYERS.length > 0) psel.value = PLAYERS[0].id;
   renderAll();
 }
 
@@ -710,133 +668,89 @@ function closeCharModal() {
 }
 
 function saveCharacter() {
-  const name = document.getElementById('c-name').value.trim() || 'Desconhecido';
-  const race = document.getElementById('c-race').value.trim() || 'Sem Raça';
-  const cls = document.getElementById('c-cls').value.trim() || 'Aventureiro';
-  const hpMax = parseInt(document.getElementById('c-hp').value) || 30;
-  const ins = parseInt(document.getElementById('c-ins').value) || 0;
-  const agi = parseInt(document.getElementById('c-agi').value) || 10;
-  const forca = parseInt(document.getElementById('c-for').value) || 10;
-  const intel = parseInt(document.getElementById('c-int').value) || 10;
+  const name   = document.getElementById('c-name').value.trim() || 'Desconhecido';
+  const race   = document.getElementById('c-race').value.trim() || 'Sem Raça';
+  const cls    = document.getElementById('c-cls').value.trim()  || 'Aventureiro';
+  const hpMax  = parseInt(document.getElementById('c-hp').value)  || 30;
+  const ins    = parseInt(document.getElementById('c-ins').value) || 0;
+  const agi    = parseInt(document.getElementById('c-agi').value) || 10;
+  const forca  = parseInt(document.getElementById('c-for').value) || 10;
+  const intel  = parseInt(document.getElementById('c-int').value) || 10;
 
   if (modalCharId) {
-    // Atualizar personagem existente
     const p = PLAYERS.find(x => x.id === modalCharId);
     if (p) {
-      p.name = name;
-      p.race = race;
-      p.cls = cls;
-      p.hpMax = hpMax;
-      if (p.hp > hpMax) p.hp = hpMax; 
-      p.ins = ins;
-      p.agi = agi;
-      p.forca = forca;
-      p.intel = intel;
+      p.name = name; p.race = race; p.cls = cls; p.hpMax = hpMax;
+      if (p.hp > hpMax) p.hp = hpMax;
+      p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
     }
   } else {
-    // Criar novo personagem
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
-    const newChar = {
-      id: newId, name: name, race: race, cls: cls, level: 1, xp: 0,
-      hp: hpMax, hpMax: hpMax, agi: agi, forca: forca, intel: intel, 
-      armadura: 0, elmo: 0, ins: ins, skills: [],
+    PLAYERS.push({
+      id: newId, name, race, cls, level: 1, xp: 0,
+      hp: hpMax, hpMax, agi, forca, intel,
+      armadura: 0, elmo: 0, ins, skills: [],
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
-    };
-    PLAYERS.push(newChar);
-    modalCharId = newId; 
+    });
+    modalCharId = newId;
   }
 
   saveState();
-  renderAll(); 
-  
+  renderAll();
   const psel = document.getElementById('psel');
-  if(psel) {
-    psel.value = modalCharId; 
-  }
-  
+  if(psel) psel.value = modalCharId;
   renderJogador();
   closeCharModal();
 }
 
 // ═══════════════════════════════════════
-// LISTENERS & INICIALIZAÇÃO
+// LISTENERS
 // ═══════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   const overlay = document.getElementById('modal-overlay');
   if(overlay) overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
-
   const charOverlay = document.getElementById('modal-char-overlay');
   if(charOverlay) charOverlay.addEventListener('click', e => { if (e.target === charOverlay) closeCharModal(); });
 });
 
-document.addEventListener('keydown', e => { 
-  if (e.key === 'Escape') {
-    closeModal(); 
-    closeCharModal();
-  }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeCharModal(); }
 });
 
+// ═══════════════════════════════════════
+// RENDER GERAL
+// ═══════════════════════════════════════
 function renderAll() {
   const tn = document.getElementById('turn-num');
   if (tn) tn.textContent = turnGlobal;
-  
   renderNarrador();
   renderNoteTags();
   renderInit();
-  
-  if (document.getElementById('psel')) {
-    // Na página do jogador, exige login
-    if (!currentUser) {
-      showLoginScreen();
-      return;
-    }
-    renderUserBadge();
-    renderPsel(); 
-    renderJogador();
-  }
-}
-
-// Versão que atualiza só o status de sync sem re-renderizar tudo
-// Usada pelo Firebase antes do login estar completo
-function renderSyncOnly() {
-  // já feito via setSyncStatus diretamente
+  if (IS_JOGADOR) { renderPsel(); renderJogador(); }
 }
 
 // ═══════════════════════════════════════
-// TELA DE LOGIN (apenas jogador.html)
+// TELA DE LOGIN
 // ═══════════════════════════════════════
-
-// Garante que existe um nó "users" no Firebase com estrutura mínima
 function ensureUsersNode() {
   if (!firebaseRef) return;
-  const usersRef = firebase.database().ref('ts_users');
-  usersRef.once('value').then(snap => {
-    if (!snap.exists()) {
-      // Cria conta de narrador padrão (sem senha = acesso livre) só como referência
-      usersRef.set({ _init: true });
-    }
+  firebase.database().ref('ts_users').once('value').then(snap => {
+    if (!snap.exists()) firebase.database().ref('ts_users').set({ _init: true });
   });
 }
 
-// Mostra a tela de login flutuando sobre tudo
 function showLoginScreen() {
-  // Só exibe na página do jogador
-  if (!document.getElementById('psel')) return;
+  // Evita criar dois overlays
+  if (document.getElementById('login-overlay')) return;
 
-  // Se já está logado, mostra botão de logout no header e segue
-  if (currentUser) {
-    renderUserBadge();
-    return;
-  }
-
-  // Cria overlay de login
+  const isNarrador = IS_NARRADOR;
   const overlay = document.createElement('div');
   overlay.id = 'login-overlay';
   overlay.innerHTML = `
     <div class="login-box">
-      <div class="login-logo">Terras <span>Sombras</span></div>
-      <div class="login-sub">Acesso do Jogador</div>
+      <div class="login-logo">Terras <span>Sombrias</span></div>
+      <div class="login-sub">${isNarrador ? 'Acesso do Narrador' : 'Acesso do Jogador'}</div>
 
       <div id="login-error" class="login-error" style="display:none"></div>
 
@@ -849,37 +763,44 @@ function showLoginScreen() {
           <label class="form-label">Senha</label>
           <input type="password" id="login-pass" placeholder="Sua senha" autocomplete="current-password">
         </div>
-        <button class="btn btn-primary login-btn" onclick="doLogin()">Entrar</button>
-        <div class="login-toggle">Não tem conta? <a href="#" onclick="showRegisterPanel(); return false;">Criar conta</a></div>
+        <button class="btn btn-primary login-btn" onclick="doLogin()">
+          <i class="ti ti-login"></i> Entrar
+        </button>
+        <div class="login-toggle">Não tem conta? <a href="#" onclick="showRegisterPanel(); return false;">${isNarrador ? 'Criar conta de Narrador' : 'Criar conta'}</a></div>
       </div>
 
       <div id="register-panel" style="display:none">
         <div class="form-row">
-          <label class="form-label">Nome do jogador</label>
-          <input type="text" id="reg-name" placeholder="Ex: João">
+          <label class="form-label">Seu nome</label>
+          <input type="text" id="reg-name" placeholder="${isNarrador ? 'Ex: Rodrigo' : 'Ex: João'}">
         </div>
         <div class="form-row">
           <label class="form-label">Usuário</label>
-          <input type="text" id="reg-user" placeholder="Nome de login único">
+          <input type="text" id="reg-user" placeholder="Somente letras, números e _">
         </div>
         <div class="form-row">
           <label class="form-label">Senha</label>
           <input type="password" id="reg-pass" placeholder="Mínimo 4 caracteres">
         </div>
-        <button class="btn btn-primary login-btn" onclick="doRegister()">Criar Conta</button>
+        <button class="btn btn-primary login-btn" onclick="doRegister()">
+          <i class="ti ti-user-plus"></i> ${isNarrador ? 'Criar Conta de Narrador' : 'Criar Conta'}
+        </button>
         <div class="login-toggle">Já tem conta? <a href="#" onclick="showLoginPanel(); return false;">Entrar</a></div>
       </div>
     </div>`;
   document.body.appendChild(overlay);
 
-  // Enter nos inputs faz login/cadastro
   overlay.addEventListener('keydown', e => {
     if (e.key !== 'Enter') return;
-    if (document.getElementById('login-panel').style.display !== 'none') doLogin();
-    else doRegister();
+    const regPanel = document.getElementById('register-panel');
+    if (regPanel && regPanel.style.display !== 'none') doRegister();
+    else doLogin();
   });
 
-  setTimeout(() => document.getElementById('login-user').focus(), 100);
+  setTimeout(() => {
+    const el = document.getElementById('login-user');
+    if (el) el.focus();
+  }, 100);
 }
 
 function showLoginPanel() {
@@ -901,7 +822,6 @@ function loginError(msg) {
   if (el) { el.textContent = msg; el.style.display = 'block'; }
 }
 
-// Hash simples (não é criptografia real, mas evita senha em texto puro no Firebase)
 async function hashPass(pass) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
@@ -912,9 +832,11 @@ async function doLogin() {
   const pass = document.getElementById('login-pass').value || '';
   if (!username || !pass) { loginError('Preencha usuário e senha.'); return; }
 
+  const role = IS_NARRADOR ? 'narrator' : 'player';
+
+  // Modo offline
   if (!firebaseRef) {
-    // Modo offline: login local simples
-    setCurrentUser({ id: 'local_' + username, name: username, role: 'player' });
+    setCurrentUser({ id: 'local_' + username, name: username, role });
     document.getElementById('login-overlay').remove();
     renderUserBadge();
     renderAll();
@@ -927,21 +849,24 @@ async function doLogin() {
     const u = snap.val();
     if (!u) { loginError('Usuário não encontrado.'); return; }
     if (u.hash !== hash) { loginError('Senha incorreta.'); return; }
-    setCurrentUser({ id: username, name: u.name, role: 'player' });
+    // Narrador só pode entrar com conta de narrador
+    if (IS_NARRADOR && u.role !== 'narrator') { loginError('Esta conta não tem acesso de Narrador.'); return; }
+    // Jogador não pode entrar com conta de narrador
+    if (IS_JOGADOR && u.role === 'narrator') { loginError('Use a página do Narrador para esta conta.'); return; }
+    setCurrentUser({ id: username, name: u.name, role: u.role || 'player' });
     document.getElementById('login-overlay').remove();
     renderUserBadge();
-    renderPsel();
-    renderJogador();
+    renderAll();
   }).catch(() => loginError('Erro de conexão. Tente novamente.'));
 }
 
 async function doRegister() {
-  const name = (document.getElementById('reg-name').value || '').trim();
+  const name     = (document.getElementById('reg-name').value || '').trim();
   const username = (document.getElementById('reg-user').value || '').trim().toLowerCase().replace(/\s+/g, '_');
-  const pass = document.getElementById('reg-pass').value || '';
-  if (!name) { loginError('Informe seu nome.'); return; }
-  if (!username) { loginError('Informe um nome de usuário.'); return; }
-  if (pass.length < 4) { loginError('Senha deve ter pelo menos 4 caracteres.'); return; }
+  const pass     = document.getElementById('reg-pass').value || '';
+  if (!name)               { loginError('Informe seu nome.'); return; }
+  if (!username)           { loginError('Informe um nome de usuário.'); return; }
+  if (pass.length < 4)     { loginError('Senha deve ter pelo menos 4 caracteres.'); return; }
   if (!/^[a-z0-9_]+$/.test(username)) { loginError('Usuário só pode ter letras, números e _'); return; }
 
   if (!firebaseRef) {
@@ -956,12 +881,11 @@ async function doRegister() {
   const ref = firebase.database().ref('ts_users/' + username);
   ref.once('value').then(snap => {
     if (snap.exists()) { loginError('Este nome de usuário já existe. Escolha outro.'); return; }
-    ref.set({ name, hash }).then(() => {
+    ref.set({ name, hash, role: IS_NARRADOR ? 'narrator' : 'player' }).then(() => {
       setCurrentUser({ id: username, name, role: 'player' });
       document.getElementById('login-overlay').remove();
       renderUserBadge();
-      renderPsel();
-      renderJogador();
+      renderAll();
     });
   }).catch(() => loginError('Erro ao criar conta. Tente novamente.'));
 }
@@ -970,7 +894,6 @@ function renderUserBadge() {
   if (!currentUser) return;
   const header = document.querySelector('.header');
   if (!header) return;
-  // Remove badge anterior se existir
   const old = document.getElementById('user-badge');
   if (old) old.remove();
 
@@ -986,3 +909,8 @@ function renderUserBadge() {
   header.appendChild(badge);
 }
 
+// ═══════════════════════════════════════
+// KICKOFF
+// ═══════════════════════════════════════
+loginInit();
+initFirebaseSync();
