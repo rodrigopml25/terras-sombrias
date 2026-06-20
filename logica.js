@@ -594,7 +594,7 @@ function renderJogador() {
           </button>
         </div>
         <div class="sk-tags">
-          <span class="sk-tag">${sk.cost===1?'1 ação':'2 ações'}</span>
+          <span class="sk-tag">${sk.cost===0?'0 ações':sk.cost===1?'1 ação':'2 ações'}</span>
           <span class="sk-tag">${tipoLabel(sk)}</span>
         </div>
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
