@@ -214,6 +214,7 @@ button {
 .mstat-arm { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
 .mstat-elm { background: var(--teal-bg); color: var(--teal); border: 1px solid var(--teal-bd); }
 .mstat-passos { background: var(--gray-bg); color: var(--gray); border: 1px solid var(--gray-bd); }
+.mstat-money { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
 .mstat-bm { background: var(--red-bg); color: #f08080; border: 1px solid var(--red-bd); font-weight: 700; }
 
 .prow-edit-btn {
@@ -1124,7 +1125,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   gap: 6px;
   margin-top: 4px;
 }
-.inv-tipo-btn, .inv-peso-btn, .inv-subtipo-btn {
+.inv-tipo-btn, .inv-peso-btn, .inv-subtipo-btn, .inv-alcance-btn {
   padding: 5px 12px;
   font-size: 12px;
   font-weight: 600;
@@ -1136,11 +1137,11 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   transition: all .15s;
   font-family: var(--font-body);
 }
-.inv-tipo-btn:hover, .inv-peso-btn:hover, .inv-subtipo-btn:hover {
+.inv-tipo-btn:hover, .inv-peso-btn:hover, .inv-subtipo-btn:hover, .inv-alcance-btn:hover {
   border-color: var(--accent-bd);
   color: var(--text);
 }
-.inv-tipo-btn.active, .inv-subtipo-btn.active {
+.inv-tipo-btn.active, .inv-subtipo-btn.active, .inv-alcance-btn.active {
   background: var(--accent-bg);
   border-color: var(--accent-bd);
   color: var(--accent2);
@@ -1181,3 +1182,50 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   font-family: var(--font-body);
 }
 .inv-extra-input:focus { outline: none; border-color: var(--accent-bd); }
+
+/* ── Inventário: munição / cristais de armas ── */
+.inv-municao-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.inv-municao-lbl {
+  font-size: 11px;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.inv-municao-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.inv-municao-ctrl button {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+.inv-municao-ctrl button:hover { background: var(--surface2); color: var(--text); }
+.inv-municao-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 16px;
+  text-align: center;
+  font-family: var(--font-display);
+}
