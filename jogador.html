@@ -96,7 +96,7 @@
 
     <div class="modal-overlay" id="modal-char-overlay">
       <div class="modal">
-        <h3>Novo Personagem</h3>
+        <h3 id="modal-char-title">Novo Personagem</h3>
         <div class="form-row">
           <label class="form-label">Nome</label>
           <input type="text" id="c-name" placeholder="Nome do personagem">
@@ -126,6 +126,17 @@
 
         <div style="display:flex; gap:10px;">
             <div class="form-row" style="flex:1">
+              <label class="form-label">Armadura (máxima)</label>
+              <input type="number" id="c-arm-max" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+            </div>
+            <div class="form-row" style="flex:1">
+              <label class="form-label">Passos</label>
+              <input type="number" id="c-passos" value="6" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+            </div>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <div class="form-row" style="flex:1">
               <label class="form-label">AGI</label>
               <input type="number" id="c-agi" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
             </div>
@@ -141,7 +152,7 @@
 
         <div class="modal-btns">
           <button class="btn" onclick="closeCharModal()">Cancelar</button>
-          <button class="btn btn-primary" onclick="saveCharacter()">Criar Personagem</button>
+          <button class="btn btn-primary" id="c-btn-save" onclick="saveCharacter()">Criar Personagem</button>
         </div>
       </div>
     </div>
