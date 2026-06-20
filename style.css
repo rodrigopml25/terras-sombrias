@@ -509,9 +509,10 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .am { border-radius: var(--radius-sm); padding: 6px 4px; text-align: center; }
 .am-lbl { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
 .am-val { font-size: 15px; font-weight: 700; font-family: var(--font-display); margin-top: 1px; }
-.am-agi { background: var(--green-bg); } .am-agi .am-lbl,.am-agi .am-val { color: var(--green); }
-.am-for { background: var(--red-bg); } .am-for .am-lbl,.am-for .am-val { color: #f08080; }
-.am-int { background: var(--blue-bg); } .am-int .am-lbl,.am-int .am-val { color: var(--blue); }
+.am-mst { font-size: 10px; font-weight: 600; margin-top: 2px; opacity: .75; }
+.am-agi { background: var(--green-bg); } .am-agi .am-lbl,.am-agi .am-val,.am-agi .am-mst { color: var(--green); }
+.am-for { background: var(--red-bg); } .am-for .am-lbl,.am-for .am-val,.am-for .am-mst { color: #f08080; }
+.am-int { background: var(--blue-bg); } .am-int .am-lbl,.am-int .am-val,.am-int .am-mst { color: var(--blue); }
 
 .equip2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
 .equip1 { grid-template-columns: 1fr; }
