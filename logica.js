@@ -53,6 +53,9 @@ let modalPid = null;
 let modalSkid = null;
 let modalColor = 'green';
 let modalCharId = null;
+let modalPassivaPid = null;
+let modalPassivaId = null;
+let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
 
 let firebaseRef = null;
 let firebaseOnline = false;
@@ -78,6 +81,7 @@ function applyData(data) {
   PLAYERS = data.PLAYERS || [];
   PLAYERS.forEach(p => {
     if (!Array.isArray(p.skills)) p.skills = [];
+    if (!Array.isArray(p.passivas)) p.passivas = [];
     if (typeof p.armaduraMax !== 'number') p.armaduraMax = typeof p.armadura === 'number' ? p.armadura : 10;
     if (typeof p.armadura !== 'number') p.armadura = p.armaduraMax;
     if (p.armadura > p.armaduraMax) p.armadura = p.armaduraMax;
@@ -458,8 +462,17 @@ function renderNarrador() {
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span>
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
+        <button class="prow-edit-btn ${narPassivasExpanded[p.id] ? 'prow-passiva-on' : ''}" onclick="toggleNarPassivas(${p.id})" title="Ver passivas / talentos (visível só para o Narrador)"><i class="ti ti-sparkles"></i></button>
         <button class="prow-edit-btn" onclick="editCharacter(${p.id})" title="Editar ficha do personagem"><i class="ti ti-edit"></i></button>
       </div>
+      ${narPassivasExpanded[p.id] ? `<div class="nar-passivas-box">
+        <div class="nar-passivas-title"><i class="ti ti-sparkles"></i> Passivas / Talentos de ${p.name}</div>
+        ${(p.passivas && p.passivas.length) ? p.passivas.map(pas => `
+          <div class="nar-passiva-item">
+            <div class="nar-passiva-name">${pas.name}</div>
+            <div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>
+          </div>`).join('') : '<div style="font-size:12px;color:var(--text3)">Nenhuma passiva cadastrada para este personagem.</div>'}
+      </div>` : ''}
       <div class="bars">
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
         <div class="bar-wrap ins"><div class="bar-lbl">Insanidade</div><div class="bar-track"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div></div>
@@ -599,6 +612,18 @@ function renderJogador() {
                    <div class="skills-grid">${cards}</div>`;
   });
 
+  const passivasList = Array.isArray(p.passivas) ? p.passivas : [];
+  const passivasHtml = passivasList.map(pas => `
+    <div class="passiva-card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div class="passiva-name"><i class="ti ti-sparkles"></i> ${pas.name}</div>
+        <button onclick="editPassiva(${p.id}, '${pas.id}')" title="Editar" style="background:none; border:none; color:var(--text3); cursor:pointer; padding:0; margin-left:8px;">
+          <i class="ti ti-edit" style="font-size:16px;"></i>
+        </button>
+      </div>
+      <div class="passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>
+    </div>`).join('');
+
   content.innerHTML = `
     <div class="j-sidebar">
       <div class="j-id-card">
@@ -670,6 +695,10 @@ function renderJogador() {
       </div>
       ${skillsHtml}
       <button class="add-skill-btn" onclick="openModal(${p.id})"><i class="ti ti-plus"></i> Adicionar habilidade</button>
+
+      <div class="group-title" style="margin-top:24px"><span class="gt-dot" style="background:var(--accent2)"></span>Passivas — Talentos</div>
+      <div class="passivas-grid">${passivasHtml || '<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma passiva cadastrada ainda.</div>'}</div>
+      <button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>
     </div>`;
 }
 
@@ -829,6 +858,87 @@ function saveSkill() {
 }
 
 // ═══════════════════════════════════════
+// MODAL PASSIVA / TALENTO
+// ═══════════════════════════════════════
+function openPassivaModal(pid) {
+  modalPassivaPid = pid;
+  modalPassivaId = null;
+
+  document.getElementById('modal-passiva-title').textContent = 'Nova Passiva / Talento';
+  document.getElementById('mp-btn-del').style.display = 'none';
+  document.getElementById('mp-btn-save').textContent = 'Adicionar';
+
+  document.getElementById('mp-name').value = '';
+  document.getElementById('mp-desc').value = '';
+
+  document.getElementById('modal-passiva-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('mp-name').focus(), 50);
+}
+
+function editPassiva(pid, pasid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const pas = (p.passivas || []).find(x => x.id === pasid);
+  if (!pas) return;
+
+  modalPassivaPid = pid;
+  modalPassivaId = pasid;
+
+  document.getElementById('modal-passiva-title').textContent = 'Editar Passiva / Talento';
+  document.getElementById('mp-btn-del').style.display = 'inline-block';
+  document.getElementById('mp-btn-save').textContent = 'Salvar';
+
+  document.getElementById('mp-name').value = pas.name;
+  document.getElementById('mp-desc').value = pas.desc || '';
+
+  document.getElementById('modal-passiva-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('mp-name').focus(), 50);
+}
+
+function deletePassiva() {
+  if (!modalPassivaId || !modalPassivaPid) return;
+  if (!confirm('Tem certeza que deseja excluir esta passiva? Esta ação não pode ser desfeita.')) return;
+  const p = PLAYERS.find(x => x.id === modalPassivaPid);
+  if (p) {
+    p.passivas = (p.passivas || []).filter(x => x.id !== modalPassivaId);
+    saveState();
+    renderAll();
+  }
+  closePassivaModal();
+}
+
+function closePassivaModal() {
+  const overlay = document.getElementById('modal-passiva-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
+
+function savePassiva() {
+  const name = document.getElementById('mp-name').value.trim();
+  if (!name) { document.getElementById('mp-name').focus(); return; }
+  const desc = document.getElementById('mp-desc').value.trim();
+
+  const p = PLAYERS.find(x => x.id === modalPassivaPid);
+  if (p) {
+    if (!Array.isArray(p.passivas)) p.passivas = [];
+    if (modalPassivaId) {
+      const pas = p.passivas.find(x => x.id === modalPassivaId);
+      if (pas) { pas.name = name; pas.desc = desc; }
+    } else {
+      p.passivas.push({ id: 'pas_' + Date.now(), name, desc });
+    }
+    saveState();
+    renderAll();
+  }
+  closePassivaModal();
+}
+
+// Narrador: alterna a exibição das passivas de um personagem específico (sem sincronizar entre dispositivos)
+function toggleNarPassivas(pid) {
+  narPassivasExpanded[pid] = !narPassivasExpanded[pid];
+  renderNarrador();
+}
+
+// ═══════════════════════════════════════
 // MODAL PERSONAGEM
 // ═══════════════════════════════════════
 function openCharModal() {
@@ -926,7 +1036,7 @@ function saveCharacter() {
       hp: hpMax, hpMax, agi, forca, intel,
       armadura: armaduraMax, armaduraMax,
       elmo: elmoMax, elmoMax,
-      passos, ins, skills: [],
+      passos, ins, skills: [], passivas: [],
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
     });
