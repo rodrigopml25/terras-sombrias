@@ -212,6 +212,7 @@ button {
 .mstat-hp { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
 .mstat-ins { background: var(--rose-bg); color: var(--rose); border: 1px solid var(--rose-bd); }
 .mstat-arm { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
+.mstat-elm { background: var(--teal-bg); color: var(--teal); border: 1px solid var(--teal-bd); }
 .mstat-passos { background: var(--gray-bg); color: var(--gray); border: 1px solid var(--gray-bd); }
 .mstat-bm { background: var(--red-bg); color: #f08080; border: 1px solid var(--red-bd); font-weight: 700; }
 
@@ -244,6 +245,23 @@ button {
   color: var(--text2);
 }
 .nar-ctrl-btns button:hover { background: var(--surface2); color: var(--text); }
+.nar-ctrl-input {
+  width: 44px;
+  padding: 3px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  border-radius: 5px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-body, inherit);
+}
+.nar-ctrl-input:focus { outline: none; border-color: var(--border2); }
+/* remove as setas padrão do input number para ficar mais limpo */
+.nar-ctrl-input::-webkit-inner-spin-button,
+.nar-ctrl-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.nar-ctrl-input[type=number] { -moz-appearance: textfield; }
 
 /* barras */
 .bars { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
@@ -251,6 +269,7 @@ button {
 .bar-wrap.vida { flex: 2; }
 .bar-wrap.ins { flex: 1; }
 .bar-wrap.arm { flex: 1; }
+.bar-wrap.elm { flex: 1; }
 .bar-lbl { font-size: 10px; color: var(--text3); }
 .bar-track {
   height: 5px;
@@ -264,6 +283,7 @@ button {
 .bfill-vida-low { background: var(--red); }
 .bfill-ins { background: var(--rose); }
 .bfill-arm { background: var(--amber); }
+.bfill-elm { background: var(--teal); }
 
 /* chips habilidade */
 .skills-chips { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -421,6 +441,24 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .hp-ctrl { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 3px; margin-top: 6px; }
 .hp-ctrl button { padding: 4px 0; font-size: 12px; font-weight: 500; border-radius: 5px; background: var(--bg3); border: 1px solid var(--border); color: var(--text2); }
 .hp-ctrl button:hover { background: var(--surface2); color: var(--text); }
+.hp-ctrl-5 { grid-template-columns: 1fr 1fr 1.3fr 1fr 1fr; }
+
+.stat-input {
+  width: 100%;
+  padding: 4px 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  border-radius: 5px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--font-body, inherit);
+}
+.stat-input:focus { outline: none; border-color: var(--accent2); }
+.stat-input::-webkit-inner-spin-button,
+.stat-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.stat-input[type=number] { -moz-appearance: textfield; }
 
 .bm-alert {
   background: var(--red-bg); border: 1px solid var(--red-bd);
@@ -433,10 +471,12 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .ins-ctrl { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 3px; margin-top: 6px; }
 .ins-ctrl button { padding: 4px 0; font-size: 12px; font-weight: 500; border-radius: 5px; background: var(--bg3); border: 1px solid var(--border); color: var(--text2); }
 .ins-ctrl button:hover { background: var(--surface2); color: var(--text); }
+.ins-ctrl-5 { grid-template-columns: 1fr 1fr 1.3fr 1fr 1fr; }
 
 .arm-ctrl { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 6px; }
 .arm-ctrl button { padding: 4px 0; font-size: 12px; font-weight: 500; border-radius: 5px; background: var(--bg3); border: 1px solid var(--border); color: var(--text2); }
 .arm-ctrl button:hover { background: var(--surface2); color: var(--text); }
+.arm-ctrl-3 { grid-template-columns: 1fr 1.4fr 1fr; }
 
 .seq-alert {
   background: var(--rose-bg); border: 1px solid var(--rose-bd);
@@ -454,6 +494,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .am-int { background: var(--blue-bg); } .am-int .am-lbl,.am-int .am-val { color: var(--blue); }
 
 .equip2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+.equip1 { grid-template-columns: 1fr; }
 .eqm { border-radius: var(--radius-sm); padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; }
 .eqm-lbl { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
 .eqm-val { font-size: 15px; font-weight: 700; font-family: var(--font-display); }
