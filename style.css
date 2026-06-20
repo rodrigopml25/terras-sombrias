@@ -212,7 +212,14 @@ button {
 .mstat-hp { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
 .mstat-ins { background: var(--rose-bg); color: var(--rose); border: 1px solid var(--rose-bd); }
 .mstat-arm { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
+.mstat-passos { background: var(--gray-bg); color: var(--gray); border: 1px solid var(--gray-bd); }
 .mstat-bm { background: var(--red-bg); color: #f08080; border: 1px solid var(--red-bd); font-weight: 700; }
+
+.prow-edit-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 16px; padding: 4px; flex-shrink: 0;
+}
+.prow-edit-btn:hover { color: var(--text); }
 
 /* controles do narrador para ajustar vida/insanidade/armadura dos jogadores */
 .nar-ctrl-row {
@@ -243,6 +250,7 @@ button {
 .bar-wrap { display: flex; flex-direction: column; gap: 3px; }
 .bar-wrap.vida { flex: 2; }
 .bar-wrap.ins { flex: 1; }
+.bar-wrap.arm { flex: 1; }
 .bar-lbl { font-size: 10px; color: var(--text3); }
 .bar-track {
   height: 5px;
@@ -255,6 +263,7 @@ button {
 .bfill-vida-mid { background: var(--amber); }
 .bfill-vida-low { background: var(--red); }
 .bfill-ins { background: var(--rose); }
+.bfill-arm { background: var(--amber); }
 
 /* chips habilidade */
 .skills-chips { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -425,6 +434,10 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .ins-ctrl button { padding: 4px 0; font-size: 12px; font-weight: 500; border-radius: 5px; background: var(--bg3); border: 1px solid var(--border); color: var(--text2); }
 .ins-ctrl button:hover { background: var(--surface2); color: var(--text); }
 
+.arm-ctrl { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 6px; }
+.arm-ctrl button { padding: 4px 0; font-size: 12px; font-weight: 500; border-radius: 5px; background: var(--bg3); border: 1px solid var(--border); color: var(--text2); }
+.arm-ctrl button:hover { background: var(--surface2); color: var(--text); }
+
 .seq-alert {
   background: var(--rose-bg); border: 1px solid var(--rose-bd);
   border-radius: var(--radius-sm); padding: 6px 8px;
@@ -446,6 +459,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .eqm-val { font-size: 15px; font-weight: 700; font-family: var(--font-display); }
 .eqm-arm { background: var(--amber-bg); } .eqm-arm .eqm-lbl,.eqm-arm .eqm-val { color: var(--amber); }
 .eqm-elm { background: var(--teal-bg); } .eqm-elm .eqm-lbl,.eqm-elm .eqm-val { color: var(--teal); }
+.eqm-passos { background: var(--gray-bg); } .eqm-passos .eqm-lbl,.eqm-passos .eqm-val { color: var(--gray); }
 
 /* ═══════════════════════════════════════════
    ÁREA DE HABILIDADES (JOGADOR)
