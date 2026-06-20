@@ -802,10 +802,10 @@ function renderJogador() {
       </div>
       ${passivasCollapsed ? '' : `<div class="passivas-grid">${passivasHtml || '<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma passiva cadastrada ainda.</div>'}</div>`}
       ${passivasCollapsed ? '' : `<button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>`}
-    </div>
-    </div>
 
-    ${renderInventarioArea(p)}
+      ${renderInventarioArea(p)}
+    </div>
+    </div>
     `;
 }
 
