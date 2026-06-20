@@ -944,9 +944,9 @@ select:focus { outline: none; border-color: var(--accent-bd); }
    INVENTÁRIO
 ═══════════════════════════════════════════ */
 .inv-area {
-  padding: 0 20px 32px;
+  padding: 0;
   border-top: 1px solid var(--border);
-  margin-top: 8px;
+  margin-top: 16px;
 }
 
 .inv-header {
