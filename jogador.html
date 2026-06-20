@@ -183,6 +183,111 @@
       </div>
     </div>
     
+    <div class="modal-overlay" id="modal-inv-overlay">
+      <div class="modal" style="max-width:520px">
+        <h3 id="inv-modal-title">Novo Item</h3>
+
+        <!-- Tipo -->
+        <div class="form-row">
+          <label class="form-label">Tipo de item</label>
+          <div class="inv-tipo-group">
+            <button class="inv-tipo-btn active" data-tipo="arma"     onclick="invSelectTipo('arma')">⚔️ Arma</button>
+            <button class="inv-tipo-btn"        data-tipo="protecao" onclick="invSelectTipo('protecao')">🛡 Proteção</button>
+            <button class="inv-tipo-btn"        data-tipo="item"     onclick="invSelectTipo('item')">📦 Item</button>
+          </div>
+        </div>
+
+        <!-- Nome -->
+        <div class="form-row">
+          <label class="form-label">Nome</label>
+          <input type="text" id="inv-m-name" placeholder="Nome do item">
+        </div>
+
+        <!-- Seção: ARMA -->
+        <div id="inv-sec-arma">
+          <div class="form-row">
+            <label class="form-label">Peso / Categoria</label>
+            <div class="inv-peso-group">
+              <button class="inv-peso-btn active" data-peso="leve"   onclick="invSelectPeso('leve')">Leve</button>
+              <button class="inv-peso-btn"        data-peso="media"  onclick="invSelectPeso('media')">Média</button>
+              <button class="inv-peso-btn"        data-peso="pesada" onclick="invSelectPeso('pesada')">Pesada</button>
+              <button class="inv-peso-btn"        data-peso="exotica" onclick="invSelectPeso('exotica')">Exótica</button>
+              <button class="inv-peso-btn"        data-peso="mega"   onclick="invSelectPeso('mega')">Mega Pesada</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Dano (ex: 1d6, 2d8+2)</label>
+            <input type="text" id="inv-m-dano" placeholder="Ex: 1d8">
+          </div>
+        </div>
+
+        <!-- Seção: PROTEÇÃO -->
+        <div id="inv-sec-protecao" style="display:none">
+          <div class="form-row">
+            <label class="form-label">Tipo de proteção</label>
+            <div class="inv-tipo-group">
+              <button class="inv-subtipo-btn active" data-sub="armadura" onclick="invSelectSub('armadura')">🛡 Armadura</button>
+              <button class="inv-subtipo-btn"        data-sub="elmo"     onclick="invSelectSub('elmo')">⛑ Elmo</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Peso / Categoria</label>
+            <div class="inv-peso-group">
+              <button class="inv-peso-btn active" data-peso="leve"    onclick="invSelectPeso('leve')">Leve</button>
+              <button class="inv-peso-btn"        data-peso="media"   onclick="invSelectPeso('media')">Média</button>
+              <button class="inv-peso-btn"        data-peso="pesada"  onclick="invSelectPeso('pesada')">Pesada</button>
+              <button class="inv-peso-btn"        data-peso="exotica" onclick="invSelectPeso('exotica')">Exótica</button>
+              <button class="inv-peso-btn"        data-peso="mega"    onclick="invSelectPeso('mega')">Mega Pesada</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Valor de proteção</label>
+            <input type="number" id="inv-m-valor" placeholder="Ex: 5" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+          </div>
+        </div>
+
+        <!-- Seção: ITEM GENÉRICO -->
+        <div id="inv-sec-item" style="display:none">
+          <div class="form-row">
+            <label class="form-label">Quantidade (opcional)</label>
+            <input type="number" id="inv-m-qtd" min="1" placeholder="Ex: 3" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+          </div>
+        </div>
+
+        <!-- Efeito (todos) -->
+        <div class="form-row">
+          <label class="form-label">Efeito / Descrição (opcional)</label>
+          <textarea id="inv-m-efeito" placeholder="Descreva o efeito ou observações..." style="width:100%;min-height:56px;font-size:12px;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);resize:vertical;font-family:var(--font-body);line-height:1.5"></textarea>
+        </div>
+
+        <!-- Aprimoramentos (Exótica) -->
+        <div id="inv-sec-exotica" style="display:none">
+          <div class="inv-sub-header">
+            <span><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Aprimoramentos</span>
+            <button class="btn" style="padding:3px 9px;font-size:11px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar</button>
+          </div>
+          <div id="inv-aprimos-list"></div>
+        </div>
+
+        <!-- Ativas (Mega Pesada) -->
+        <div id="inv-sec-mega" style="display:none">
+          <div class="inv-sub-header">
+            <span><i class="ti ti-bolt" style="color:#c44aff"></i> Ativas</span>
+            <button class="btn" style="padding:3px 9px;font-size:11px" onclick="addInvAtiva()"><i class="ti ti-plus"></i> Adicionar</button>
+          </div>
+          <div id="inv-ativas-list"></div>
+        </div>
+
+        <div class="modal-btns" style="display:flex;justify-content:space-between">
+          <button class="btn btn-danger" id="inv-m-del" style="display:none" onclick="deleteInvItem()"><i class="ti ti-trash"></i> Excluir</button>
+          <div style="display:flex;gap:10px;margin-left:auto">
+            <button class="btn" onclick="closeInvModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveInvItem()">Salvar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
     <script>
