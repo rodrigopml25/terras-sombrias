@@ -5,8 +5,8 @@
 let currentUser = null;
 
 // Detecta qual página está aberta
-const IS_JOGADOR  = !!document.getElementById('psel');
-const IS_NARRADOR = !!document.getElementById('nar-players');
+let IS_JOGADOR  = false;
+let IS_NARRADOR = false;
 
 function loginInit() {
   try {
@@ -912,5 +912,9 @@ function renderUserBadge() {
 // ═══════════════════════════════════════
 // KICKOFF
 // ═══════════════════════════════════════
-loginInit();
-initFirebaseSync();
+document.addEventListener('DOMContentLoaded', () => {
+  IS_JOGADOR  = !!document.getElementById('psel');
+  IS_NARRADOR = !!document.getElementById('nar-players');
+  loginInit();
+  initFirebaseSync();
+});
