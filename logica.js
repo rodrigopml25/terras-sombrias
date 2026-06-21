@@ -31,6 +31,16 @@ function logout() {
 // ═══════════════════════════════════════
 const DEFAULT_PLAYERS = [];
 
+// Bruxos possuem o Atributo Secundário exclusivo "Humanidade": começa cheio
+// (10/10) ao se tornar Bruxo e o máximo é fixo — não existe forma de aumentá-lo.
+const HUMANIDADE_MAX = 10;
+
+// Retorna a Humanidade atual de um personagem (fallback para o máximo em
+// fichas antigas que ainda não tinham esse campo).
+function getHumanidade(p) {
+  return (typeof p.humanidade === 'number') ? p.humanidade : HUMANIDADE_MAX;
+}
+
 // ═══════════════════════════════════════
 // CLASSES E SUBCLASSES
 // ═══════════════════════════════════════
@@ -497,6 +507,24 @@ function setIns(id, val) {
   saveState(); renderAll();
 }
 
+// Humanidade — exclusivo de Bruxo. Máximo sempre HUMANIDADE_MAX (fixo, não
+// editável); apenas o valor Atual pode subir/baixar dentro desse limite.
+function adjHumanidade(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  p.humanidade = Math.max(0, Math.min(HUMANIDADE_MAX, getHumanidade(p) + d));
+  saveState(); renderAll();
+}
+
+function setHumanidade(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  p.humanidade = Math.max(0, Math.min(HUMANIDADE_MAX, v));
+  saveState(); renderAll();
+}
+
 function adjArmadura(id, d) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return; p.armadura = Math.max(0, Math.min(p.armaduraMax || 0, (p.armadura || 0) + d));
@@ -609,6 +637,8 @@ function renderNarrador() {
     const insPct = Math.round(p.ins);
     const armPct = p.armaduraMax > 0 ? Math.round(p.armadura / p.armaduraMax * 100) : 0;
     const elmPct = p.elmoMax > 0 ? Math.round(p.elmo / p.elmoMax * 100) : 0;
+    const isBruxo = p.classeBase === 'Bruxo';
+    const humanPct = Math.round(getHumanidade(p) / HUMANIDADE_MAX * 100);
     const bm = p.hp === 0;
 
     // ── Habilidades agrupadas por atributo ──
@@ -660,7 +690,7 @@ function renderNarrador() {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica') ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
@@ -671,6 +701,7 @@ function renderNarrador() {
       <div class="bars">
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
         <div class="bar-wrap ins"><div class="bar-lbl">Insanidade</div><div class="bar-track"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div></div>
+        ${isBruxo ? `<div class="bar-wrap human"><div class="bar-lbl">Humanidade</div><div class="bar-track"><div class="bar-fill bfill-human" style="width:${humanPct}%"></div></div></div>` : ''}
         <div class="bar-wrap arm"><div class="bar-lbl">Armadura</div><div class="bar-track"><div class="bar-fill bfill-arm" style="width:${armPct}%"></div></div></div>
         <div class="bar-wrap elm"><div class="bar-lbl">Elmo</div><div class="bar-track"><div class="bar-fill bfill-elm" style="width:${elmPct}%"></div></div></div>
       </div>
@@ -695,6 +726,15 @@ function renderNarrador() {
             <button onclick="adjIns(${p.id},+10)">+10</button>
           </div>
         </div>
+        ${isBruxo ? `
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">🩸 Humanidade</span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjHumanidade(${p.id},-1)">−1</button>
+            <input type="number" class="nar-ctrl-input" value="${getHumanidade(p)}" onchange="setHumanidade(${p.id}, this.value)">
+            <button onclick="adjHumanidade(${p.id},+1)">+1</button>
+          </div>
+        </div>` : ''}
         <div class="nar-ctrl-group">
           <span class="nar-ctrl-lbl">🛡 Armadura</span>
           <div class="nar-ctrl-btns">
@@ -784,6 +824,8 @@ function renderJogador() {
   const xpPct = Math.round(p.xp / 10 * 100);
   const bm = p.hp === 0;
   const temSeq = p.ins >= 25;
+  const isBruxo = p.classeBase === 'Bruxo';
+  const humanPct = Math.round(getHumanidade(p) / HUMANIDADE_MAX * 100);
 
   const grupos = { green:[], red:[], blue:[], gray:[] };
   p.skills.forEach(sk => grupos[sk.color] && grupos[sk.color].push(sk));
@@ -894,6 +936,17 @@ function renderJogador() {
         </div>
         <div class="seq-alert ${temSeq?'show':''}">Sequela emocional — ${Math.floor(p.ins/25)} marca(s). Role 1d6.</div>
       </div>
+      ${isBruxo ? `
+      <div class="stat-block">
+        <div class="stat-row"><span class="stat-lbl"><i class="ti ti-droplet-filled" style="color:var(--accent2)"></i> Humanidade</span><span class="stat-val" style="color:var(--accent2)">${getHumanidade(p)}/${HUMANIDADE_MAX}</span></div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Recurso exclusivo de Bruxo. Máximo fixo em ${HUMANIDADE_MAX} (não aumenta) — gaste para ativar o efeito bônus das Habilidades.</div>
+        <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-human" style="width:${humanPct}%"></div></div>
+        <div class="arm-ctrl arm-ctrl-3">
+          <button onclick="adjHumanidade(${p.id},-1)">−1</button>
+          <input type="number" class="stat-input" value="${getHumanidade(p)}" onchange="setHumanidade(${p.id}, this.value)">
+          <button onclick="adjHumanidade(${p.id},+1)">+1</button>
+        </div>
+      </div>` : ''}
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-shield" style="color:var(--amber)"></i> Armadura</span><span class="stat-val" style="color:var(--amber)">${p.armadura}/${p.armaduraMax}</span></div>
         <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-arm" style="width:${armPct}%"></div></div>
@@ -1654,6 +1707,8 @@ function buildClassSelector() {
        onclick="selectClasse('${cls.name}')">${cls.name}</button>`
   ).join('');
   if (subWrap) subWrap.innerHTML = '';
+  const note = document.getElementById('c-bruxo-note');
+  if (note) note.style.display = 'none';
 }
 
 function selectClasse(clsName, keepSub) {
@@ -1664,6 +1719,8 @@ function selectClasse(clsName, keepSub) {
   if (!cls) return;
   const subWrap = document.getElementById('c-sub-btns');
   if (!subWrap) return;
+  const note = document.getElementById('c-bruxo-note');
+  if (note) note.style.display = (clsName === 'Bruxo') ? 'block' : 'none';
   const ATTR_LABEL = { agi: 'AGI', forca: 'FOR', intel: 'INT' };
   const ATTR_COLOR = { agi: 'var(--green)', forca: 'var(--red)', intel: 'var(--blue)' };
   subWrap.innerHTML = cls.subs.map(sub =>
@@ -1793,10 +1850,16 @@ function saveCharacter() {
   if (modalCharId) {
     const p = PLAYERS.find(x => x.id === modalCharId);
     if (p) {
+      const eraBruxo = p.classeBase === 'Bruxo';
       p.name = name; p.race = race; p.cls = cls; p.classeBase = classeBase; p.hpMax = hpMax;
       if (p.hp > hpMax) p.hp = hpMax;
       p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
       p.passos = passos; p.dinheiro = dinheiro;
+      // Humanidade: vira Bruxo agora (ou ainda não tinha o campo) → inicia
+      // cheia (10/10). Se já era Bruxo, mantém o valor atual sem resetar.
+      if (classeBase === 'Bruxo' && (!eraBruxo || typeof p.humanidade !== 'number')) {
+        p.humanidade = HUMANIDADE_MAX;
+      }
     }
   } else {
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
@@ -1809,6 +1872,7 @@ function saveCharacter() {
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
     };
+    if (classeBase === 'Bruxo') novo.humanidade = HUMANIDADE_MAX;
     ensureGeneralSkills(novo);
     PLAYERS.push(novo);
     modalCharId = newId;
