@@ -133,6 +133,7 @@ function applyData(data) {
     if (p.elmo > p.elmoMax) p.elmo = p.elmoMax;
     if (typeof p.passos !== 'number') p.passos = 6;
     if (typeof p.dinheiro !== 'number') p.dinheiro = 100;
+    if (typeof p.cristais !== 'number') p.cristais = 0;
     // Migração: itens de proteção criados antes do controle de "equipado" não têm
     // esse campo ainda — equipa automaticamente o primeiro de cada tipo para não
     // zerar a armadura/elmo de personagens já existentes.
@@ -472,6 +473,21 @@ function setElmo(id, val) {
   saveState(); renderAll();
 }
 
+function adjCristais(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return; p.cristais = Math.max(0, (p.cristais || 0) + d);
+  saveState(); renderAll();
+}
+
+function setCristais(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  p.cristais = Math.max(0, v);
+  saveState(); renderAll();
+}
+
 function adjDinheiro(id, d) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return; p.dinheiro = Math.max(0, (p.dinheiro || 0) + d);
@@ -591,6 +607,7 @@ function renderNarrador() {
         <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.cls} · Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          ${(p.inventario || []).some(i => i.peso === 'exotica') ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
         <button class="prow-edit-btn ${skillsExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarSkills(${p.id})" title="Ver habilidades agrupadas por atributo"><i class="ti ti-sword"></i></button>
@@ -650,6 +667,15 @@ function renderNarrador() {
             <button onclick="adjDinheiro(${p.id},+10)">+10</button>
           </div>
         </div>
+        ${(p.inventario || []).some(i => i.peso === 'exotica') ? `
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl" style="color:var(--accent2)">💎 Cristais</span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjCristais(${p.id},-1)">−1</button>
+            <input type="number" class="nar-ctrl-input" value="${p.cristais || 0}" onchange="setCristais(${p.id}, this.value)">
+            <button onclick="adjCristais(${p.id},+1)">+1</button>
+          </div>
+        </div>` : ''}
       </div>
       ${skillsExpanded ? `<div class="nar-skills-box">${gruposHtml}</div>` : ''}
       ${passivasExpanded ? `<div class="nar-passivas-box">
@@ -850,6 +876,16 @@ function renderJogador() {
           <button onclick="adjDinheiro(${p.id},+1)">+1</button><button onclick="adjDinheiro(${p.id},+10)">+10</button>
         </div>
       </div>
+      ${(p.inventario || []).some(i => i.peso === 'exotica') ? `
+      <div class="stat-block">
+        <div class="stat-row"><span class="stat-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais</span><span class="stat-val" style="color:var(--accent2)">${p.cristais || 0}</span></div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Pool compartilhado entre todos os equipamentos exóticos.</div>
+        <div class="arm-ctrl arm-ctrl-3">
+          <button onclick="adjCristais(${p.id},-1)">−1</button>
+          <input type="number" class="stat-input" value="${p.cristais || 0}" onchange="setCristais(${p.id}, this.value)">
+          <button onclick="adjCristais(${p.id},+1)">+1</button>
+        </div>
+      </div>` : ''}
     </div>
 
     <div class="skills-area">
@@ -908,6 +944,17 @@ function renderInventarioArea(p) {
     const label = usaCristal ? 'Cristais' : 'Munição';
     const icon  = usaCristal ? 'ti-diamond' : 'ti-target-arrow';
     const color = usaCristal ? 'var(--accent2)' : 'var(--teal)';
+    if (usaCristal) {
+      // Cristais são do personagem, compartilhados entre todos os itens exóticos
+      return `<div class="inv-municao-row">
+        <span class="inv-municao-lbl"><i class="ti ${icon}" style="color:${color}"></i> ${label} <span style="font-size:10px;color:var(--text3)">(compartilhados)</span></span>
+        <div class="inv-municao-ctrl">
+          <button onclick="adjCristais(${p.id},-1)">−</button>
+          <span class="inv-municao-val">${p.cristais || 0}</span>
+          <button onclick="adjCristais(${p.id},+1)">+</button>
+        </div>
+      </div>`;
+    }
     return `<div class="inv-municao-row">
       <span class="inv-municao-lbl"><i class="ti ${icon}" style="color:${color}"></i> ${label}</span>
       <div class="inv-municao-ctrl">
@@ -958,6 +1005,14 @@ function renderInventarioArea(p) {
       </div>
       ${item.valor != null ? `<div class="inv-dano"><span class="inv-dano-label">${valLabel}</span><span class="inv-dano-val">${item.valor}</span></div>` : ''}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
+      ${item.peso === 'exotica' ? `<div class="inv-municao-row">
+        <span class="inv-municao-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais <span style="font-size:10px;color:var(--text3)">(compartilhados)</span></span>
+        <div class="inv-municao-ctrl">
+          <button onclick="adjCristais(${p.id},-1)">−</button>
+          <span class="inv-municao-val">${p.cristais || 0}</span>
+          <button onclick="adjCristais(${p.id},+1)">+</button>
+        </div>
+      </div>` : ''}
     </div>`;
   }
 
@@ -1081,8 +1136,13 @@ function _buildInvModal(data) {
   document.querySelectorAll('.inv-alcance-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.alcance === alcanceVal);
   });
-  // munição / cristais (arma de longo alcance ou exótica)
-  document.getElementById('inv-m-municao').value = data.municao != null ? data.municao : '';
+  // munição / cristais (arma de longo alcance ou exótica; proteção exótica usa p.cristais)
+  let municaoVal = data.municao != null ? data.municao : '';
+  if (tipo === 'protecao' && (data.peso || 'leve') === 'exotica' && modalInvPid) {
+    const pOwner = PLAYERS.find(x => x.id === modalInvPid);
+    if (pOwner) municaoVal = pOwner.cristais || 0;
+  }
+  document.getElementById('inv-m-municao').value = municaoVal;
   // valor protecao
   document.getElementById('inv-m-valor').value = data.valor != null ? data.valor : '';
   // subtipo protecao
@@ -1118,12 +1178,13 @@ function _updateInvModalSections(tipo) {
   document.getElementById('inv-sec-exotica').style.display   = (tipo === 'arma' && peso === 'exotica') ? '' : 'none';
   document.getElementById('inv-sec-mega').style.display      = (tipo === 'arma' && peso === 'mega')    ? '' : 'none';
 
-  // Munição (armas de longo alcance) ou Cristais (armas exóticas, qualquer alcance)
+  // Munição (armas de longo alcance) ou Cristais (armas/proteções exóticas)
   const alcance = _invSelectedAlcance();
-  const precisaMunicao = tipo === 'arma' && (alcance === 'longo' || peso === 'exotica');
+  const precisaMunicao = (tipo === 'arma' && (alcance === 'longo' || peso === 'exotica'))
+                      || (tipo === 'protecao' && peso === 'exotica');
   document.getElementById('inv-sec-municao').style.display = precisaMunicao ? '' : 'none';
   const municaoLabel = document.getElementById('inv-municao-label');
-  if (municaoLabel) municaoLabel.textContent = peso === 'exotica' ? 'Cristais' : 'Munição';
+  if (municaoLabel) municaoLabel.textContent = peso === 'exotica' ? 'Cristais (pool compartilhado)' : 'Munição';
 
   _renderInvAprimos();
   _renderInvAtivas();
@@ -1226,11 +1287,17 @@ function saveInvItem() {
   const base = { name, efeito, tipo };
   if (tipo === 'arma') {
     Object.assign(base, { peso, dano, alcance });
-    if (alcance === 'longo' || peso === 'exotica') base.municao = municao;
+    if (alcance === 'longo') base.municao = municao;
+    // Armas exóticas: cristais ficam em p.cristais (pool do personagem), não no item
     if (peso === 'exotica') base.aprimoramentos = invAprimos.filter(a => a.name);
     if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
   } else if (tipo === 'protecao') {
     Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, equipado });
+    // Proteções exóticas: atualiza o pool de cristais do personagem
+    if (peso === 'exotica') {
+      const p2 = PLAYERS.find(x => x.id === modalInvPid);
+      if (p2) { p2.cristais = municao; }
+    }
   } else {
     if (qtd !== null) base.qtd = qtd;
   }
