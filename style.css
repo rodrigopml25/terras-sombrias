@@ -1229,3 +1229,60 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   text-align: center;
   font-family: var(--font-display);
 }
+
+/* ─── Seletor de Classe / Subclasse ─────────────────────────────── */
+.cls-btn-group,
+.sub-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cls-btn {
+  padding: 5px 11px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+  font-family: var(--font-body);
+}
+.cls-btn:hover  { border-color: var(--border2); color: var(--text); }
+.cls-btn.active {
+  border-color: var(--accent);
+  background: rgba(124,92,191,0.15);
+  color: var(--accent2);
+  font-weight: 600;
+}
+
+.sub-btn {
+  padding: 5px 11px;
+  border-radius: 7px;
+  border: 1px dashed var(--border);
+  background: var(--bg2);
+  color: var(--text2);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: border-color .15s, background .15s, color .15s;
+  font-family: var(--font-body);
+}
+.sub-btn:hover  { border-color: var(--border2); color: var(--text); }
+.sub-btn.active {
+  border-color: var(--accent2);
+  border-style: solid;
+  background: rgba(124,92,191,0.12);
+  color: var(--text);
+}
+
+.sub-attr-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  opacity: .85;
+}
