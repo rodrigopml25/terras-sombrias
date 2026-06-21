@@ -28,6 +28,7 @@
   --accent:    #7c5cbf;  /* roxo arcano — cor-assinatura */
   --accent-bg: #1a1228;
   --accent-bd: #3d2a60;
+  --accent2:   #9b7de0;  /* roxo arcano claro — destaques (Cristais, Humanidade...) */
 
   --radius-sm: 6px;
   --radius:    10px;
@@ -213,6 +214,7 @@ button {
 .mstat-ins { background: var(--rose-bg); color: var(--rose); border: 1px solid var(--rose-bd); }
 .mstat-arm { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
 .mstat-elm { background: var(--teal-bg); color: var(--teal); border: 1px solid var(--teal-bd); }
+.mstat-human { background: var(--accent-bg); color: var(--accent2); border: 1px solid var(--accent-bd); }
 .mstat-passos { background: var(--gray-bg); color: var(--gray); border: 1px solid var(--gray-bd); }
 .mstat-money { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
 .mstat-bm { background: var(--red-bg); color: #f08080; border: 1px solid var(--red-bd); font-weight: 700; }
@@ -337,6 +339,7 @@ button {
 .bar-wrap.ins { flex: 1; }
 .bar-wrap.arm { flex: 1; }
 .bar-wrap.elm { flex: 1; }
+.bar-wrap.human { flex: 1; }
 .bar-lbl { font-size: 10px; color: var(--text3); }
 .bar-track {
   height: 5px;
@@ -351,6 +354,7 @@ button {
 .bfill-ins { background: var(--rose); }
 .bfill-arm { background: var(--amber); }
 .bfill-elm { background: var(--teal); }
+.bfill-human { background: var(--accent2); }
 
 /* chips habilidade */
 .skills-chips { display: flex; flex-wrap: wrap; gap: 5px; }
