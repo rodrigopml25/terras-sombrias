@@ -723,7 +723,7 @@ function renderNarrador() {
         </div>
         ${(p.inventario || []).some(i => i.peso === 'exotica') ? `
         <div class="nar-ctrl-group">
-          <span class="nar-ctrl-lbl" style="color:var(--accent2)">💎 Cristais</span>
+          <span class="nar-ctrl-lbl">💎 Cristais</span>
           <div class="nar-ctrl-btns">
             <button onclick="adjCristais(${p.id},-1)">−1</button>
             <input type="number" class="nar-ctrl-input" value="${p.cristais || 0}" onchange="setCristais(${p.id}, this.value)">
