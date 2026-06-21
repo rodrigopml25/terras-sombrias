@@ -31,6 +31,60 @@ function logout() {
 // ═══════════════════════════════════════
 const DEFAULT_PLAYERS = [];
 
+// ═══════════════════════════════════════
+// CLASSES E SUBCLASSES
+// ═══════════════════════════════════════
+// attr: atributo principal da subclasse ('agi' | 'forca' | 'intel')
+const CLASSES = [
+  { name: 'Guerreiro', subs: [
+    { name: 'Campeão',           attr: 'agi'   },
+    { name: 'Combatente',        attr: 'forca' },
+    { name: 'Soldado Elementar', attr: 'intel' },
+  ]},
+  { name: 'Ladino', subs: [
+    { name: 'Mercenário',  attr: 'agi'   },
+    { name: 'Briguento',   attr: 'forca' },
+    { name: 'Ilusionista', attr: 'intel' },
+  ]},
+  { name: 'Mago', subs: [
+    { name: 'Criador de Runa',    attr: 'agi'   },
+    { name: 'Feiticeiro de Fogo', attr: 'forca' },
+    { name: 'Conjurador',         attr: 'intel' },
+  ]},
+  { name: 'Bruxo', subs: [
+    { name: 'Alquimista',            attr: 'agi'   },
+    { name: 'Receptáculo Demoníaco', attr: 'forca' },
+    { name: 'Amaldiçoado',           attr: 'intel' },
+  ]},
+  { name: 'Bardo', subs: [
+    { name: 'Dançarino',      attr: 'agi'   },
+    { name: 'Roqueiro',       attr: 'forca' },
+    { name: 'Maestro Macabro',attr: 'intel' },
+  ]},
+  { name: 'Clérigo', subs: [
+    { name: 'Exorcista', attr: 'agi'   },
+    { name: 'Paladino',  attr: 'forca' },
+    { name: 'Acólito',   attr: 'intel' },
+  ]},
+];
+
+// Retorna o atributo principal (agi/forca/intel) dada uma subclasse pelo nome
+function getSubAttr(subclasseName) {
+  for (const cls of CLASSES) {
+    const sub = cls.subs.find(s => s.name === subclasseName);
+    if (sub) return sub.attr;
+  }
+  return null;
+}
+
+// Retorna a classe-base (Guerreiro, Ladino…) dado o nome de uma subclasse
+function getBaseClass(subclasseName) {
+  for (const cls of CLASSES) {
+    if (cls.subs.some(s => s.name === subclasseName)) return cls.name;
+  }
+  return null;
+}
+
 // Habilidades gerais — todo personagem possui. cor segue o atributo:
 // green = Agilidade, red = Força, blue = Intelecto, gray = Neutro.
 // "0 recarga" no material original = uso livre (infinite); "1 recarga" = recarrega por turno (perturn).
@@ -604,7 +658,7 @@ function renderNarrador() {
     return `<div class="prow ${bm ? 'beira-morte' : ''}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.cls} · Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span><span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica') ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -812,7 +866,7 @@ function renderJogador() {
             <button onclick="deleteCharacter(${p.id})" title="Excluir Personagem" style="background:none; border:none; color:var(--red); cursor:pointer;"><i class="ti ti-trash" style="font-size:18px;"></i></button>
         </div>
         <div class="char-av-big" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div class="char-name">${p.name}</div><div class="char-sub">${p.race} · ${p.cls}</div>
+        <div class="char-name">${p.name}</div><div class="char-sub">${p.race} · ${p.classeBase ? p.classeBase + ' / ' : ''}${p.cls}</div>
         <div class="xp-bar-wrap">
           <div class="xp-lbl"><span>XP — ${p.xp}/10</span><span>Nv ${p.level}${p.level<5?' → '+(p.level+1):' (máx)'}</span></div>
           <div class="xp-track"><div class="xp-fill" style="width:${xpPct}%"></div></div>
@@ -1587,9 +1641,64 @@ function toggleJogSkillGroup(cor) {
   renderJogador();
 }
 
-// ═══════════════════════════════════════
-// MODAL PERSONAGEM
-// ═══════════════════════════════════════
+// ─── Seletor de Classe / Subclasse ───────────────────────────────────────────
+// Popula os botões de classe (c-class-btns) e limpa as subclasses.
+// Ao selecionar uma classe, chama updateSubclasseOpts() para preencher as subs.
+function buildClassSelector() {
+  const btnWrap = document.getElementById('c-class-btns');
+  const subWrap = document.getElementById('c-sub-btns');
+  if (!btnWrap) return;
+
+  btnWrap.innerHTML = CLASSES.map(cls =>
+    `<button type="button" class="cls-btn" data-cls="${cls.name}"
+       onclick="selectClasse('${cls.name}')">${cls.name}</button>`
+  ).join('');
+  if (subWrap) subWrap.innerHTML = '';
+}
+
+function selectClasse(clsName, keepSub) {
+  document.querySelectorAll('.cls-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.cls === clsName)
+  );
+  const cls = CLASSES.find(c => c.name === clsName);
+  if (!cls) return;
+  const subWrap = document.getElementById('c-sub-btns');
+  if (!subWrap) return;
+  const ATTR_LABEL = { agi: 'AGI', forca: 'FOR', intel: 'INT' };
+  const ATTR_COLOR = { agi: 'var(--green)', forca: 'var(--red)', intel: 'var(--blue)' };
+  subWrap.innerHTML = cls.subs.map(sub =>
+    `<button type="button" class="sub-btn" data-sub="${sub.name}"
+       onclick="selectSubclasse('${sub.name}')"
+       title="Atributo principal: ${ATTR_LABEL[sub.attr]}">
+       ${sub.name}
+       <span class="sub-attr-badge" style="color:${ATTR_COLOR[sub.attr]}">${ATTR_LABEL[sub.attr]}</span>
+     </button>`
+  ).join('');
+  if (!keepSub) {
+    document.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
+  }
+}
+
+function selectSubclasse(subName) {
+  document.querySelectorAll('.sub-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.sub === subName)
+  );
+}
+
+// Retorna a subclasse atualmente selecionada no modal (ou '' se nenhuma)
+function getSelectedSubclasse() {
+  const b = document.querySelector('.sub-btn.active');
+  return b ? b.dataset.sub : '';
+}
+
+// Define classe+subclasse no modal (ex: ao editar um personagem existente)
+function setClasseSubclasse(clsName, subName) {
+  buildClassSelector();
+  if (clsName) selectClasse(clsName, true);
+  if (subName) selectSubclasse(subName);
+}
+
+// ─── Modal Personagem ──────────────────────────────────────────────────────────
 function openCharModal() {
   modalCharId = null;
   document.getElementById('modal-char-overlay').classList.add('open');
@@ -1599,7 +1708,7 @@ function openCharModal() {
   if (saveBtn) saveBtn.textContent = 'Criar Personagem';
   document.getElementById('c-name').value = '';
   setRaceSelectValue('');
-  document.getElementById('c-cls').value = '';
+  buildClassSelector();
   document.getElementById('c-hp').value = '30';
   document.getElementById('c-ins').value = '0';
   document.getElementById('c-agi').value = '10';
@@ -1640,7 +1749,10 @@ function editCharacter(id) {
   if (saveBtn) saveBtn.textContent = 'Salvar';
   document.getElementById('c-name').value = p.name;
   setRaceSelectValue(p.race);
-  document.getElementById('c-cls').value = p.cls;
+  // Restaura classe/subclasse: cls guarda a subclasse, classeBase guarda a classe-pai.
+  // Para fichas antigas (texto livre), tenta derivar a base pelo nome da subclasse.
+  const clsBase = p.classeBase || getBaseClass(p.cls) || null;
+  setClasseSubclasse(clsBase, p.cls);
   document.getElementById('c-hp').value = p.hpMax;
   document.getElementById('c-ins').value = p.ins;
   document.getElementById('c-agi').value = p.agi;
@@ -1667,7 +1779,8 @@ function closeCharModal() {
 function saveCharacter() {
   const name   = document.getElementById('c-name').value.trim() || 'Desconhecido';
   const race   = document.getElementById('c-race').value.trim() || 'Sem Raça';
-  const cls    = document.getElementById('c-cls').value.trim()  || 'Aventureiro';
+  const cls    = getSelectedSubclasse() || 'Aventureiro';
+  const classeBase = getBaseClass(cls) || cls;
   const hpMax  = parseInt(document.getElementById('c-hp').value)  || 30;
   const ins    = parseInt(document.getElementById('c-ins').value) || 0;
   const agi    = parseInt(document.getElementById('c-agi').value) || 10;
@@ -1680,7 +1793,7 @@ function saveCharacter() {
   if (modalCharId) {
     const p = PLAYERS.find(x => x.id === modalCharId);
     if (p) {
-      p.name = name; p.race = race; p.cls = cls; p.hpMax = hpMax;
+      p.name = name; p.race = race; p.cls = cls; p.classeBase = classeBase; p.hpMax = hpMax;
       if (p.hp > hpMax) p.hp = hpMax;
       p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
       p.passos = passos; p.dinheiro = dinheiro;
@@ -1688,7 +1801,7 @@ function saveCharacter() {
   } else {
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
     const novo = {
-      id: newId, name, race, cls, level: 1, xp: 0,
+      id: newId, name, race, cls, classeBase, level: 1, xp: 0,
       hp: hpMax, hpMax, agi, forca, intel,
       armadura: 0, armaduraMax: 0,
       elmo: 0, elmoMax: 0,
