@@ -64,6 +64,41 @@ function countNotasAtivas(p) {
 }
 
 // ═══════════════════════════════════════
+// PASSIVAS RACIAIS
+// ═══════════════════════════════════════
+// Cada raça pode ter passivas fixas que todo personagem daquela raça possui
+// automaticamente — aparecem na aba Passivas/Talentos sem precisar serem
+// cadastradas manualmente. Outras raças serão preenchidas depois.
+const RACAS = {
+  'Anão': [
+    { id: 'anao_dourado', name: 'Dourado', desc: 'Por ter praticado anos de ferraria, você possui acesso a Aprimoramentos Dourados para suas Armas. Cada Aprimoramento Dourado custa 300 de Dinheiro.' },
+    { id: 'anao_criacao', name: 'Criação de Anão', desc: 'Usar 1 vez por Personagem: Funda 2 armas que possuam Aprimoramento Dourado. Só você saberá como usá-la. A fusão custa 500 de Dinheiro.' },
+  ],
+};
+
+// Retorna a lista de passivas raciais fixas de um personagem (vazio se a
+// raça não tiver passivas cadastradas no catálogo acima).
+function getRacePassivas(p) {
+  return RACAS[p.race] || [];
+}
+
+// Garante que as passivas raciais da raça do personagem estejam presentes em
+// p.passivas (como qualquer outra passiva — editável e excluível). Não
+// duplica as que já existem e não recoloca uma que o jogador excluiu de
+// propósito (rastreado em p.racialPassivasRemovidas).
+function ensureRacePassivas(p) {
+  if (!Array.isArray(p.passivas)) p.passivas = [];
+  if (!Array.isArray(p.racialPassivasRemovidas)) p.racialPassivasRemovidas = [];
+  getRacePassivas(p).forEach(rp => {
+    const jaTem = p.passivas.some(pas => pas.racialId === rp.id);
+    const foiRemovida = p.racialPassivasRemovidas.includes(rp.id);
+    if (!jaTem && !foiRemovida) {
+      p.passivas.push({ id: 'pas_racial_' + rp.id, racialId: rp.id, name: rp.name, desc: rp.desc });
+    }
+  });
+}
+
+// ═══════════════════════════════════════
 // CLASSES E SUBCLASSES
 // ═══════════════════════════════════════
 // attr: atributo principal da subclasse ('agi' | 'forca' | 'intel')
@@ -212,6 +247,7 @@ function applyData(data) {
     if (!Array.isArray(p.passivas)) p.passivas = [];
     if (!Array.isArray(p.inventario)) p.inventario = [];
     ensureGeneralSkills(p);
+    ensureRacePassivas(p);
     if (typeof p.armaduraMax !== 'number') p.armaduraMax = typeof p.armadura === 'number' ? p.armadura : 10;
     if (typeof p.armadura !== 'number') p.armadura = p.armaduraMax;
     if (p.armadura > p.armaduraMax) p.armadura = p.armaduraMax;
@@ -750,7 +786,7 @@ function renderNarrador() {
     // ── Passivas ──
     const passivasList = Array.isArray(p.passivas) ? p.passivas : [];
     const passivasHtml = passivasList.length
-      ? passivasList.map(pas => `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div></div>`).join('')
+      ? passivasList.map(pas => `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${pas.racialId ? ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>` : ''}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div></div>`).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
     return `<div class="prow ${bm ? 'beira-morte' : ''}">
@@ -968,7 +1004,7 @@ function renderJogador() {
   const passivasHtml = passivasCollapsed ? '' : passivasList.map(pas => `
     <div class="passiva-card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div class="passiva-name"><i class="ti ti-sparkles"></i> ${pas.name}</div>
+        <div class="passiva-name"><i class="ti ti-sparkles"></i> ${pas.name}${pas.racialId ? ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>` : ''}</div>
         <button onclick="editPassiva(${p.id}, '${pas.id}')" title="Editar" style="background:none; border:none; color:var(--text3); cursor:pointer; padding:0; margin-left:8px;">
           <i class="ti ti-edit" style="font-size:16px;"></i>
         </button>
@@ -1837,6 +1873,11 @@ function deletePassiva() {
   if (!confirm('Tem certeza que deseja excluir esta passiva? Esta ação não pode ser desfeita.')) return;
   const p = PLAYERS.find(x => x.id === modalPassivaPid);
   if (p) {
+    const pas = (p.passivas || []).find(x => x.id === modalPassivaId);
+    if (pas && pas.racialId) {
+      if (!Array.isArray(p.racialPassivasRemovidas)) p.racialPassivasRemovidas = [];
+      if (!p.racialPassivasRemovidas.includes(pas.racialId)) p.racialPassivasRemovidas.push(pas.racialId);
+    }
     p.passivas = (p.passivas || []).filter(x => x.id !== modalPassivaId);
     saveState();
     renderAll();
@@ -2060,6 +2101,7 @@ function saveCharacter() {
         p.notasBardo = {};
         NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
       }
+      ensureRacePassivas(p);
     }
   } else {
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
@@ -2079,6 +2121,7 @@ function saveCharacter() {
       NOTAS_MUSICAIS.forEach(n => { novo.notasBardo[n] = false; });
     }
     ensureGeneralSkills(novo);
+    ensureRacePassivas(novo);
     PLAYERS.push(novo);
     modalCharId = newId;
   }
