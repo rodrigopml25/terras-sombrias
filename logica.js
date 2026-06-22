@@ -1764,11 +1764,11 @@ function openCharModal() {
   document.getElementById('c-name').value = '';
   setRaceSelectValue('');
   buildClassSelector();
-  document.getElementById('c-hp').value = '30';
+  document.getElementById('c-hp').value = '10';
   document.getElementById('c-ins').value = '0';
-  document.getElementById('c-agi').value = '10';
-  document.getElementById('c-for').value = '10';
-  document.getElementById('c-int').value = '10';
+  document.getElementById('c-agi').value = '5';
+  document.getElementById('c-for').value = '5';
+  document.getElementById('c-int').value = '5';
   document.getElementById('c-passos').value = '6';
   document.getElementById('c-dinheiro').value = '100';
   setTimeout(() => document.getElementById('c-name').focus(), 50);
