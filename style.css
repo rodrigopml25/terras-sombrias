@@ -1290,3 +1290,76 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   letter-spacing: .04em;
   opacity: .85;
 }
+
+/* ═══════════════════════════════════════════
+   NOTAS MUSICAIS — BARDO
+═══════════════════════════════════════════ */
+:root {
+  --bardo:    #e8a838;  /* âmbar dourado — identidade musical */
+  --bardo-bg: #1e160a;
+  --bardo-bd: #3d2a0a;
+  --bardo-dim:#7a5010;
+}
+
+/* Grid de notas na sidebar do jogador */
+.notas-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 2px;
+}
+/* A 7ª nota (Si) fica centrada sozinha na última linha */
+.notas-grid .nota-btn:last-child:nth-child(7) {
+  grid-column: 2 / 4;
+}
+
+/* Botão de nota (tamanho completo — sidebar jogador) */
+.nota-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text3);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-display);
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s, box-shadow .15s;
+}
+.nota-btn:hover {
+  border-color: var(--bardo-dim);
+  color: var(--bardo);
+}
+.nota-btn.nota-ativa {
+  border-color: var(--bardo);
+  background: var(--bardo-bg);
+  color: var(--bardo);
+  box-shadow: 0 0 8px rgba(232,168,56,0.25);
+}
+
+/* Versão compacta — narrador */
+.nota-btn-sm {
+  padding: 4px 7px;
+  font-size: 11px;
+}
+
+/* Linha de notas no painel do narrador (dentro das barras) */
+.bar-wrap.bardo {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.notas-nar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+/* Mini-stat de notas no cabeçalho do card do narrador */
+.mstat-bardo {
+  color: var(--bardo);
+}
