@@ -181,6 +181,7 @@ let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, n�
 let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidades agrupadas
 let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true }; // começa fechado
 let jogInvCollapsed = { armas: true, protecoes: true, itens: true }; // inventário começa fechado
+let jogActiveTab = 'ficha'; // 'ficha' | 'anotacoes'
 let modalInvPid = null;
 let modalInvId = null;
 
@@ -224,6 +225,11 @@ function applyData(data) {
     if (p.classeBase === 'Bardo' && (!p.notasBardo || typeof p.notasBardo !== 'object')) {
       p.notasBardo = {};
       NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
+    }
+    // Migração: anotações do jogador — fichas antigas
+    if (!p.jogNotas || typeof p.jogNotas !== 'object') {
+      p.jogNotas = {};
+      JOG_NOTA_TAGS.forEach(t => { p.jogNotas[t.toLowerCase()] = ''; });
     }
     // Migração: itens de proteção criados antes do controle de "equipado" não têm
     // esse campo ainda — equipa automaticamente o primeiro de cada tipo para não
@@ -1102,8 +1108,110 @@ function renderJogador() {
 }
 
 // ═══════════════════════════════════════
-// INVENTÁRIO
+// TABS DO JOGADOR
 // ═══════════════════════════════════════
+const JOG_NOTA_TAGS = ['Geral', 'Missão', 'Segredos', 'NPCs', 'Itens'];
+
+function switchJogTab(tab) {
+  jogActiveTab = tab;
+  // Troca visibilidade das views
+  const ficha     = document.getElementById('jog-view-ficha');
+  const anotacoes = document.getElementById('jog-view-anotacoes');
+  if (ficha)     ficha.style.display     = tab === 'ficha'      ? '' : 'none';
+  if (anotacoes) anotacoes.style.display = tab === 'anotacoes'  ? '' : 'none';
+  // Atualiza estilo dos botões de tab
+  document.querySelectorAll('.jog-tab').forEach(el => el.classList.remove('active'));
+  const btn = document.getElementById('tab-' + tab);
+  if (btn) btn.classList.add('active');
+  // Renderiza a aba de anotações quando ativada
+  if (tab === 'anotacoes') renderJogNotas();
+}
+
+// Cada personagem tem seu próprio objeto de notas: { geral:'', missão:'', ... }
+// Armazenado em p.jogNotas e sincronizado via Firebase junto com o restante.
+function getJogNotas(p) {
+  if (p.jogNotas && typeof p.jogNotas === 'object') return p.jogNotas;
+  const init = {};
+  JOG_NOTA_TAGS.forEach(t => { init[t.toLowerCase()] = ''; });
+  return init;
+}
+
+// Tag ativa por personagem (estado local, não sincroniza)
+let jogNotaActiveTag = {};  // { [pid]: 'geral' }
+
+function renderJogNotas() {
+  const container = document.getElementById('jog-notas-content');
+  const psel      = document.getElementById('psel');
+  if (!container || !psel) return;
+
+  const myPlayers = getMyPlayers();
+  if (!myPlayers || myPlayers.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)">Nenhum personagem disponível.</div>';
+    return;
+  }
+
+  const pid = parseInt(psel.value) || myPlayers[0].id;
+  const p   = myPlayers.find(x => x.id === pid) || myPlayers[0];
+  if (!p.jogNotas || typeof p.jogNotas !== 'object') {
+    p.jogNotas = {};
+    JOG_NOTA_TAGS.forEach(t => { p.jogNotas[t.toLowerCase()] = ''; });
+  }
+
+  if (!jogNotaActiveTag[p.id]) jogNotaActiveTag[p.id] = 'geral';
+  const activeTag = jogNotaActiveTag[p.id];
+
+  const tagsHtml = JOG_NOTA_TAGS.map(t =>
+    `<button class="jog-nota-tag ${t.toLowerCase() === activeTag ? 'on' : ''}"
+       onclick="switchJogNota(${p.id}, '${t.toLowerCase()}')">${t}</button>`
+  ).join('');
+
+  const wordCount = (p.jogNotas[activeTag] || '').trim().split(/\s+/).filter(Boolean).length;
+
+  container.innerHTML = `
+    <div class="jog-notas-wrap">
+      <div class="jog-notas-header">
+        <div class="jog-notas-title">
+          <i class="ti ti-notebook" style="color:var(--accent2)"></i>
+          Anotações de <strong>${p.name}</strong>
+        </div>
+        <div class="jog-nota-wordcount">${wordCount} palavra${wordCount !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="jog-nota-tags">${tagsHtml}</div>
+      <textarea
+        class="jog-nota-area"
+        id="jog-nota-textarea"
+        placeholder="Escreva suas anotações aqui…"
+        oninput="saveJogNota(${p.id}, '${activeTag}', this.value)"
+      >${p.jogNotas[activeTag] || ''}</textarea>
+    </div>`;
+}
+
+function switchJogNota(pid, tag) {
+  jogNotaActiveTag[pid] = tag;
+  renderJogNotas();
+  // Foca o textarea e move cursor pro fim
+  setTimeout(() => {
+    const ta = document.getElementById('jog-nota-textarea');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }, 30);
+}
+
+function saveJogNota(pid, tag, value) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (!p.jogNotas || typeof p.jogNotas !== 'object') {
+    p.jogNotas = {};
+    JOG_NOTA_TAGS.forEach(t => { p.jogNotas[t.toLowerCase()] = ''; });
+  }
+  p.jogNotas[tag] = value;
+  // Atualiza contador de palavras sem re-renderizar o textarea (evita perder foco/cursor)
+  const wc = document.querySelector('.jog-nota-wordcount');
+  if (wc) {
+    const n = value.trim().split(/\s+/).filter(Boolean).length;
+    wc.textContent = n + ' palavra' + (n !== 1 ? 's' : '');
+  }
+  saveState();
+}
 const INV_PESO_LABEL = { leve:'Leve', media:'Média', pesada:'Pesada', exotica:'Exótica', mega:'Mega Pesada' };
 const INV_PESO_COLOR = { leve:'var(--green)', media:'var(--amber)', pesada:'var(--red)', exotica:'var(--accent2)', mega:'#c44aff' };
 const INV_PESO_BG    = { leve:'var(--green-bg)', media:'var(--amber-bg)', pesada:'var(--red-bg)', exotica:'var(--accent-bg)', mega:'rgba(196,74,255,0.1)' };
@@ -1961,6 +2069,7 @@ function saveCharacter() {
       armadura: 0, armaduraMax: 0,
       elmo: 0, elmoMax: 0,
       passos, ins, dinheiro, skills: [], passivas: [], inventario: [],
+      jogNotas: Object.fromEntries(JOG_NOTA_TAGS.map(t => [t.toLowerCase(), ''])),
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
     };
@@ -2005,7 +2114,11 @@ function renderAll() {
   renderNarrador();
   renderNoteTags();
   renderInit();
-  if (IS_JOGADOR) { renderPsel(); renderJogador(); }
+  if (IS_JOGADOR) {
+    renderPsel();
+    renderJogador();
+    if (jogActiveTab === 'anotacoes') renderJogNotas();
+  }
 }
 
 // ═══════════════════════════════════════
