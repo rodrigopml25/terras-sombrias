@@ -41,6 +41,28 @@ function getHumanidade(p) {
   return (typeof p.humanidade === 'number') ? p.humanidade : HUMANIDADE_MAX;
 }
 
+// ── Notas musicais — exclusivo de Bardo ──────────────────────────────────────
+// Cada Bardo possui 7 notas (Dó, Ré, Mi, Fá, Sol, Lá, Si) não acumuláveis:
+// cada nota é um slot independente (ativa/inativa). Não existe estoque —
+// tocar a mesma nota novamente não acumula; ela simplesmente já está ativa.
+const NOTAS_MUSICAIS = ['Dó', 'Ré', 'Mi', 'Fá', 'Sol', 'Lá', 'Si'];
+
+// Retorna o array de notas ativas de um personagem (fallback seguro para fichas antigas).
+// Formato: { 'Dó': true, 'Mi': false, ... }
+function getNotasBardo(p) {
+  if (p.notasBardo && typeof p.notasBardo === 'object') return p.notasBardo;
+  // Inicializa todas inativas
+  const init = {};
+  NOTAS_MUSICAIS.forEach(n => { init[n] = false; });
+  return init;
+}
+
+// Quantas notas estão ativas atualmente
+function countNotasAtivas(p) {
+  const notas = getNotasBardo(p);
+  return NOTAS_MUSICAIS.filter(n => notas[n]).length;
+}
+
 // ═══════════════════════════════════════
 // CLASSES E SUBCLASSES
 // ═══════════════════════════════════════
@@ -198,6 +220,11 @@ function applyData(data) {
     if (typeof p.passos !== 'number') p.passos = 6;
     if (typeof p.dinheiro !== 'number') p.dinheiro = 100;
     if (typeof p.cristais !== 'number') p.cristais = 0;
+    // Migração: notas de Bardo — fichas antigas que ainda não têm o campo
+    if (p.classeBase === 'Bardo' && (!p.notasBardo || typeof p.notasBardo !== 'object')) {
+      p.notasBardo = {};
+      NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
+    }
     // Migração: itens de proteção criados antes do controle de "equipado" não têm
     // esse campo ainda — equipa automaticamente o primeiro de cada tipo para não
     // zerar a armadura/elmo de personagens já existentes.
@@ -460,19 +487,31 @@ function nextTurnGlobal() {
 function resetLuta() {
   if (!confirm('Resetar todos os usos por luta e reiniciar os turnos?')) return;
   turnGlobal = 1;
-  PLAYERS.forEach(p => p.skills.forEach(sk => {
-    if (['perturn','luta','turno_N'].includes(sk.tipo)) {
-      sk.usosAtuais = sk.usosMax;
-      sk.cdRestante = 0;
+  PLAYERS.forEach(p => {
+    p.skills.forEach(sk => {
+      if (['perturn','luta','turno_N'].includes(sk.tipo)) {
+        sk.usosAtuais = sk.usosMax;
+        sk.cdRestante = 0;
+      }
+    });
+    // Notas do Bardo: resetar no início de cada luta
+    if (p.classeBase === 'Bardo' && p.notasBardo) {
+      NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
     }
-  }));
+  });
   saveState();
   renderAll();
 }
 
 function resetSessao() {
   if (!confirm('Resetar todos os usos por sessão?')) return;
-  PLAYERS.forEach(p => p.skills.forEach(sk => { sk.usosAtuais = sk.usosMax; sk.cdRestante = 0; }));
+  PLAYERS.forEach(p => {
+    p.skills.forEach(sk => { sk.usosAtuais = sk.usosMax; sk.cdRestante = 0; });
+    // Notas do Bardo: resetar também no reset de sessão
+    if (p.classeBase === 'Bardo' && p.notasBardo) {
+      NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
+    }
+  });
   saveState();
   renderAll();
 }
@@ -522,6 +561,28 @@ function setHumanidade(id, val) {
   const v = parseInt(val);
   if (isNaN(v)) { renderAll(); return; }
   p.humanidade = Math.max(0, Math.min(HUMANIDADE_MAX, v));
+  saveState(); renderAll();
+}
+
+// ── Notas musicais — exclusivo de Bardo ──────────────────────────────────────
+// Ativa ou desativa uma nota (toggle). Não acumula: cada nota é um slot único.
+function toggleNota(id, nota) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  if (!p.notasBardo || typeof p.notasBardo !== 'object') {
+    p.notasBardo = {};
+    NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
+  }
+  p.notasBardo[nota] = !p.notasBardo[nota];
+  saveState(); renderAll();
+}
+
+// Limpa todas as notas (ex: fim de sessão / reset de luta)
+function resetNotasBardo(id) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  p.notasBardo = {};
+  NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
   saveState(); renderAll();
 }
 
@@ -638,6 +699,7 @@ function renderNarrador() {
     const armPct = p.armaduraMax > 0 ? Math.round(p.armadura / p.armaduraMax * 100) : 0;
     const elmPct = p.elmoMax > 0 ? Math.round(p.elmo / p.elmoMax * 100) : 0;
     const isBruxo = p.classeBase === 'Bruxo';
+    const isBardo = p.classeBase === 'Bardo';
     const humanPct = Math.round(getHumanidade(p) / HUMANIDADE_MAX * 100);
     const bm = p.hp === 0;
 
@@ -690,7 +752,7 @@ function renderNarrador() {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica') ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
@@ -702,6 +764,7 @@ function renderNarrador() {
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
         <div class="bar-wrap ins"><div class="bar-lbl">Insanidade</div><div class="bar-track"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div></div>
         ${isBruxo ? `<div class="bar-wrap human"><div class="bar-lbl">Humanidade</div><div class="bar-track"><div class="bar-fill bfill-human" style="width:${humanPct}%"></div></div></div>` : ''}
+        ${isBardo ? `<div class="bar-wrap bardo"><div class="bar-lbl">Notas <span style="color:var(--bardo);font-weight:600">${countNotasAtivas(p)}/7</span></div><div class="notas-nar-row">${NOTAS_MUSICAIS.map(n => { const ativa = getNotasBardo(p)[n]; return `<button class="nota-btn nota-btn-sm ${ativa?'nota-ativa':''}" onclick="toggleNota(${p.id},'${n}')">${n}</button>`; }).join('')}</div></div>` : ''}
         <div class="bar-wrap arm"><div class="bar-lbl">Armadura</div><div class="bar-track"><div class="bar-fill bfill-arm" style="width:${armPct}%"></div></div></div>
         <div class="bar-wrap elm"><div class="bar-lbl">Elmo</div><div class="bar-track"><div class="bar-fill bfill-elm" style="width:${elmPct}%"></div></div></div>
       </div>
@@ -733,6 +796,14 @@ function renderNarrador() {
             <button onclick="adjHumanidade(${p.id},-1)">−1</button>
             <input type="number" class="nar-ctrl-input" value="${getHumanidade(p)}" onchange="setHumanidade(${p.id}, this.value)">
             <button onclick="adjHumanidade(${p.id},+1)">+1</button>
+          </div>
+        </div>` : ''}
+        ${isBardo ? `
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">🎵 Notas do Bardo</span>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            ${NOTAS_MUSICAIS.map(n => { const ativa = getNotasBardo(p)[n]; return `<button class="nota-btn nota-btn-sm ${ativa?'nota-ativa':''}" onclick="toggleNota(${p.id},'${n}')">${n}</button>`; }).join('')}
+            <button class="btn" style="font-size:10px;padding:3px 7px;margin-left:4px" onclick="resetNotasBardo(${p.id})" title="Silenciar todas as notas"><i class="ti ti-music-off"></i></button>
           </div>
         </div>` : ''}
         <div class="nar-ctrl-group">
@@ -825,6 +896,7 @@ function renderJogador() {
   const bm = p.hp === 0;
   const temSeq = p.ins >= 25;
   const isBruxo = p.classeBase === 'Bruxo';
+  const isBardo = p.classeBase === 'Bardo';
   const humanPct = Math.round(getHumanidade(p) / HUMANIDADE_MAX * 100);
 
   const grupos = { green:[], red:[], blue:[], gray:[] };
@@ -945,6 +1017,20 @@ function renderJogador() {
           <input type="number" class="stat-input" value="${getHumanidade(p)}" onchange="setHumanidade(${p.id}, this.value)">
           <button onclick="adjHumanidade(${p.id},+1)">+1</button>
         </div>
+      </div>` : ''}
+      ${isBardo ? `
+      <div class="stat-block">
+        <div class="stat-row" style="margin-bottom:8px">
+          <span class="stat-lbl"><i class="ti ti-music" style="color:var(--bardo)"></i> Notas Musicais</span>
+          <span class="stat-val" style="color:var(--bardo)">${countNotasAtivas(p)}/7</span>
+        </div>
+        <div class="notas-grid">
+          ${NOTAS_MUSICAIS.map(n => {
+            const ativa = getNotasBardo(p)[n];
+            return `<button class="nota-btn ${ativa ? 'nota-ativa' : ''}" onclick="toggleNota(${p.id},'${n}')" title="${ativa ? 'Clique para desativar' : 'Clique para ativar'}">${n}</button>`;
+          }).join('')}
+        </div>
+        <button class="btn" style="width:100%;margin-top:8px;font-size:11px;justify-content:center" onclick="resetNotasBardo(${p.id})"><i class="ti ti-music-off"></i> Silenciar todas</button>
       </div>` : ''}
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-shield" style="color:var(--amber)"></i> Armadura</span><span class="stat-val" style="color:var(--amber)">${p.armadura}/${p.armaduraMax}</span></div>
@@ -1719,6 +1805,8 @@ function selectClasse(clsName, keepSub) {
   if (!subWrap) return;
   const note = document.getElementById('c-bruxo-note');
   if (note) note.style.display = (clsName === 'Bruxo') ? 'block' : 'none';
+  const bardoNote = document.getElementById('c-bardo-note');
+  if (bardoNote) bardoNote.style.display = (clsName === 'Bardo') ? 'block' : 'none';
   const ATTR_LABEL = { agi: 'AGI', forca: 'FOR', intel: 'INT' };
   const ATTR_COLOR = { agi: 'var(--green)', forca: 'var(--red)', intel: 'var(--blue)' };
   subWrap.innerHTML = cls.subs.map(sub =>
@@ -1849,6 +1937,7 @@ function saveCharacter() {
     const p = PLAYERS.find(x => x.id === modalCharId);
     if (p) {
       const eraBruxo = p.classeBase === 'Bruxo';
+      const eraBardo = p.classeBase === 'Bardo';
       p.name = name; p.race = race; p.cls = cls; p.classeBase = classeBase; p.hpMax = hpMax;
       if (p.hp > hpMax) p.hp = hpMax;
       p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
@@ -1857,6 +1946,12 @@ function saveCharacter() {
       // cheia (10/10). Se já era Bruxo, mantém o valor atual sem resetar.
       if (classeBase === 'Bruxo' && (!eraBruxo || typeof p.humanidade !== 'number')) {
         p.humanidade = HUMANIDADE_MAX;
+      }
+      // Notas: vira Bardo agora (ou ainda não tinha o campo) → inicia todas inativas.
+      // Se já era Bardo, mantém o estado atual sem resetar.
+      if (classeBase === 'Bardo' && (!eraBardo || !p.notasBardo || typeof p.notasBardo !== 'object')) {
+        p.notasBardo = {};
+        NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
       }
     }
   } else {
@@ -1871,6 +1966,10 @@ function saveCharacter() {
       ownerName: currentUser ? currentUser.name : null
     };
     if (classeBase === 'Bruxo') novo.humanidade = HUMANIDADE_MAX;
+    if (classeBase === 'Bardo') {
+      novo.notasBardo = {};
+      NOTAS_MUSICAIS.forEach(n => { novo.notasBardo[n] = false; });
+    }
     ensureGeneralSkills(novo);
     PLAYERS.push(novo);
     modalCharId = newId;
