@@ -63,40 +63,6 @@ function countNotasAtivas(p) {
   return NOTAS_MUSICAIS.filter(n => notas[n]).length;
 }
 
-// ── Passivas raciais: Anão ───────────────────────────────────────────────────
-// "Dourado": Anões têm acesso a Aprimoramentos Dourados em suas armas (qualquer
-// peso), cada um custando 300 de Dinheiro — ver lógica em saveInvItem().
-// "Criação de Anão": 1x por personagem, fundir 2 armas com Aprimoramento
-// Dourado por 500 de Dinheiro. Controlado pela flag p.criacaoAnaoUsada.
-const CUSTO_APRIMO_DOURADO = 300;
-const CUSTO_CRIACAO_ANAO = 500;
-
-// Remove acentos e normaliza caixa, pra comparar o nome de uma passiva
-// digitada livremente pelo jogador (ex.: "Criação de Anão") sem depender de
-// acentuação/maiúsculas exatas.
-function normalizePassivaName(s) {
-  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-}
-
-function isCriacaoAnaoPassiva(p, pas) {
-  return p.race === 'Anão' && normalizePassivaName(pas.name) === 'criacao de anao';
-}
-
-// Executa a fusão da "Criação de Anão": 1x por personagem, custa 500 de
-// Dinheiro. As 2 armas com Aprimoramento Dourado usadas na fusão são
-// gerenciadas manualmente pelo jogador no Inventário (criar/remover a arma).
-function fundirArmasAnao(pid) {
-  const p = PLAYERS.find(x => x.id === pid);
-  if (!p) return;
-  if (p.criacaoAnaoUsada) { alert('Você já utilizou a Criação de Anão neste personagem — só pode ser feita 1 vez.'); return; }
-  if ((p.dinheiro || 0) < CUSTO_CRIACAO_ANAO) { alert(`Dinheiro insuficiente. A fusão custa ${CUSTO_CRIACAO_ANAO} de Dinheiro.`); return; }
-  if (!confirm(`Fundir 2 armas com Aprimoramento Dourado custa ${CUSTO_CRIACAO_ANAO} de Dinheiro e só pode ser feito 1 vez por personagem.\n\nDepois de confirmar, remova as 2 armas usadas e crie a arma fundida manualmente no Inventário.\n\nConfirmar a fusão?`)) return;
-  p.dinheiro -= CUSTO_CRIACAO_ANAO;
-  p.criacaoAnaoUsada = true;
-  saveState();
-  renderJogador();
-}
-
 // ═══════════════════════════════════════
 // CLASSES E SUBCLASSES
 // ═══════════════════════════════════════
@@ -260,8 +226,6 @@ function applyData(data) {
       p.notasBardo = {};
       NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
     }
-    // Migração: Criação de Anão — fichas antigas que ainda não têm o campo
-    if (typeof p.criacaoAnaoUsada !== 'boolean') p.criacaoAnaoUsada = false;
     // Migração: anotações do jogador — fichas antigas
     if (!p.jogNotas || typeof p.jogNotas !== 'object') {
       p.jogNotas = {};
@@ -786,15 +750,7 @@ function renderNarrador() {
     // ── Passivas ──
     const passivasList = Array.isArray(p.passivas) ? p.passivas : [];
     const passivasHtml = passivasList.length
-      ? passivasList.map(pas => {
-          const isCriacaoAnao = isCriacaoAnaoPassiva(p, pas);
-          const anaoStatus = !isCriacaoAnao ? '' : (
-            p.criacaoAnaoUsada
-              ? `<div style="margin-top:4px;font-size:11px;color:var(--green)"><i class="ti ti-check"></i> Já utilizada</div>`
-              : `<div style="margin-top:4px;font-size:11px;color:var(--dourado)"><i class="ti ti-hammer"></i> Disponível (custa ${CUSTO_CRIACAO_ANAO}💰)</div>`
-          );
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${anaoStatus}</div>`;
-        }).join('')
+      ? passivasList.map(pas => `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div></div>`).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
     return `<div class="prow ${bm ? 'beira-morte' : ''}">
@@ -1009,14 +965,7 @@ function renderJogador() {
 
   const passivasList = Array.isArray(p.passivas) ? p.passivas : [];
   const passivasCollapsed = !!jogSkillsCollapsed['passivas'];
-  const passivasHtml = passivasCollapsed ? '' : passivasList.map(pas => {
-    const isCriacaoAnao = isCriacaoAnaoPassiva(p, pas);
-    const anaoAction = !isCriacaoAnao ? '' : (
-      p.criacaoAnaoUsada
-        ? `<div style="margin-top:8px;font-size:11px;color:var(--green);display:flex;align-items:center;gap:6px"><i class="ti ti-check"></i> Já utilizada neste personagem</div>`
-        : `<button class="btn btn-success" style="margin-top:8px;width:100%;justify-content:center" onclick="fundirArmasAnao(${p.id})"><i class="ti ti-hammer"></i> Fundir 2 Armas (${CUSTO_CRIACAO_ANAO}💰)</button>`
-    );
-    return `
+  const passivasHtml = passivasCollapsed ? '' : passivasList.map(pas => `
     <div class="passiva-card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div class="passiva-name"><i class="ti ti-sparkles"></i> ${pas.name}</div>
@@ -1025,9 +974,7 @@ function renderJogador() {
         </button>
       </div>
       <div class="passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>
-      ${anaoAction}
-    </div>`;
-  }).join('');
+    </div>`).join('');
 
   content.innerHTML = `
     <div class="jog-inner-grid">
@@ -1319,8 +1266,6 @@ function renderInventarioArea(p) {
   function renderArmaCard(item) {
     const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
-    const dourados = item.aprimoramentosDourados && item.aprimoramentosDourados.length
-      ? `<div class="inv-sub-section"><div class="inv-sub-label" style="color:var(--dourado)"><i class="ti ti-diamond" style="color:var(--dourado)"></i> Aprimoramentos Dourados</div>${item.aprimoramentosDourados.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name" style="color:var(--dourado)">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
     const ativas = item.ativas && item.ativas.length
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-bolt"></i> Liberar Vileza</div>${item.ativas.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
     return `<div class="inv-card">
@@ -1335,7 +1280,7 @@ function renderInventarioArea(p) {
       ${item.dano ? `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span></div>` : ''}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
       ${municaoRow(item)}
-      ${aprimoramentos}${dourados}${ativas}
+      ${aprimoramentos}${ativas}
     </div>`;
   }
 
@@ -1513,11 +1458,6 @@ function _buildInvModal(data) {
 
   // aprimoramentos
   invAprimos = data.aprimoramentos ? JSON.parse(JSON.stringify(data.aprimoramentos)) : [];
-  // aprimoramentos dourados (exclusivo Anão) — marca os já existentes como
-  // "_orig" pra não cobrar de novo ao salvar (só cobra os adicionados agora)
-  invDourados = data.aprimoramentosDourados
-    ? data.aprimoramentosDourados.map(a => ({ ...JSON.parse(JSON.stringify(a)), _orig: true }))
-    : [];
   // ativas
   invAtivas  = data.ativas ? JSON.parse(JSON.stringify(data.ativas)) : [];
 
@@ -1525,7 +1465,6 @@ function _buildInvModal(data) {
 }
 
 let invAprimos = [];
-let invDourados = [];
 let invAtivas  = [];
 
 function _updateInvModalSections(tipo) {
@@ -1537,13 +1476,6 @@ function _updateInvModalSections(tipo) {
   document.getElementById('inv-sec-exotica').style.display   = (tipo === 'arma' && peso === 'exotica') ? '' : 'none';
   document.getElementById('inv-sec-mega').style.display      = (tipo === 'arma' && peso === 'mega')    ? '' : 'none';
 
-  // Aprimoramentos Dourados (passiva "Dourado") — disponível pra qualquer
-  // arma, desde que o personagem seja da raça Anão.
-  const pOwner = PLAYERS.find(x => x.id === modalInvPid);
-  const isAnaoChar = !!(pOwner && pOwner.race === 'Anão');
-  const secDourado = document.getElementById('inv-sec-dourado');
-  if (secDourado) secDourado.style.display = (tipo === 'arma' && isAnaoChar) ? '' : 'none';
-
   // Munição (armas de longo alcance) ou Cristais (armas/proteções exóticas)
   const alcance = _invSelectedAlcance();
   const precisaMunicao = (tipo === 'arma' && (alcance === 'longo' || peso === 'exotica'))
@@ -1553,7 +1485,6 @@ function _updateInvModalSections(tipo) {
   if (municaoLabel) municaoLabel.textContent = peso === 'exotica' ? 'Cristais (pool compartilhado)' : 'Munição';
 
   _renderInvAprimos();
-  _renderInvDourados();
   _renderInvAtivas();
 }
 
@@ -1610,23 +1541,6 @@ function _renderInvAprimos() {
     </div>`).join('');
 }
 
-// Aprimoramentos Dourados (passiva "Dourado", exclusivo Anão). Itens já
-// existentes (_orig) não são cobrados de novo; novos itens adicionados nesta
-// sessão de edição mostram a etiqueta "novo · 300" e só são cobrados ao salvar.
-function _renderInvDourados() {
-  const el = document.getElementById('inv-dourados-list');
-  if (!el) return;
-  el.innerHTML = invDourados.map((a,i) => `
-    <div class="inv-extra-item">
-      <div style="flex:1">
-        <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome" oninput="invDourados[${i}].name=this.value">
-        <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito (opcional)" oninput="invDourados[${i}].desc=this.value">
-      </div>
-      ${a._orig ? '' : `<span style="font-size:10px;color:var(--dourado);white-space:nowrap;margin-right:2px">novo · ${CUSTO_APRIMO_DOURADO}💰</span>`}
-      <button onclick="invDourados.splice(${i},1);_renderInvDourados()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
-    </div>`).join('');
-}
-
 function _renderInvAtivas() {
   const el = document.getElementById('inv-ativas-list');
   if (!el) return;
@@ -1641,7 +1555,6 @@ function _renderInvAtivas() {
 }
 
 function addInvAprimo() { invAprimos.push({name:'',desc:''}); _renderInvAprimos(); }
-function addInvDourado() { invDourados.push({name:'',desc:''}); _renderInvDourados(); }
 function addInvAtiva()  { invAtivas.push({name:'',desc:''});  _renderInvAtivas();  }
 
 function closeInvModal() {
@@ -1676,20 +1589,6 @@ function saveInvItem() {
     // Armas exóticas: cristais ficam em p.cristais (pool do personagem), não no item
     if (peso === 'exotica') base.aprimoramentos = invAprimos.filter(a => a.name);
     if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
-    // Aprimoramentos Dourados (passiva "Dourado", exclusivo Anão) — disponível
-    // pra qualquer peso de arma. Só cobra pelos itens novos (sem _orig)
-    // que tiverem nome preenchido; os já existentes não são cobrados de novo.
-    if (p.race === 'Anão') {
-      const douradosValidos = invDourados.filter(a => a.name && a.name.trim());
-      const novosCount = douradosValidos.filter(a => !a._orig).length;
-      const custoDourados = novosCount * CUSTO_APRIMO_DOURADO;
-      if (custoDourados > (p.dinheiro || 0)) {
-        alert(`Dinheiro insuficiente para ${novosCount} novo(s) Aprimoramento(s) Dourado(s). Custo: ${custoDourados} · Você tem: ${p.dinheiro || 0}.`);
-        return;
-      }
-      base.aprimoramentosDourados = douradosValidos.map(a => ({ name: a.name.trim(), desc: (a.desc || '').trim() }));
-      if (custoDourados > 0) p.dinheiro = (p.dinheiro || 0) - custoDourados;
-    }
   } else if (tipo === 'protecao') {
     Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, equipado });
     // Proteções exóticas: atualiza o pool de cristais do personagem
