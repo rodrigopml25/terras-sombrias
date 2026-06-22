@@ -23,11 +23,25 @@
 </div>
     <div class="view active" style="padding-top: 20px;">
       <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
-        <select id="psel" onchange="renderJogador()" style="background: var(--bg3); color: var(--text); border: 1px solid var(--border); padding: 5px; border-radius: 4px;">
+        <select id="psel" onchange="renderJogador(); if(jogActiveTab==='anotacoes') renderJogNotas();" style="background: var(--bg3); color: var(--text); border: 1px solid var(--border); padding: 5px; border-radius: 4px;">
     </select>
         <button class="btn btn-success" onclick="openCharModal()"><i class="ti ti-user-plus"></i> Novo Personagem</button>
+
+        <div class="jog-tabs" style="margin-left:auto">
+          <button class="jog-tab active" id="tab-ficha"      onclick="switchJogTab('ficha')">     <i class="ti ti-shield-half-filled"></i> Ficha</button>
+          <button class="jog-tab"        id="tab-anotacoes"  onclick="switchJogTab('anotacoes')">  <i class="ti ti-notebook"></i> Anotações</button>
+        </div>
       </div>
-      <div class="jog-layout" id="jog-content"></div>
+
+      <!-- Ficha principal -->
+      <div id="jog-view-ficha">
+        <div class="jog-layout" id="jog-content"></div>
+      </div>
+
+      <!-- Anotações do personagem -->
+      <div id="jog-view-anotacoes" style="display:none">
+        <div class="jog-notas-layout" id="jog-notas-content"></div>
+      </div>
     </div>
 
     <div class="modal-overlay" id="modal-overlay">
