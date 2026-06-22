@@ -939,7 +939,6 @@ function renderJogador() {
       ${isBruxo ? `
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-droplet-filled" style="color:var(--accent2)"></i> Humanidade</span><span class="stat-val" style="color:var(--accent2)">${getHumanidade(p)}/${HUMANIDADE_MAX}</span></div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Recurso exclusivo de Bruxo. Máximo fixo em ${HUMANIDADE_MAX} (não aumenta) — gaste para ativar o efeito bônus das Habilidades.</div>
         <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-human" style="width:${humanPct}%"></div></div>
         <div class="arm-ctrl arm-ctrl-3">
           <button onclick="adjHumanidade(${p.id},-1)">−1</button>
@@ -986,7 +985,6 @@ function renderJogador() {
       ${(p.inventario || []).some(i => i.peso === 'exotica') ? `
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais</span><span class="stat-val" style="color:var(--accent2)">${p.cristais || 0}</span></div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Pool compartilhado entre todos os equipamentos exóticos.</div>
         <div class="arm-ctrl arm-ctrl-3">
           <button onclick="adjCristais(${p.id},-1)">−1</button>
           <input type="number" class="stat-input" value="${p.cristais || 0}" onchange="setCristais(${p.id}, this.value)">
