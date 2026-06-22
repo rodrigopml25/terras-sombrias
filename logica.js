@@ -764,7 +764,6 @@ function renderNarrador() {
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
         <div class="bar-wrap ins"><div class="bar-lbl">Insanidade</div><div class="bar-track"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div></div>
         ${isBruxo ? `<div class="bar-wrap human"><div class="bar-lbl">Humanidade</div><div class="bar-track"><div class="bar-fill bfill-human" style="width:${humanPct}%"></div></div></div>` : ''}
-        ${isBardo ? `<div class="bar-wrap bardo"><div class="bar-lbl">Notas <span style="color:var(--bardo);font-weight:600">${countNotasAtivas(p)}/7</span></div><div class="notas-nar-row">${NOTAS_MUSICAIS.map(n => { const ativa = getNotasBardo(p)[n]; return `<button class="nota-btn nota-btn-sm ${ativa?'nota-ativa':''}" onclick="toggleNota(${p.id},'${n}')">${n}</button>`; }).join('')}</div></div>` : ''}
         <div class="bar-wrap arm"><div class="bar-lbl">Armadura</div><div class="bar-track"><div class="bar-fill bfill-arm" style="width:${armPct}%"></div></div></div>
         <div class="bar-wrap elm"><div class="bar-lbl">Elmo</div><div class="bar-track"><div class="bar-fill bfill-elm" style="width:${elmPct}%"></div></div></div>
       </div>
@@ -1020,17 +1019,17 @@ function renderJogador() {
       </div>` : ''}
       ${isBardo ? `
       <div class="stat-block">
-        <div class="stat-row" style="margin-bottom:8px">
+        <div class="stat-row" style="margin-bottom:10px">
           <span class="stat-lbl"><i class="ti ti-music" style="color:var(--bardo)"></i> Notas Musicais</span>
           <span class="stat-val" style="color:var(--bardo)">${countNotasAtivas(p)}/7</span>
         </div>
         <div class="notas-grid">
           ${NOTAS_MUSICAIS.map(n => {
             const ativa = getNotasBardo(p)[n];
-            return `<button class="nota-btn ${ativa ? 'nota-ativa' : ''}" onclick="toggleNota(${p.id},'${n}')" title="${ativa ? 'Clique para desativar' : 'Clique para ativar'}">${n}</button>`;
+            return `<button class="nota-btn ${ativa ? 'nota-ativa' : ''}" onclick="toggleNota(${p.id},'${n}')" title="${ativa ? 'Desativar ' + n : 'Ativar ' + n}"><span class="nota-simbolo">${n}</span></button>`;
           }).join('')}
         </div>
-        <button class="btn" style="width:100%;margin-top:8px;font-size:11px;justify-content:center" onclick="resetNotasBardo(${p.id})"><i class="ti ti-music-off"></i> Silenciar todas</button>
+        <button class="btn" style="width:100%;margin-top:10px;font-size:11px;justify-content:center" onclick="resetNotasBardo(${p.id})"><i class="ti ti-music-off"></i> Silenciar todas</button>
       </div>` : ''}
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-shield" style="color:var(--amber)"></i> Armadura</span><span class="stat-val" style="color:var(--amber)">${p.armadura}/${p.armaduraMax}</span></div>
