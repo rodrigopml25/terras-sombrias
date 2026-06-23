@@ -76,6 +76,76 @@ const RACAS = {
   ],
 };
 
+// Origens exclusivas de cada raça. Cada entrada da lista representa uma origem
+// possível; ao escolher uma, o personagem ganha a passiva correspondente.
+// Formato: { id, name, desc (descrição da origem), passiva: { id, name, desc } }
+const RACAS_ORIGENS = {
+  'Anão': [
+    {
+      id: 'anao_origem_comum',
+      name: 'Comum',
+      desc: 'Criado nas comunidades anãs tradicionais, entre forjas, tavernas e guildas.',
+      passiva: {
+        id: 'anao_origem_comum_passiva',
+        name: 'Origem Comum',
+        desc: 'Ao subir de Nível, escolha uma Arma de sua categoria Leve, Média ou Pesada (e se tiver acesso a Mega Pesada também) diferente e ganhe-a gratuitamente; role 1d10 com Mega Vantagem e, caso obtenha 7 ou mais, poderá conceder a ela um Aprimoramento Dourado gratuitamente, à sua escolha.',
+      },
+    },
+    {
+      id: 'anao_origem_profundezas',
+      name: 'Profundezas',
+      desc: 'Criado nas cavernas subterrâneas, longe da luz do sol, entre mineradores e guardiões das minas.',
+      passiva: {
+        id: 'anao_origem_profundezas_passiva',
+        name: 'Origem das Profundezas',
+        desc: 'Por ter vivido sob a terra, você possui a capacidade de enxergar na escuridão natural. Escolha uma Arma e ela terá +1 de Dano; ao subir de Nível, repita a escolha. Mesmo que a Arma seja quebrada, o efeito é mantido em suas cópias.',
+      },
+    },
+  ],
+};
+
+// Retorna a lista de origens disponíveis para uma raça (ou [] se não houver).
+function getRaceOrigens(raceName) {
+  return RACAS_ORIGENS[raceName] || [];
+}
+
+// Retorna o objeto de origem de um personagem (ou null).
+function getOrigemPersonagem(p) {
+  const origens = getRaceOrigens(p.race);
+  if (!origens.length || !p.origemId) return null;
+  return origens.find(o => o.id === p.origemId) || null;
+}
+
+// Garante que a passiva de origem racial esteja em p.passivas.
+// Remove passivas de origens anteriores que não correspondam mais à origem atual.
+function ensureOrigemPassiva(p) {
+  if (!Array.isArray(p.passivas)) p.passivas = [];
+  const origens = getRaceOrigens(p.race);
+  if (!origens.length) return;
+
+  // Remove passivas de origens desta raça que não sejam a selecionada
+  origens.forEach(o => {
+    if (o.id !== p.origemId) {
+      p.passivas = p.passivas.filter(pas => pas.origemId !== o.id);
+    }
+  });
+
+  // Adiciona a passiva da origem selecionada (se houver e ainda não estiver presente)
+  if (!p.origemId) return;
+  const origemAtual = origens.find(o => o.id === p.origemId);
+  if (!origemAtual) return;
+  const jaTem = p.passivas.some(pas => pas.origemId === p.origemId);
+  if (!jaTem) {
+    p.passivas.push({
+      id: 'pas_origem_' + p.origemId,
+      origemId: p.origemId,
+      racialId: origemAtual.passiva.id,
+      name: origemAtual.passiva.name,
+      desc: origemAtual.passiva.desc,
+    });
+  }
+}
+
 // Retorna a lista de passivas raciais fixas de um personagem (vazio se a
 // raça não tiver passivas cadastradas no catálogo acima).
 function getRacePassivas(p) {
@@ -96,6 +166,8 @@ function ensureRacePassivas(p) {
       p.passivas.push({ id: 'pas_racial_' + rp.id, racialId: rp.id, name: rp.name, desc: rp.desc });
     }
   });
+  // Garante que a passiva de origem racial também esteja presente
+  ensureOrigemPassiva(p);
 }
 
 // ═══════════════════════════════════════
@@ -785,14 +857,21 @@ function renderNarrador() {
 
     // ── Passivas ──
     const passivasList = Array.isArray(p.passivas) ? p.passivas : [];
+    const origemObj = getOrigemPersonagem(p);
     const passivasHtml = passivasList.length
-      ? passivasList.map(pas => `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${pas.racialId ? ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>` : ''}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div></div>`).join('')
+      ? passivasList.map(pas => {
+          let tag = '';
+          if (pas.origemId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(origem · ${origemObj ? origemObj.name : ''})</span>`;
+          else if (pas.racialId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div></div>`;
+        }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
+    const origemSubLabel = origemObj ? ` · <span style="color:var(--accent2);font-size:11px">⛏ ${origemObj.name}</span>` : '';
     return `<div class="prow ${bm ? 'beira-morte' : ''}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica') ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -1001,16 +1080,22 @@ function renderJogador() {
 
   const passivasList = Array.isArray(p.passivas) ? p.passivas : [];
   const passivasCollapsed = !!jogSkillsCollapsed['passivas'];
-  const passivasHtml = passivasCollapsed ? '' : passivasList.map(pas => `
+  const origemObjJog = getOrigemPersonagem(p);
+  const passivasHtml = passivasCollapsed ? '' : passivasList.map(pas => {
+    let tag = '';
+    if (pas.origemId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(origem · ${origemObjJog ? origemObjJog.name : ''})</span>`;
+    else if (pas.racialId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>`;
+    return `
     <div class="passiva-card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div class="passiva-name"><i class="ti ti-sparkles"></i> ${pas.name}${pas.racialId ? ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>` : ''}</div>
+        <div class="passiva-name"><i class="ti ti-sparkles"></i> ${pas.name}${tag}</div>
         <button onclick="editPassiva(${p.id}, '${pas.id}')" title="Editar" style="background:none; border:none; color:var(--text3); cursor:pointer; padding:0; margin-left:8px;">
           <i class="ti ti-edit" style="font-size:16px;"></i>
         </button>
       </div>
       <div class="passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   content.innerHTML = `
     <div class="jog-inner-grid">
@@ -1989,6 +2074,52 @@ function setClasseSubclasse(clsName, subName) {
   if (subName) selectSubclasse(subName);
 }
 
+// ─── Seletor de Origem Racial ─────────────────────────────────────────────────
+// Atualiza (ou cria) o bloco de seleção de Origem dentro do modal de personagem,
+// logo abaixo do seletor de Raça. Chamado sempre que a raça muda.
+function updateOrigemSelector(raceName, selectedOrigemId) {
+  const container = document.getElementById('c-origem-container');
+  if (!container) return;
+  const origens = getRaceOrigens(raceName);
+  if (!origens.length) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+  container.innerHTML = `
+    <label class="form-label" style="margin-bottom:6px;display:block">Origem</label>
+    <div class="cls-btn-group" id="c-origem-btns" style="flex-wrap:wrap;gap:6px">
+      ${origens.map(o => `
+        <button type="button"
+          class="cls-btn ${selectedOrigemId === o.id ? 'active' : ''}"
+          data-origem="${o.id}"
+          onclick="selectOrigem('${o.id}')"
+          title="${o.desc}">
+          ${o.name}
+        </button>`).join('')}
+    </div>
+    <input type="hidden" id="c-origem" value="${selectedOrigemId || ''}">
+    <div id="c-origem-desc" style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5;min-height:16px">
+      ${selectedOrigemId ? (() => { const o = origens.find(x => x.id === selectedOrigemId); return o ? `<strong>${o.passiva.name}:</strong> ${o.passiva.desc}` : ''; })() : ''}
+    </div>`;
+}
+
+function selectOrigem(origemId) {
+  const hiddenEl = document.getElementById('c-origem');
+  if (hiddenEl) hiddenEl.value = origemId;
+  document.querySelectorAll('#c-origem-btns .cls-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.origem === origemId)
+  );
+  // Atualiza descrição da passiva
+  const descEl = document.getElementById('c-origem-desc');
+  if (descEl) {
+    const race = document.getElementById('c-race').value;
+    const origens = getRaceOrigens(race);
+    const o = origens.find(x => x.id === origemId);
+    descEl.innerHTML = o ? `<strong>${o.passiva.name}:</strong> ${o.passiva.desc}` : '';
+  }
+}
+
 // ─── Modal Personagem ──────────────────────────────────────────────────────────
 function openCharModal() {
   modalCharId = null;
@@ -1999,6 +2130,7 @@ function openCharModal() {
   if (saveBtn) saveBtn.textContent = 'Criar Personagem';
   document.getElementById('c-name').value = '';
   setRaceSelectValue('');
+  updateOrigemSelector('', null);
   buildClassSelector();
   document.getElementById('c-hp').value = '10';
   document.getElementById('c-ins').value = '0';
@@ -2040,6 +2172,7 @@ function editCharacter(id) {
   if (saveBtn) saveBtn.textContent = 'Salvar';
   document.getElementById('c-name').value = p.name;
   setRaceSelectValue(p.race);
+  updateOrigemSelector(p.race, p.origemId || null);
   // Restaura classe/subclasse: cls guarda a subclasse, classeBase guarda a classe-pai.
   // Para fichas antigas (texto livre), tenta derivar a base pelo nome da subclasse.
   const clsBase = p.classeBase || getBaseClass(p.cls) || null;
@@ -2081,6 +2214,10 @@ function saveCharacter() {
   const dinheiroEl = document.getElementById('c-dinheiro');
   const dinheiro = dinheiroEl && dinheiroEl.value.trim() !== '' ? Math.max(0, parseInt(dinheiroEl.value)) : 100;
 
+  // Origem racial (ex: Anão Comum / Anão Profundezas)
+  const origemEl = document.getElementById('c-origem');
+  const origemId = origemEl ? (origemEl.value || null) : null;
+
   if (modalCharId) {
     const p = PLAYERS.find(x => x.id === modalCharId);
     if (p) {
@@ -2090,6 +2227,7 @@ function saveCharacter() {
       if (p.hp > hpMax) p.hp = hpMax;
       p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
       p.passos = passos; p.dinheiro = dinheiro;
+      p.origemId = origemId;
       // Humanidade: vira Bruxo agora (ou ainda não tinha o campo) → inicia
       // cheia (10/10). Se já era Bruxo, mantém o valor atual sem resetar.
       if (classeBase === 'Bruxo' && (!eraBruxo || typeof p.humanidade !== 'number')) {
@@ -2110,7 +2248,7 @@ function saveCharacter() {
       hp: hpMax, hpMax, agi, forca, intel,
       armadura: 0, armaduraMax: 0,
       elmo: 0, elmoMax: 0,
-      passos, ins, dinheiro, skills: [], passivas: [], inventario: [],
+      passos, ins, dinheiro, origemId, skills: [], passivas: [], inventario: [],
       jogNotas: Object.fromEntries(JOG_NOTA_TAGS.map(t => [t.toLowerCase(), ''])),
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
