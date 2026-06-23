@@ -844,7 +844,7 @@ function renderNarrador() {
           <span class="nar-ctrl-lbl">🎵 Notas do Bardo</span>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             ${NOTAS_MUSICAIS.map(n => { const ativa = getNotasBardo(p)[n]; return `<button class="nota-btn nota-btn-sm ${ativa?'nota-ativa':''}" onclick="toggleNota(${p.id},'${n}')">${n}</button>`; }).join('')}
-            <button class="btn" style="font-size:10px;padding:3px 7px;margin-left:4px" onclick="resetNotasBardo(${p.id})" title="Silenciar todas as notas"><i class="ti ti-music-off"></i></button>
+            <button class="btn" style="font-size:10px;padding:3px 7px;margin-left:4px" onclick="resetNotasBardo(${p.id})" title="Usar todas as notas"><i class="ti ti-music"></i></button>
           </div>
         </div>` : ''}
         <div class="nar-ctrl-group">
@@ -1071,7 +1071,7 @@ function renderJogador() {
             return `<button class="nota-btn ${ativa ? 'nota-ativa' : ''}" onclick="toggleNota(${p.id},'${n}')" title="${ativa ? 'Desativar ' + n : 'Ativar ' + n}"><span class="nota-simbolo">${n}</span></button>`;
           }).join('')}
         </div>
-        <button class="btn" style="width:100%;margin-top:10px;font-size:11px;justify-content:center" onclick="resetNotasBardo(${p.id})"><i class="ti ti-music-off"></i> Silenciar todas</button>
+        <button class="btn" style="width:100%;margin-top:10px;font-size:11px;justify-content:center" onclick="resetNotasBardo(${p.id})"><i class="ti ti-music"></i> Usar todas</button>
       </div>` : ''}
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-shield" style="color:var(--amber)"></i> Armadura</span><span class="stat-val" style="color:var(--amber)">${p.armadura}/${p.armaduraMax}</span></div>
