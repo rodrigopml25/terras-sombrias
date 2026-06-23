@@ -141,7 +141,7 @@
         <div style="display:flex; gap:10px;">
             <div class="form-row" style="flex:1">
               <label class="form-label">Raça</label>
-              <select id="c-race" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+              <select id="c-race" onchange="updateOrigemSelector(this.value, null)" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
                 <option value="" disabled selected hidden>Selecione...</option>
                 <option value="Anão">Anão</option>
                 <option value="Draenei">Draenei</option>
@@ -154,6 +154,7 @@
                 <option value="Tauren">Tauren</option>
                 <option value="Troll">Troll</option>
               </select>
+              <div id="c-origem-container" style="display:none; margin-top:10px;"></div>
             </div>
             <div class="form-row" style="flex:1">
               <label class="form-label">Classe</label>
