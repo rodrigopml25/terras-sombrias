@@ -20,14 +20,13 @@
       </div>
       <div id="sync-status" style="font-size:11px; color:var(--text3); margin-left:10px;" title="Status da sincronização com o Narrador">○ Sem sincronização</div>
     </header>
-</div>
     <div class="view active" style="padding-top: 20px;">
-      <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
+      <div class="jog-toolbar">
         <select id="psel" onchange="renderJogador(); if(jogActiveTab==='anotacoes') renderJogNotas();" style="background: var(--bg3); color: var(--text); border: 1px solid var(--border); padding: 5px; border-radius: 4px;">
     </select>
         <button class="btn btn-success" onclick="openCharModal()"><i class="ti ti-user-plus"></i> Novo Personagem</button>
 
-        <div class="jog-tabs" style="margin-left:auto">
+        <div class="jog-tabs">
           <button class="jog-tab active" id="tab-ficha"      onclick="switchJogTab('ficha')">     <i class="ti ti-shield-half-filled"></i> Ficha</button>
           <button class="jog-tab"        id="tab-anotacoes"  onclick="switchJogTab('anotacoes')">  <i class="ti ti-notebook"></i> Anotações</button>
         </div>
@@ -138,8 +137,8 @@
           <input type="text" id="c-name" placeholder="Nome do personagem">
         </div>
         
-        <div style="display:flex; gap:10px;">
-            <div class="form-row" style="flex:1">
+        <div class="form-flex-row">
+            <div class="form-row">
               <label class="form-label">Raça</label>
               <select id="c-race" onchange="updateOrigemSelector(this.value, null)" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
                 <option value="" disabled selected hidden>Selecione...</option>
@@ -156,7 +155,7 @@
               </select>
               <div id="c-origem-container" style="display:none; margin-top:10px;"></div>
             </div>
-            <div class="form-row" style="flex:1">
+            <div class="form-row">
               <label class="form-label">Classe</label>
               <div id="c-class-btns" class="cls-btn-group"></div>
               <div id="c-sub-btns" class="sub-btn-group" style="margin-top:6px"></div>
@@ -165,38 +164,38 @@
             </div>
         </div>
 
-        <div style="display:flex; gap:10px;">
-            <div class="form-row" style="flex:1">
+        <div class="form-flex-row">
+            <div class="form-row">
               <label class="form-label">Vida (HP)</label>
               <input type="number" id="c-hp" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
             </div>
-            <div class="form-row" style="flex:1">
+            <div class="form-row">
               <label class="form-label">Insanidade</label>
               <input type="number" id="c-ins" value="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
             </div>
         </div>
 
-        <div style="display:flex; gap:10px;">
-            <div class="form-row" style="flex:1">
+        <div class="form-flex-row">
+            <div class="form-row">
               <label class="form-label">Passos</label>
               <input type="number" id="c-passos" value="6" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
             </div>
-            <div class="form-row" style="flex:1">
+            <div class="form-row">
               <label class="form-label">Dinheiro</label>
               <input type="number" id="c-dinheiro" value="100" min="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
             </div>
         </div>
 
-        <div style="display:flex; gap:10px;">
-            <div class="form-row" style="flex:1">
+        <div class="form-flex-row">
+            <div class="form-row">
               <label class="form-label">AGI</label>
               <input type="number" id="c-agi" value="5" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
             </div>
-            <div class="form-row" style="flex:1">
+            <div class="form-row">
               <label class="form-label">FOR</label>
               <input type="number" id="c-for" value="5" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
             </div>
-            <div class="form-row" style="flex:1">
+            <div class="form-row">
               <label class="form-label">INT</label>
               <input type="number" id="c-int" value="5" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
             </div>
