@@ -54,7 +54,8 @@ body {
 .header {
   display: flex;
   align-items: center;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 10px 14px;
   padding: 14px 20px;
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
@@ -84,7 +85,7 @@ body {
   color: var(--text2);
 }
 .turn-pill strong { color: var(--accent); font-size: 15px; }
-.header-actions { display: flex; gap: 6px; margin-left: auto; }
+.header-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
 button {
   font-family: var(--font-body);
   cursor: pointer;
@@ -482,6 +483,24 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .jog-layout { display: flex; flex-direction: column; gap: 0; }
 .jog-inner-grid { display: grid; grid-template-columns: 210px 1fr; gap: 14px; }
 
+/* barra de ferramentas acima da ficha (seletor de personagem + botão + tabs) */
+.jog-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.jog-toolbar select { flex: 1 1 160px; min-width: 0; }
+.jog-toolbar .jog-tabs { margin-left: auto; }
+
+/* linhas de campos lado a lado dentro dos modais — empilham em telas estreitas */
+.form-flex-row {
+  display: flex;
+  gap: 10px;
+}
+.form-flex-row > .form-row { flex: 1; min-width: 0; }
+
 /* stats sidebar */
 .j-sidebar { display: flex; flex-direction: column; gap: 10px; }
 .j-id-card {
@@ -777,15 +796,79 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 /* ═══════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════ */
-@media (max-width: 800px) {
+
+/* ~Tablet — colunas largas voltam a empilhar */
+@media (max-width: 900px) {
   .nar-layout { grid-template-columns: 1fr; }
   .jog-inner-grid { grid-template-columns: 1fr; }
   .nar-side { flex-direction: row; flex-wrap: wrap; }
   .nar-side .card { flex: 1; min-width: 220px; }
 }
+
+/* ~Telas pequenas / tablets em pé */
+@media (max-width: 700px) {
+  .view { padding: 12px 14px; }
+  .header { padding: 10px 14px; }
+  .header-sep { display: none; }
+  .header-actions { width: 100%; justify-content: flex-start; margin-left: 0; }
+  .header-actions .btn { flex: 1 1 auto; justify-content: center; }
+
+  .prow-header { flex-wrap: wrap; }
+  .mini-stats { margin-left: 0; width: 100%; justify-content: flex-start; }
+
+  .jog-toolbar .jog-tabs { margin-left: 0; width: 100%; }
+  .jog-toolbar .jog-tabs .jog-tab { flex: 1; justify-content: center; }
+  .jog-toolbar > button { flex: 1 1 auto; justify-content: center; }
+
+  .passivas-grid,
+  .inv-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+
+  .modal-overlay { padding: 12px; }
+  .modal { padding: 18px; }
+  .modal-btns { flex-wrap: wrap; }
+}
+
+/* ~Celulares */
 @media (max-width: 500px) {
-  .skills-grid { grid-template-columns: 1fr; }
+  .skills-grid,
+  .passivas-grid,
+  .inv-grid { grid-template-columns: 1fr; }
   .header-logo { font-size: 13px; }
+  .turn-pill { font-size: 12px; padding: 4px 9px; }
+
+  .nar-side { flex-direction: column; }
+  .nar-side .card { min-width: 100%; }
+
+  .form-flex-row { flex-wrap: wrap; }
+  .form-flex-row > .form-row { flex: 1 1 100%; }
+
+  .attr3 { gap: 4px; }
+  .equip2 { grid-template-columns: 1fr; }
+
+  .nar-ctrl-row { gap: 10px; }
+
+  .modal h3 { font-size: 15px; }
+
+  .jog-notas-area { min-height: 320px; }
+
+  .login-box { padding: 26px 20px 22px; }
+}
+
+/* ~Celulares estreitos */
+@media (max-width: 380px) {
+  .header { gap: 8px 10px; }
+  .turn-pill strong { font-size: 13px; }
+  #sync-status { display: none; }
+
+  .hp-ctrl, .hp-ctrl-5, .ins-ctrl, .ins-ctrl-5 { gap: 2px; }
+  .hp-ctrl button, .ins-ctrl button { padding: 4px 0; font-size: 11px; }
+
+  .notas-grid { gap: 3px; }
+  .nota-btn { padding: 8px 1px; font-size: 10px; }
+
+  .chip-name { max-width: 90px; }
+
+  .modal { padding: 14px; }
 }
 /* ═══════════════════════════════════════════
    TELA DE LOGIN
