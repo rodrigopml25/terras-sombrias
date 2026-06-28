@@ -107,7 +107,42 @@ const RACAS = {
     { id: 'anao_dourado', name: 'Dourado', desc: 'Por ter praticado anos de ferraria, você possui acesso a Aprimoramentos Dourados para suas Armas. Cada Aprimoramento Dourado custa 300 de Dinheiro.' },
     { id: 'anao_criacao', name: 'Criação de Anão', desc: 'Usar 1 vez por Personagem: Funda 2 armas que possuam Aprimoramento Dourado. Só você saberá como usá-la. A fusão custa 500 de Dinheiro.' },
   ],
+  'Draenei': [
+    { id: 'draenei_tecnologia', name: 'Tecnologia Draenei', desc: 'Tem acesso aos aprimoramentos de Armadura e Elmo do "Equipamento Exótico". Esses aprimoramentos custam 5 vezes mais apenas quando aplicados a Armaduras e Elmos Comuns, e só pode haver um aprimoramento por Armadura e Elmo comum.' },
+  ],
 };
+
+// Habilidades raciais fixas — funcionam igual às habilidades gerais mas são
+// exclusivas de cada raça. Formato idêntico ao GENERAL_SKILLS.
+const RACAS_SKILLS = {
+  'Draenei': [
+    { id: 'sk_racial_draenei_adaptacao', name: 'Adaptação do Espaço', color: 'gray', cost: 0, tipo: 'sessao', usosMax: 3, desc: 'Possui +3 de Vantagem em um teste (sem ser de Emoção). Usar (3x por sessão): troque o Teste em que a Vantagem está. (não pode usar esta habilidade numa Luta). Precisa de 0 ações para ser usada.' },
+  ],
+};
+
+// Retorna a lista de habilidades raciais de uma raça (ou [] se não houver).
+function getRaceSkills(raceName) {
+  return RACAS_SKILLS[raceName] || [];
+}
+
+// Garante que as habilidades raciais da raça estejam presentes em p.skills,
+// sem duplicar e sem recolocar as que o jogador removeu (rastreado em p.racialSkillsRemovidas).
+function ensureRaceSkills(p) {
+  if (!Array.isArray(p.skills)) p.skills = [];
+  if (!Array.isArray(p.racialSkillsRemovidas)) p.racialSkillsRemovidas = [];
+  getRaceSkills(p.race).forEach(def => {
+    const jaTem = p.skills.some(sk => sk.id === def.id);
+    const foiRemovida = p.racialSkillsRemovidas.includes(def.id);
+    if (!jaTem && !foiRemovida) {
+      p.skills.push({
+        id: def.id, name: def.name, desc: def.desc,
+        color: def.color, cost: def.cost, tipo: def.tipo,
+        usosMax: def.usosMax, usosAtuais: def.usosMax,
+        cdRestante: 0, turnosRecarga: 1,
+      });
+    }
+  });
+}
 
 // Origens exclusivas de cada raça. Cada entrada da lista representa uma origem
 // possível; ao escolher uma, o personagem ganha a passiva correspondente.
@@ -201,6 +236,8 @@ function ensureRacePassivas(p) {
   });
   // Garante que a passiva de origem racial também esteja presente
   ensureOrigemPassiva(p);
+  // Garante que as habilidades raciais estejam presentes
+  ensureRaceSkills(p);
 }
 
 // ═══════════════════════════════════════
