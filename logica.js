@@ -228,7 +228,7 @@ const RACAS_ORIGENS = {
         tipo: 'perturn',
         usosMax: 1,
         turnosRecarga: 3,
-        desc: 'Cuspa um Feixe de Fogo reto de (5x3 ou 3x5) Casas. Assim, causa 1d8 de Dano em TODOS que receberem o feixe. (1 ação | Recarga 3)',
+        desc: 'Cuspa um Feixe de Fogo reto de (5x3 ou 3x5) Casas. Assim, causa 1d8 de Dano em TODOS que receberem o feixe.',
       },
     },
     {
@@ -243,7 +243,7 @@ const RACAS_ORIGENS = {
         tipo: 'perturn',
         usosMax: 1,
         turnosRecarga: 3,
-        desc: 'Cuspa um feixe Arcano que pode percorrer 10 casas, causando 1d8 de Dano em TODOS que receberem o feixe. Caso o percurso termine onde começou, recarregue esse Feitiço. (1 ação | Recarga 3)',
+        desc: 'Cuspa um feixe Arcano que pode percorrer 10 casas, causando 1d8 de Dano em TODOS que receberem o feixe. Caso o percurso termine onde começou, recarregue esse Feitiço.',
       },
     },
     {
@@ -258,7 +258,7 @@ const RACAS_ORIGENS = {
         tipo: 'perturn',
         usosMax: 1,
         turnosRecarga: 3,
-        desc: 'Cuspa um Feixe de Energia da Terra em um Alvo até 6 casas, causando 1d8 de Dano, depois exploda-o em (3x3) Casas — TODOS que foram explodidos recebem 1d4 de Dano na Armadura. (1 ação | Recarga 3)',
+        desc: 'Cuspa um Feixe de Energia da Terra em um Alvo até 6 casas, causando 1d8 de Dano, depois exploda-o em (3x3) Casas — TODOS que foram explodidos recebem 1d4 de Dano na Armadura.',
       },
     },
     {
@@ -268,12 +268,12 @@ const RACAS_ORIGENS = {
       skill: {
         id: 'sk_origem_dragao_sopro_sonhos',
         name: 'Sopro dos Sonhos',
-        color: 'green',
+        color: 'blue',
         cost: 1,
         tipo: 'perturn',
         usosMax: 1,
         turnosRecarga: 3,
-        desc: 'Cuspa um Feixe reto mágico de energia da Natureza de 8 Casas, causando 1d6 de Dano em TODOS que receberem o feixe e remove as Vantagens de Intelecto até o início do seu próximo Turno. (1 ação | Recarga 3)',
+        desc: 'Cuspa um Feixe reto mágico de energia da Natureza de 8 Casas, causando 1d6 de Dano em TODOS que receberem o feixe e remove as Vantagens de Intelecto até o início do seu próximo Turno.',
       },
     },
     {
@@ -283,12 +283,12 @@ const RACAS_ORIGENS = {
       skill: {
         id: 'sk_origem_dragao_sopro_magma',
         name: 'Sopro de Magma',
-        color: 'red',
+        color: 'blue',
         cost: 1,
         tipo: 'perturn',
         usosMax: 1,
         turnosRecarga: 3,
-        desc: 'Dispare um Feixe de Magma que ocupa 4 Casas diferentes à sua escolha, até 8 casas, que ignora Armadura. Ao passar sobre o Magma, o alvo recebe 1d4 de Dano direto na Vida. O Magma esfria ao final da Luta. (1 ação | Recarga 3)',
+        desc: 'Dispare um Feixe de Magma que ocupa 4 Casas diferentes à sua escolha, até 8 casas, que ignora Armadura. Ao passar sobre o Magma, o alvo recebe 1d4 de Dano direto na Vida. O Magma esfria ao final da Luta.',
       },
     },
   ],
