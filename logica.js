@@ -1898,7 +1898,7 @@ function _updateInvModalSections(tipo) {
                       || (tipo === 'protecao' && peso === 'exotica');
   document.getElementById('inv-sec-municao').style.display = precisaMunicao ? '' : 'none';
   const municaoLabel = document.getElementById('inv-municao-label');
-  if (municaoLabel) municaoLabel.textContent = peso === 'exotica' ? 'Cristais (pool compartilhado)' : 'Munição';
+  if (municaoLabel) municaoLabel.textContent = peso === 'exotica' ? 'Cristais' : 'Munição';
 
   _renderInvAprimos();
   _renderInvAtivas();
