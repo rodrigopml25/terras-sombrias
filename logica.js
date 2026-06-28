@@ -1081,6 +1081,10 @@ function renderTestes(p, readonly) {
   const bdMap  = { green: 'var(--green-bd)', red: 'var(--red-bd)', blue: 'var(--blue-bd)', gray: 'var(--gray-bd)' };
 
   const colunas = grupos.map(g => {
+    const attrVal = g.attr !== 'neutro' ? (p[g.attr] || 0) : null;
+    const mst = attrVal != null ? maestria(attrVal) : null;
+    const mstLabel = mst != null ? ` <span class="nar-skill-mst">+${mst} maestria</span>` : '';
+
     const rows = g.ids.map(tid => {
       const def  = TESTES_LISTA.find(t => t.id === tid);
       const t    = p.testes[tid];
@@ -1114,14 +1118,14 @@ function renderTestes(p, readonly) {
     if (readonly) {
       // Narrador: grupo "plano" com cabeçalho colorido, igual ao padrão das Habilidades (.nar-skill-group)
       return `<div class="teste-col teste-col-flat">
-        <div class="teste-col-header teste-col-header-flat" style="color:${corMap[g.cor]};border-color:${bdMap[g.cor]}">${g.label}</div>
+        <div class="teste-col-header teste-col-header-flat" style="color:${corMap[g.cor]};border-color:${bdMap[g.cor]}">${g.label}${mstLabel}</div>
         ${rows}
       </div>`;
     }
 
     // Jogador: cartão colorido, igual ao padrão das Habilidades/Passivas (.skill-card / .passiva-card)
     return `<div class="teste-col teste-col-card" style="border-color:${bdMap[g.cor]};background:${bgMap[g.cor]}">
-      <div class="teste-col-header" style="color:${corMap[g.cor]}">${g.label}</div>
+      <div class="teste-col-header" style="color:${corMap[g.cor]}">${g.label}${mstLabel}</div>
       ${rows}
     </div>`;
   }).join('');
@@ -1401,8 +1405,8 @@ function renderJogador() {
       ${passivasCollapsed ? '' : `<div class="passivas-grid">${passivasHtml || '<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma passiva cadastrada ainda.</div>'}</div>`}
       ${passivasCollapsed ? '' : `<button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>`}
 
-      ${renderTestes(p, false)}
       ${renderInventarioArea(p)}
+      ${renderTestes(p, false)}
     </div>
     </div>
     `;
