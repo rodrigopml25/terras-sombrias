@@ -110,6 +110,9 @@ const RACAS = {
   'Draenei': [
     { id: 'draenei_tecnologia', name: 'Tecnologia Draenei', desc: 'Tem acesso aos aprimoramentos de Armadura e Elmo do "Equipamento Exótico". Esses aprimoramentos custam 5 vezes mais apenas quando aplicados a Armaduras e Elmos Comuns, e só pode haver um aprimoramento por Armadura e Elmo comum.' },
   ],
+  'Dragão': [
+    { id: 'dragao_dualidade_draconica', name: 'Dualidade Dracônica', desc: 'Escolha uma outra Raça para ser sua forma humanoide. Não receberá as Passivas e Habilidades dela! Enquanto estiver em forma de Dragão não poderá Aparar e terá Mega Desvantagem em Desviar no chão.' },
+  ],
 };
 
 // Habilidades raciais fixas — funcionam igual às habilidades gerais mas são
@@ -117,6 +120,9 @@ const RACAS = {
 const RACAS_SKILLS = {
   'Draenei': [
     { id: 'sk_racial_draenei_adaptacao', name: 'Adaptação do Espaço', color: 'gray', cost: 0, tipo: 'sessao', usosMax: 3, desc: 'Possui +3 de Vantagem em um teste (sem ser de Emoção). Usar (3x por sessão): troque o Teste em que a Vantagem está. (não pode usar esta habilidade numa Luta). Precisa de 0 ações para ser usada.' },
+  ],
+  'Dragão': [
+    { id: 'sk_racial_dragao_metamorfose', name: 'Metamorfose', color: 'gray', cost: 1, tipo: 'recarga', usosMax: 1, turnosRecarga: 1, desc: 'Liberta sua forma de Dragão. Enquanto estiver nela, receba 7+nível em Armadura corporal, 5+nível em Armadura de cabeça, suas Armaduras não podem baixar de 5 e ganhe Habilidades Dracônicas. Em forma de Dragão não pode usar Habilidades de Classe. (Recarga 1 | 1 ação)' },
   ],
 };
 
