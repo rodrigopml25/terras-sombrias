@@ -319,6 +319,8 @@ let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
 let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidades agrupadas
+let jogTestesCollapsed = true;   // jogador: começa fechado
+let narTestesCollapsed = {};     // narrador: { [playerId]: true/false } — começa fechado
 let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true }; // começa fechado
 let jogInvCollapsed = { armas: true, protecoes: true, itens: true }; // inventário começa fechado
 let jogActiveTab = 'ficha'; // 'ficha' | 'anotacoes'
@@ -1024,6 +1026,16 @@ function renderPsel() {
   if (currentVal && myPlayers.find(p => p.id == currentVal)) psel.value = currentVal;
 }
 
+// ─── Toggle collapse dos Testes ─────────────────────────────────────────────
+function toggleJogTestes() {
+  jogTestesCollapsed = !jogTestesCollapsed;
+  renderJogador();
+}
+function toggleNarTestes(pid) {
+  narTestesCollapsed[pid] = !narTestesCollapsed[pid];
+  renderNarrador();
+}
+
 // ─── Ações dos Testes ────────────────────────────────────────────────────────
 function setTesteMV(pid, testeId, val) {
   const p = PLAYERS.find(x => x.id === pid);
@@ -1103,12 +1115,27 @@ function renderTestes(p, readonly) {
     </div>`;
   }).join('');
 
+  const collapsed = readonly
+    ? !!narTestesCollapsed[p.id]
+    : jogTestesCollapsed;
+  const toggleFn = readonly
+    ? `toggleNarTestes(${p.id})`
+    : `toggleJogTestes()`;
+
+  // Conta testes configurados para badge no header quando fechado
+  const totalConfig = TESTES_LISTA.filter(t => {
+    const tv = p.testes[t.id];
+    return tv && (tv.mv || tv.md || (tv.bonus && tv.bonus.trim()));
+  }).length;
+
   return `<div class="testes-section">
-    <div class="testes-header">
+    <div class="testes-header testes-header-toggle" onclick="${toggleFn}">
       <i class="ti ti-dice-d20" style="color:var(--accent2)"></i> Testes
-      <span class="testes-legend"><span class="teste-badge mv">MV</span> Mega Vantagem &nbsp; <span class="teste-badge md">MD</span> Mega Desvantagem</span>
+      ${collapsed && totalConfig > 0 ? `<span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${totalConfig} configurado${totalConfig !== 1 ? 's' : ''}</span>` : ''}
+      <span class="testes-legend" style="${collapsed ? 'display:none' : ''}"><span class="teste-badge mv">MV</span> Mega Vantagem &nbsp; <span class="teste-badge md">MD</span> Mega Desvantagem</span>
+      <i class="ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron" style="margin-left:auto;color:var(--text3);font-size:13px"></i>
     </div>
-    <div class="testes-grid">${colunas}</div>
+    ${collapsed ? '' : `<div class="testes-grid">${colunas}</div>`}
   </div>`;
 }
 
