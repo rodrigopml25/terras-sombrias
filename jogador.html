@@ -305,11 +305,21 @@
           <textarea id="inv-m-efeito" placeholder="Descreva o efeito ou observações..." style="width:100%;min-height:56px;font-size:12px;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);resize:vertical;font-family:var(--font-body);line-height:1.5"></textarea>
         </div>
 
-        <!-- Aprimoramentos (Exótica) -->
+        <!-- Aprimoramentos (todas as armas) -->
         <div id="inv-sec-exotica" style="display:none">
-          <div class="inv-sub-header">
-            <span><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Aprimoramentos</span>
-            <button class="btn" style="padding:3px 9px;font-size:11px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar</button>
+          <div class="inv-sub-header" style="margin-bottom:6px">
+            <span><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Aprimoramentos <span style="font-size:10px;color:var(--text3);font-weight:400">(opcional)</span></span>
+          </div>
+          <!-- Seletor de tipo: somente para armas comuns (Leve/Media/Pesada/Mega) -->
+          <div id="inv-aprimo-tipo-selector" style="display:none;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+            <button id="inv-aprimo-btn-dourado" class="btn" style="font-size:11px;padding:4px 10px" onclick="selectAprimoTipo('dourado')">&#10024; Dourado</button>
+            <button id="inv-aprimo-btn-exotico" class="btn" style="font-size:11px;padding:4px 10px" onclick="selectAprimoTipo('exotico')"><i class="ti ti-plus"></i> Exotico</button>
+            <button id="inv-aprimo-btn-nenhum"  class="btn" style="font-size:11px;padding:4px 10px" onclick="selectAprimoTipo('nenhum')">Nenhum</button>
+          </div>
+          <!-- Aviso para armas exoticas: apenas aprimoramentos livres, sem Dourado -->
+          <div id="inv-aprimo-exotica-hint" style="display:none;font-size:11px;color:var(--text3);margin-bottom:6px">
+            ⚠ Armas Exóticas não podem receber Aprimoramento Dourado.
+            <button class="btn" style="padding:3px 9px;font-size:11px;margin-left:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar Aprimoramento</button>
           </div>
           <div id="inv-aprimos-list"></div>
         </div>
