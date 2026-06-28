@@ -916,7 +916,6 @@ function renderNarrador() {
         </div>
         <button class="prow-edit-btn ${skillsExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarSkills(${p.id})" title="Ver habilidades agrupadas por atributo"><i class="ti ti-sword"></i></button>
         <button class="prow-edit-btn ${passivasExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarPassivas(${p.id})" title="Ver passivas / talentos"><i class="ti ti-sparkles"></i></button>
-        <button class="prow-edit-btn ${narTestesCollapsed[p.id] === false ? 'prow-passiva-on' : ''}" onclick="toggleNarTestes(${p.id})" title="Ver testes"><i class="ti ti-hexagon-letter-d"></i></button>
         <button class="prow-edit-btn" onclick="editCharacter(${p.id})" title="Editar ficha do personagem"><i class="ti ti-edit"></i></button>
       </div>
       <div class="bars">
@@ -1144,12 +1143,14 @@ function renderTestes(p, readonly) {
     : '';
 
   if (readonly) {
-    return collapsed ? '' : `<div class="testes-section testes-section-nar">
-      <div class="testes-title-nar">
-        <i class="ti ti-hexagon-letter-d"></i> Testes
+    // Narrador: mesma "caixa" visual usada nas Habilidades / Passivas (.nar-skills-box / .nar-passivas-box)
+    return `<div class="testes-section testes-section-nar">
+      <div class="testes-title-nar testes-header-toggle" onclick="${toggleFn}">
+        <i class="ti ti-dice-d20"></i> Testes
         ${readyBadge}
+        <i class="ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron" style="margin-left:auto"></i>
       </div>
-      <div class="testes-grid testes-grid-nar">${colunas}</div>
+      ${collapsed ? '' : `<div class="testes-grid testes-grid-nar">${colunas}</div>`}
     </div>`;
   }
 
@@ -1400,8 +1401,8 @@ function renderJogador() {
       ${passivasCollapsed ? '' : `<div class="passivas-grid">${passivasHtml || '<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma passiva cadastrada ainda.</div>'}</div>`}
       ${passivasCollapsed ? '' : `<button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>`}
 
-      ${renderInventarioArea(p)}
       ${renderTestes(p, false)}
+      ${renderInventarioArea(p)}
     </div>
     </div>
     `;
