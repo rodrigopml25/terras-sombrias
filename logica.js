@@ -916,6 +916,7 @@ function renderNarrador() {
         </div>
         <button class="prow-edit-btn ${skillsExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarSkills(${p.id})" title="Ver habilidades agrupadas por atributo"><i class="ti ti-sword"></i></button>
         <button class="prow-edit-btn ${passivasExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarPassivas(${p.id})" title="Ver passivas / talentos"><i class="ti ti-sparkles"></i></button>
+        <button class="prow-edit-btn ${narTestesCollapsed[p.id] === false ? 'prow-passiva-on' : ''}" onclick="toggleNarTestes(${p.id})" title="Ver testes"><i class="ti ti-dice-d20"></i></button>
         <button class="prow-edit-btn" onclick="editCharacter(${p.id})" title="Editar ficha do personagem"><i class="ti ti-edit"></i></button>
       </div>
       <div class="bars">
@@ -1087,16 +1088,14 @@ function renderTestes(p, readonly) {
       const hasMV = t.mv, hasMD = t.md, hasBonus = t.bonus && t.bonus.trim();
 
       if (readonly) {
-        // Narrador: chip estilizado igual às habilidades
+        // Narrador: só leitura — mostra badges se houver algo configurado
         const badges = [];
-        if (hasMV)    badges.push(`<span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)">MV</span>`);
-        if (hasMD)    badges.push(`<span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)">MD</span>`);
-        if (hasBonus) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)">${t.bonus}</span>`);
-        const hasConfig = badges.length > 0;
-        return `<div class="skill-chip sc-${g.cor}${hasConfig ? '' : ' teste-chip-vazio'}">
-          <span class="chip-dot"></span>
-          <span class="chip-name">${def.name}</span>
-          ${badges.join('')}
+        if (hasMV)    badges.push(`<span class="teste-badge mv">MV</span>`);
+        if (hasMD)    badges.push(`<span class="teste-badge md">MD</span>`);
+        if (hasBonus) badges.push(`<span class="teste-badge bonus">${t.bonus}</span>`);
+        return `<div class="teste-row${badges.length ? ' teste-row-ativo' : ''}">
+          <span class="teste-nome">${def.name}</span>
+          <span class="teste-badges">${badges.join('')}</span>
         </div>`;
       }
 
@@ -1114,13 +1113,10 @@ function renderTestes(p, readonly) {
     }).join('');
 
     if (readonly) {
-      // Narrador: grupo igual ao padrão das Habilidades (.nar-skill-group)
-      return `<div class="nar-skill-group">
-        <div class="nar-skill-group-header sc-${g.cor}">
-          <span>${g.label}</span>
-          <span class="nar-skill-count">${g.ids.length} teste${g.ids.length !== 1 ? 's' : ''}</span>
-        </div>
-        <div class="skills-chips">${rows}</div>
+      // Narrador: grupo "plano" com cabeçalho colorido, igual ao padrão das Habilidades (.nar-skill-group)
+      return `<div class="teste-col teste-col-flat">
+        <div class="teste-col-header teste-col-header-flat" style="color:${corMap[g.cor]};border-color:${bdMap[g.cor]}">${g.label}</div>
+        ${rows}
       </div>`;
     }
 
@@ -1148,14 +1144,13 @@ function renderTestes(p, readonly) {
     : '';
 
   if (readonly) {
-    // Narrador: mesma "caixa" visual usada nas Habilidades (.nar-skills-box)
-    return `<div class="testes-section testes-section-nar">
-      <div class="testes-title-nar testes-header-toggle" onclick="${toggleFn}">
+    // Narrador: caixa de testes controlada pelo botão do header do personagem
+    return collapsed ? '' : `<div class="testes-section testes-section-nar">
+      <div class="testes-title-nar">
         <i class="ti ti-dice-d20"></i> Testes
         ${readyBadge}
-        <i class="ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron" style="margin-left:auto"></i>
       </div>
-      ${collapsed ? '' : `<div class="testes-grid-nar-chips">${colunas}</div>`}
+      <div class="testes-grid testes-grid-nar">${colunas}</div>
     </div>`;
   }
 
