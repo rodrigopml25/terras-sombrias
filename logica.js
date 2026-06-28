@@ -1087,14 +1087,16 @@ function renderTestes(p, readonly) {
       const hasMV = t.mv, hasMD = t.md, hasBonus = t.bonus && t.bonus.trim();
 
       if (readonly) {
-        // Narrador: só leitura — mostra badges se houver algo configurado
+        // Narrador: chip estilizado igual às habilidades
         const badges = [];
-        if (hasMV)    badges.push(`<span class="teste-badge mv">MV</span>`);
-        if (hasMD)    badges.push(`<span class="teste-badge md">MD</span>`);
-        if (hasBonus) badges.push(`<span class="teste-badge bonus">${t.bonus}</span>`);
-        return `<div class="teste-row${badges.length ? ' teste-row-ativo' : ''}">
-          <span class="teste-nome">${def.name}</span>
-          <span class="teste-badges">${badges.join('')}</span>
+        if (hasMV)    badges.push(`<span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)">MV</span>`);
+        if (hasMD)    badges.push(`<span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)">MD</span>`);
+        if (hasBonus) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)">${t.bonus}</span>`);
+        const hasConfig = badges.length > 0;
+        return `<div class="skill-chip sc-${g.cor}${hasConfig ? '' : ' teste-chip-vazio'}">
+          <span class="chip-dot"></span>
+          <span class="chip-name">${def.name}</span>
+          ${badges.join('')}
         </div>`;
       }
 
@@ -1112,10 +1114,13 @@ function renderTestes(p, readonly) {
     }).join('');
 
     if (readonly) {
-      // Narrador: grupo "plano" com cabeçalho colorido, igual ao padrão das Habilidades (.nar-skill-group)
-      return `<div class="teste-col teste-col-flat">
-        <div class="teste-col-header teste-col-header-flat" style="color:${corMap[g.cor]};border-color:${bdMap[g.cor]}">${g.label}</div>
-        ${rows}
+      // Narrador: grupo igual ao padrão das Habilidades (.nar-skill-group)
+      return `<div class="nar-skill-group">
+        <div class="nar-skill-group-header sc-${g.cor}">
+          <span>${g.label}</span>
+          <span class="nar-skill-count">${g.ids.length} teste${g.ids.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="skills-chips">${rows}</div>
       </div>`;
     }
 
@@ -1143,14 +1148,14 @@ function renderTestes(p, readonly) {
     : '';
 
   if (readonly) {
-    // Narrador: mesma "caixa" visual usada nas Habilidades / Passivas (.nar-skills-box / .nar-passivas-box)
+    // Narrador: mesma "caixa" visual usada nas Habilidades (.nar-skills-box)
     return `<div class="testes-section testes-section-nar">
       <div class="testes-title-nar testes-header-toggle" onclick="${toggleFn}">
         <i class="ti ti-dice-d20"></i> Testes
         ${readyBadge}
         <i class="ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron" style="margin-left:auto"></i>
       </div>
-      ${collapsed ? '' : `<div class="testes-grid testes-grid-nar">${colunas}</div>`}
+      ${collapsed ? '' : `<div class="testes-grid-nar-chips">${colunas}</div>`}
     </div>`;
   }
 
