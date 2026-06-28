@@ -415,7 +415,7 @@ let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidade
 let jogTestesCollapsed = true;   // jogador: começa fechado
 let narTestesCollapsed = {};     // narrador: { [playerId]: true/false } — começa fechado
 let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true }; // começa fechado
-let jogInvCollapsed = { armas: true, protecoes: true, instrumentos: true, itens: true }; // inventário começa fechado
+let jogInvCollapsed = { armas: true, protecoes: true, itens: true }; // inventário começa fechado
 let jogActiveTab = 'ficha'; // 'ficha' | 'anotacoes'
 let modalInvPid = null;
 let modalInvId = null;
@@ -1620,10 +1620,9 @@ const INV_ALCANCE_LABEL = { curto: 'Curto Alcance', longo: 'Longo Alcance' };
 
 function renderInventarioArea(p) {
   const inv = Array.isArray(p.inventario) ? p.inventario : [];
-  const armas        = inv.filter(i => i.tipo === 'arma');
-  const protecoes    = inv.filter(i => i.tipo === 'protecao');
-  const instrumentos = inv.filter(i => i.tipo === 'instrumento');
-  const itens        = inv.filter(i => i.tipo === 'item');
+  const armas     = inv.filter(i => i.tipo === 'arma' || i.tipo === 'instrumento');
+  const protecoes = inv.filter(i => i.tipo === 'protecao');
+  const itens     = inv.filter(i => i.tipo === 'item');
 
   function pesoTag(item) {
     if (!item.peso) return '';
@@ -1687,22 +1686,30 @@ function renderInventarioArea(p) {
   }
 
   function renderArmaCard(item) {
+    const isInstrumento = item.tipo === 'instrumento';
     const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
     const ativas = item.ativas && item.ativas.length
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-bolt"></i> Liberar Vileza</div>${item.ativas.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
+    const icone = isInstrumento
+      ? `<i class="ti ti-music" style="color:#e8a838"></i>`
+      : `<i class="ti ti-sword" style="color:var(--red)"></i>`;
+    const instTag = isInstrumento
+      ? `<span class="inv-peso-tag" style="color:#e8a838;background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.3)">🎵 Instrumento</span>`
+      : '';
     return `<div class="inv-card">
       <div class="inv-card-header">
-        <div class="inv-card-title"><i class="ti ti-sword" style="color:var(--red)"></i> ${item.name}</div>
+        <div class="inv-card-title">${icone} ${item.name}</div>
         <div style="display:flex;align-items:center;gap:6px">
-          ${alcanceTag(item)}
+          ${instTag}
+          ${isInstrumento ? '' : alcanceTag(item)}
           ${pesoTag(item)}
           <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
         </div>
       </div>
       ${item.dano ? `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span></div>` : ''}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
-      ${municaoRow(item)}
+      ${isInstrumento ? '' : municaoRow(item)}
       ${aprimoramentos}${ativas}
     </div>`;
   }
@@ -1737,23 +1744,6 @@ function renderInventarioArea(p) {
     </div>`;
   }
 
-  function renderInstrumentoCard(item) {
-    const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
-      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
-    return `<div class="inv-card">
-      <div class="inv-card-header">
-        <div class="inv-card-title"><i class="ti ti-music" style="color:#e8a838"></i> ${item.name}</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          ${pesoTag(item)}
-          <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
-        </div>
-      </div>
-      ${item.dano ? `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span></div>` : ''}
-      ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
-      ${aprimoramentos}
-    </div>`;
-  }
-
   function renderItemCard(item) {
     return `<div class="inv-card inv-card-item">
       <div class="inv-card-header">
@@ -1785,10 +1775,9 @@ function renderInventarioArea(p) {
       <span>Inventário</span>
       <button class="btn btn-success inv-add-btn" onclick="openInvModal(${p.id})"><i class="ti ti-plus"></i> Adicionar</button>
     </div>
-    ${invSection('armas',        '⚔️ Armas',               'ti-sword',   'var(--red)',    armas,        renderArmaCard)}
-    ${invSection('protecoes',    '🛡 Proteções',            'ti-shield',  'var(--amber)',  protecoes,    renderProtecaoCard)}
-    ${invSection('instrumentos', '🎵 Instrumentos Musicais','ti-music',   '#e8a838',       instrumentos, renderInstrumentoCard)}
-    ${invSection('itens',        '📦 Itens',                'ti-package', 'var(--text3)', itens,        renderItemCard)}
+    ${invSection('armas',     '⚔️ Armas',    'ti-sword',   'var(--red)',    armas,     renderArmaCard)}
+    ${invSection('protecoes', '🛡 Proteções', 'ti-shield',  'var(--amber)',  protecoes, renderProtecaoCard)}
+    ${invSection('itens',     '📦 Itens',     'ti-package', 'var(--text3)', itens,     renderItemCard)}
   </div>`;
 }
 
