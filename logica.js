@@ -215,6 +215,83 @@ const RACAS_ORIGENS = {
       },
     },
   ],
+  'Dragão': [
+    {
+      id: 'dragao_revoada_amarela',
+      name: 'Amarela',
+      desc: 'Nascido da Revoada Amarela, mestre das chamas e do calor abrasador.',
+      skill: {
+        id: 'sk_origem_dragao_sopro_fogo',
+        name: 'Sopro de Fogo',
+        color: 'green',
+        cost: 1,
+        tipo: 'perturn',
+        usosMax: 1,
+        turnosRecarga: 3,
+        desc: 'Cuspa um Feixe de Fogo reto de (5x3 ou 3x5) Casas. Assim, causa 1d8 de Dano em TODOS que receberem o feixe. (1 ação | Recarga 3)',
+      },
+    },
+    {
+      id: 'dragao_revoada_azul',
+      name: 'Azul',
+      desc: 'Nascido da Revoada Azul, canal do poder arcano mais puro.',
+      skill: {
+        id: 'sk_origem_dragao_sopro_arcano',
+        name: 'Sopro Arcano',
+        color: 'blue',
+        cost: 1,
+        tipo: 'perturn',
+        usosMax: 1,
+        turnosRecarga: 3,
+        desc: 'Cuspa um feixe Arcano que pode percorrer 10 casas, causando 1d8 de Dano em TODOS que receberem o feixe. Caso o percurso termine onde começou, recarregue esse Feitiço. (1 ação | Recarga 3)',
+      },
+    },
+    {
+      id: 'dragao_revoada_negra',
+      name: 'Negra',
+      desc: 'Nascido da Revoada Negra, portador de energia radioativa e corrosiva.',
+      skill: {
+        id: 'sk_origem_dragao_sopro_radioativo',
+        name: 'Sopro Radioativo',
+        color: 'blue',
+        cost: 1,
+        tipo: 'perturn',
+        usosMax: 1,
+        turnosRecarga: 3,
+        desc: 'Cuspa um Feixe de Energia da Terra em um Alvo até 6 casas, causando 1d8 de Dano, depois exploda-o em (3x3) Casas — TODOS que foram explodidos recebem 1d4 de Dano na Armadura. (1 ação | Recarga 3)',
+      },
+    },
+    {
+      id: 'dragao_revoada_verde',
+      name: 'Verde',
+      desc: 'Nascido da Revoada Verde, guardião dos sonhos e da natureza.',
+      skill: {
+        id: 'sk_origem_dragao_sopro_sonhos',
+        name: 'Sopro dos Sonhos',
+        color: 'green',
+        cost: 1,
+        tipo: 'perturn',
+        usosMax: 1,
+        turnosRecarga: 3,
+        desc: 'Cuspa um Feixe reto mágico de energia da Natureza de 8 Casas, causando 1d6 de Dano em TODOS que receberem o feixe e remove as Vantagens de Intelecto até o início do seu próximo Turno. (1 ação | Recarga 3)',
+      },
+    },
+    {
+      id: 'dragao_revoada_vermelha',
+      name: 'Vermelha',
+      desc: 'Nascido da Revoada Vermelha, senhor do magma e da destruição ígnea.',
+      skill: {
+        id: 'sk_origem_dragao_sopro_magma',
+        name: 'Sopro de Magma',
+        color: 'red',
+        cost: 1,
+        tipo: 'perturn',
+        usosMax: 1,
+        turnosRecarga: 3,
+        desc: 'Dispare um Feixe de Magma que ocupa 4 Casas diferentes à sua escolha, até 8 casas, que ignora Armadura. Ao passar sobre o Magma, o alvo recebe 1d4 de Dano direto na Vida. O Magma esfria ao final da Luta. (1 ação | Recarga 3)',
+      },
+    },
+  ],
 };
 
 // Retorna a lista de origens disponíveis para uma raça (ou [] se não houver).
@@ -2580,8 +2657,9 @@ function updateOrigemSelector(raceName, selectedOrigemId) {
     return;
   }
   container.style.display = 'block';
+  const origemLabel = raceName === 'Dragão' ? 'Revoada' : 'Origem';
   container.innerHTML = `
-    <label class="form-label" style="margin-bottom:6px;display:block">Origem</label>
+    <label class="form-label" style="margin-bottom:6px;display:block">${origemLabel}</label>
     <div class="cls-btn-group" id="c-origem-btns" style="flex-wrap:wrap;gap:6px">
       ${origens.map(o => `
         <button type="button"
