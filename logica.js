@@ -170,6 +170,42 @@ const RACAS_ORIGENS = {
       },
     },
   ],
+  'Draenei': [
+    {
+      id: 'draenei_origem_comum',
+      name: 'Comum',
+      desc: 'Os Draenei que fugiram da Legião Ardente conseguiram aprimorar sua tecnologia.',
+      passiva: {
+        id: 'draenei_origem_comum_passiva',
+        name: 'Origem Comum',
+        desc: 'Também possui acesso aos Aprimoramentos de Arma do "Equipamento Exótico". Esses aprimoramentos custam 5 vezes mais apenas quando aplicados a Armas comuns, e só pode haver um aprimoramento por Arma Comum.',
+      },
+    },
+    {
+      id: 'draenei_origem_demoniaco',
+      name: 'Demoníaco',
+      desc: 'Os Draenei que decidiram se aliar à Legião Ardente tomaram sangue de demônio, tornando suas peles vermelhas e concedendo-lhes Asas.',
+      passiva: {
+        id: 'draenei_origem_demoniaco_passiva',
+        name: 'Origem Demoníaca',
+        desc: 'Recebem +2 de Passos, não sofrem dano de queda e, ao subir de Nível, receberão +1 de Passos e 1d8 de Insanidade.',
+      },
+    },
+    {
+      id: 'draenei_origem_forjado',
+      name: 'Forjado a Luz',
+      desc: 'Os Draenei que negaram fugir de Argus e decidiram confrontar a Legião Ardente receberam um apoio da Luz.',
+      skill: {
+        id: 'sk_origem_draenei_forjado_luz',
+        name: 'Forjado a Luz',
+        color: 'blue',
+        cost: 1,
+        tipo: 'sessao',
+        usosMax: 4,
+        desc: 'Os Draenei que negaram a fugir de Argus e decidiram confrontar a Legião Ardente receberam um apoio da Luz, tendo uma Marca Sagrada da Luz. Escolha uma Benção da Luz e lance-a. (4x por sessão, 1 ação para ser lançado)',
+      },
+    },
+  ],
 };
 
 // Retorna a lista de origens disponíveis para uma raça (ou [] se não houver).
@@ -186,31 +222,51 @@ function getOrigemPersonagem(p) {
 
 // Garante que a passiva de origem racial esteja em p.passivas.
 // Remove passivas de origens anteriores que não correspondam mais à origem atual.
+// Para origens com `skill` (em vez de `passiva`), injeta/remove a habilidade em p.skills.
 function ensureOrigemPassiva(p) {
   if (!Array.isArray(p.passivas)) p.passivas = [];
+  if (!Array.isArray(p.skills)) p.skills = [];
   const origens = getRaceOrigens(p.race);
   if (!origens.length) return;
 
-  // Remove passivas de origens desta raça que não sejam a selecionada
+  // Remove passivas e habilidades de origens que não sejam a selecionada
   origens.forEach(o => {
     if (o.id !== p.origemId) {
       p.passivas = p.passivas.filter(pas => pas.origemId !== o.id);
+      if (o.skill) {
+        p.skills = p.skills.filter(sk => sk.id !== o.skill.id);
+      }
     }
   });
 
-  // Adiciona a passiva da origem selecionada (se houver e ainda não estiver presente)
   if (!p.origemId) return;
   const origemAtual = origens.find(o => o.id === p.origemId);
   if (!origemAtual) return;
-  const jaTem = p.passivas.some(pas => pas.origemId === p.origemId);
-  if (!jaTem) {
-    p.passivas.push({
-      id: 'pas_origem_' + p.origemId,
-      origemId: p.origemId,
-      racialId: origemAtual.passiva.id,
-      name: origemAtual.passiva.name,
-      desc: origemAtual.passiva.desc,
-    });
+
+  if (origemAtual.skill) {
+    // Origem com habilidade — injeta em p.skills
+    const jaTem = p.skills.some(sk => sk.id === origemAtual.skill.id);
+    if (!jaTem) {
+      const def = origemAtual.skill;
+      p.skills.push({
+        id: def.id, name: def.name, desc: def.desc,
+        color: def.color, cost: def.cost, tipo: def.tipo,
+        usosMax: def.usosMax, usosAtuais: def.usosMax,
+        cdRestante: 0, turnosRecarga: 1,
+      });
+    }
+  } else if (origemAtual.passiva) {
+    // Origem com passiva — injeta em p.passivas
+    const jaTem = p.passivas.some(pas => pas.origemId === p.origemId);
+    if (!jaTem) {
+      p.passivas.push({
+        id: 'pas_origem_' + p.origemId,
+        origemId: p.origemId,
+        racialId: origemAtual.passiva.id,
+        name: origemAtual.passiva.name,
+        desc: origemAtual.passiva.desc,
+      });
+    }
   }
 }
 
@@ -2418,7 +2474,13 @@ function updateOrigemSelector(raceName, selectedOrigemId) {
     </div>
     <input type="hidden" id="c-origem" value="${selectedOrigemId || ''}">
     <div id="c-origem-desc" style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5;min-height:16px">
-      ${selectedOrigemId ? (() => { const o = origens.find(x => x.id === selectedOrigemId); return o ? `<strong>${o.passiva.name}:</strong> ${o.passiva.desc}` : ''; })() : ''}
+      ${selectedOrigemId ? (() => {
+        const o = origens.find(x => x.id === selectedOrigemId);
+        if (!o) return '';
+        const item = o.skill || o.passiva;
+        const tipo = o.skill ? '🗡 Habilidade' : '✨ Passiva';
+        return item ? `<strong>${tipo} — ${item.name}:</strong> ${item.desc}` : '';
+      })() : ''}
     </div>`;
 }
 
@@ -2428,13 +2490,19 @@ function selectOrigem(origemId) {
   document.querySelectorAll('#c-origem-btns .cls-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.origem === origemId)
   );
-  // Atualiza descrição da passiva
+  // Atualiza descrição da passiva ou habilidade
   const descEl = document.getElementById('c-origem-desc');
   if (descEl) {
     const race = document.getElementById('c-race').value;
     const origens = getRaceOrigens(race);
     const o = origens.find(x => x.id === origemId);
-    descEl.innerHTML = o ? `<strong>${o.passiva.name}:</strong> ${o.passiva.desc}` : '';
+    if (o) {
+      const item = o.skill || o.passiva;
+      const tipo = o.skill ? '🗡 Habilidade' : '✨ Passiva';
+      descEl.innerHTML = item ? `<strong>${tipo} — ${item.name}:</strong> ${item.desc}` : '';
+    } else {
+      descEl.innerHTML = '';
+    }
   }
 }
 
