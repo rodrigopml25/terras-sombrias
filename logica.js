@@ -1098,7 +1098,7 @@ function renderTestes(p, readonly) {
         if (hasMD)    badges.push(`<span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)">MD</span>`);
         if (hasBonus) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)">${t.bonus}</span>`);
         const hasConfig = badges.length > 0;
-        return `<div class="skill-chip sc-${g.cor}${hasConfig ? '' : ' teste-chip-vazio'}">
+        return `<div class="skill-chip sc-${g.cor}">
           <span class="chip-dot"></span>
           <span class="chip-name">${def.name}</span>
           ${badges.join('')}
