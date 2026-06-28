@@ -415,7 +415,7 @@ let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidade
 let jogTestesCollapsed = true;   // jogador: começa fechado
 let narTestesCollapsed = {};     // narrador: { [playerId]: true/false } — começa fechado
 let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true }; // começa fechado
-let jogInvCollapsed = { armas: true, protecoes: true, itens: true }; // inventário começa fechado
+let jogInvCollapsed = { armas: true, protecoes: true, instrumentos: true, itens: true }; // inventário começa fechado
 let jogActiveTab = 'ficha'; // 'ficha' | 'anotacoes'
 let modalInvPid = null;
 let modalInvId = null;
@@ -1620,9 +1620,10 @@ const INV_ALCANCE_LABEL = { curto: 'Curto Alcance', longo: 'Longo Alcance' };
 
 function renderInventarioArea(p) {
   const inv = Array.isArray(p.inventario) ? p.inventario : [];
-  const armas     = inv.filter(i => i.tipo === 'arma');
-  const protecoes = inv.filter(i => i.tipo === 'protecao');
-  const itens     = inv.filter(i => i.tipo === 'item');
+  const armas        = inv.filter(i => i.tipo === 'arma');
+  const protecoes    = inv.filter(i => i.tipo === 'protecao');
+  const instrumentos = inv.filter(i => i.tipo === 'instrumento');
+  const itens        = inv.filter(i => i.tipo === 'item');
 
   function pesoTag(item) {
     if (!item.peso) return '';
@@ -1736,6 +1737,23 @@ function renderInventarioArea(p) {
     </div>`;
   }
 
+  function renderInstrumentoCard(item) {
+    const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
+      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
+    return `<div class="inv-card">
+      <div class="inv-card-header">
+        <div class="inv-card-title"><i class="ti ti-music" style="color:#e8a838"></i> ${item.name}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${pesoTag(item)}
+          <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
+        </div>
+      </div>
+      ${item.dano ? `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span></div>` : ''}
+      ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
+      ${aprimoramentos}
+    </div>`;
+  }
+
   function renderItemCard(item) {
     return `<div class="inv-card inv-card-item">
       <div class="inv-card-header">
@@ -1767,9 +1785,10 @@ function renderInventarioArea(p) {
       <span>Inventário</span>
       <button class="btn btn-success inv-add-btn" onclick="openInvModal(${p.id})"><i class="ti ti-plus"></i> Adicionar</button>
     </div>
-    ${invSection('armas',     '⚔️ Armas',    'ti-sword',   'var(--red)',    armas,     renderArmaCard)}
-    ${invSection('protecoes', '🛡 Proteções', 'ti-shield',  'var(--amber)',  protecoes, renderProtecaoCard)}
-    ${invSection('itens',     '📦 Itens',     'ti-package', 'var(--text3)', itens,     renderItemCard)}
+    ${invSection('armas',        '⚔️ Armas',               'ti-sword',   'var(--red)',    armas,        renderArmaCard)}
+    ${invSection('protecoes',    '🛡 Proteções',            'ti-shield',  'var(--amber)',  protecoes,    renderProtecaoCard)}
+    ${invSection('instrumentos', '🎵 Instrumentos Musicais','ti-music',   '#e8a838',       instrumentos, renderInstrumentoCard)}
+    ${invSection('itens',        '📦 Itens',                'ti-package', 'var(--text3)', itens,        renderItemCard)}
   </div>`;
 }
 
@@ -1851,6 +1870,8 @@ function _buildInvModal(data) {
 
   // dano
   document.getElementById('inv-m-dano').value  = data.dano  || '';
+  const inputDanoInst = document.getElementById('inv-m-dano-inst');
+  if (inputDanoInst) inputDanoInst.value = (tipo === 'instrumento' ? (data.dano || '') : '');
   // alcance (arma)
   const alcanceVal = data.alcance || 'curto';
   document.querySelectorAll('.inv-alcance-btn').forEach(b => {
@@ -1908,13 +1929,15 @@ let invAtivas  = [];
 let invAprimoTipo = 'nenhum';
 
 function _updateInvModalSections(tipo) {
-  document.getElementById('inv-sec-arma').style.display      = tipo === 'arma'     ? '' : 'none';
-  document.getElementById('inv-sec-protecao').style.display  = tipo === 'protecao' ? '' : 'none';
-  document.getElementById('inv-sec-item').style.display      = tipo === 'item'     ? '' : 'none';
+  document.getElementById('inv-sec-arma').style.display         = tipo === 'arma'        ? '' : 'none';
+  document.getElementById('inv-sec-instrumento').style.display  = tipo === 'instrumento' ? '' : 'none';
+  document.getElementById('inv-sec-protecao').style.display     = tipo === 'protecao'    ? '' : 'none';
+  document.getElementById('inv-sec-item').style.display         = tipo === 'item'        ? '' : 'none';
 
   const peso = _invSelectedPeso();
-  document.getElementById('inv-sec-exotica').style.display   = (tipo === 'arma') ? '' : 'none';
-  document.getElementById('inv-sec-mega').style.display      = (tipo === 'arma' && peso === 'mega')    ? '' : 'none';
+  // Aprimoramentos: disponíveis para armas e instrumentos
+  document.getElementById('inv-sec-exotica').style.display = (tipo === 'arma' || tipo === 'instrumento') ? '' : 'none';
+  document.getElementById('inv-sec-mega').style.display    = (tipo === 'arma' && peso === 'mega') ? '' : 'none';
 
   // Munição (armas de longo alcance) ou Cristais (armas/proteções exóticas)
   const alcance = _invSelectedAlcance();
@@ -2079,13 +2102,14 @@ function _updateAprimoUI() {
   const hint    = document.getElementById('inv-aprimo-exotica-hint');
   if (!seletor || !hint) return;
 
-  if (tipo !== 'arma') { seletor.style.display = 'none'; hint.style.display = 'none'; return; }
+  const suportaAprimo = tipo === 'arma' || tipo === 'instrumento';
+  if (!suportaAprimo) { seletor.style.display = 'none'; hint.style.display = 'none'; return; }
 
   const isExotica = peso === 'exotica';
   seletor.style.display = isExotica ? 'none' : 'flex';
   hint.style.display    = isExotica ? ''     : 'none';
 
-  // Highlight do botão ativo (armas comuns)
+  // Highlight do botão ativo (armas/instrumentos comuns)
   ['dourado','exotico','nenhum'].forEach(t => {
     const btn = document.getElementById('inv-aprimo-btn-' + t);
     if (btn) btn.style.fontWeight = (invAprimoTipo === t) ? '700' : '';
@@ -2137,6 +2161,10 @@ function saveInvItem() {
     base.aprimoramentos = invAprimos.filter(a => a.name);
     // Armas exóticas: cristais ficam em p.cristais (pool do personagem), não no item
     if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
+  } else if (tipo === 'instrumento') {
+    const danoInst = (document.getElementById('inv-m-dano-inst') || {}).value || '';
+    Object.assign(base, { peso, dano: danoInst.trim() });
+    base.aprimoramentos = invAprimos.filter(a => a.name);
   } else if (tipo === 'protecao') {
     Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, equipado });
     // Proteções exóticas: atualiza o pool de cristais do personagem
