@@ -1148,9 +1148,7 @@ function renderTestes(p, readonly) {
     const tv = p.testes[t.id];
     return tv && (tv.mv || tv.md || (tv.bonus && tv.bonus.trim()));
   }).length;
-  const readyBadge = (collapsed && totalConfig > 0)
-    ? `<span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${totalConfig} configurado${totalConfig !== 1 ? 's' : ''}</span>`
-    : '';
+  const readyBadge = '';
 
   if (readonly) {
     return collapsed ? '' : `<div class="testes-section testes-section-nar">
