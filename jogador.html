@@ -216,9 +216,10 @@
         <div class="form-row">
           <label class="form-label">Tipo de item</label>
           <div class="inv-tipo-group">
-            <button class="inv-tipo-btn active" data-tipo="arma"     onclick="invSelectTipo('arma')">⚔️ Arma</button>
-            <button class="inv-tipo-btn"        data-tipo="protecao" onclick="invSelectTipo('protecao')">🛡 Proteção</button>
-            <button class="inv-tipo-btn"        data-tipo="item"     onclick="invSelectTipo('item')">📦 Item</button>
+            <button class="inv-tipo-btn active" data-tipo="arma"        onclick="invSelectTipo('arma')">⚔️ Arma</button>
+            <button class="inv-tipo-btn"        data-tipo="instrumento" onclick="invSelectTipo('instrumento')">🎵 Instrumento</button>
+            <button class="inv-tipo-btn"        data-tipo="protecao"    onclick="invSelectTipo('protecao')">🛡 Proteção</button>
+            <button class="inv-tipo-btn"        data-tipo="item"        onclick="invSelectTipo('item')">📦 Item</button>
           </div>
         </div>
 
@@ -258,6 +259,24 @@
           <div class="form-row" id="inv-sec-municao-extra" style="display:none">
             <label class="form-label">Munição <span style="font-size:10px;color:var(--text3)">(arma de longo alcance)</span></label>
             <input type="number" id="inv-m-municao-extra" min="0" placeholder="Ex: 12" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+          </div>
+        </div>
+
+        <!-- Seção: INSTRUMENTO MUSICAL -->
+        <div id="inv-sec-instrumento" style="display:none">
+          <div class="form-row">
+            <label class="form-label">Peso / Categoria</label>
+            <div class="inv-peso-group">
+              <button class="inv-peso-btn active" data-peso="leve"    onclick="invSelectPeso('leve')">Leve</button>
+              <button class="inv-peso-btn"        data-peso="media"   onclick="invSelectPeso('media')">Média</button>
+              <button class="inv-peso-btn"        data-peso="pesada"  onclick="invSelectPeso('pesada')">Pesada</button>
+              <button class="inv-peso-btn"        data-peso="exotica" onclick="invSelectPeso('exotica')">Exótica</button>
+              <button class="inv-peso-btn"        data-peso="mega"    onclick="invSelectPeso('mega')">Mega Pesada</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Dano (opcional, ex: 1d6)</label>
+            <input type="text" id="inv-m-dano-inst" placeholder="Ex: 1d6" style="width:120px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
           </div>
         </div>
 
