@@ -1628,6 +1628,15 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   flex-direction: column;
   gap: 10px;
 }
+/* Novo layout de chips para testes do narrador — igual ao .nar-skills-box */
+.testes-grid-nar-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.teste-chip-vazio {
+  opacity: .45;
+}
 .teste-col-flat {
   display: flex;
   flex-direction: column;
