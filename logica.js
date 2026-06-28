@@ -874,7 +874,7 @@ function renderNarrador() {
         <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
-          ${(p.inventario || []).some(i => i.peso === 'exotica') ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
+          ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => a.name === 'Dourado'))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
         <button class="prow-edit-btn ${skillsExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarSkills(${p.id})" title="Ver habilidades agrupadas por atributo"><i class="ti ti-sword"></i></button>
@@ -952,7 +952,7 @@ function renderNarrador() {
             <button onclick="adjDinheiro(${p.id},+10)">+10</button>
           </div>
         </div>
-        ${(p.inventario || []).some(i => i.peso === 'exotica') ? `
+        ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => a.name === 'Dourado'))) ? `
         <div class="nar-ctrl-group">
           <span class="nar-ctrl-lbl">💎 Cristais</span>
           <div class="nar-ctrl-btns">
@@ -1357,7 +1357,10 @@ function renderInventarioArea(p) {
   }
 
   function municaoRow(item) {
-    const usaCristal = item.peso === 'exotica';
+    // Usa cristais se: arma exótica, OU arma comum com aprimoramento exótico (não-Dourado)
+    const temAprimoExotico = Array.isArray(item.aprimoramentos) && item.aprimoramentos.length > 0
+      && !item.aprimoramentos.every(a => a.name === 'Dourado');
+    const usaCristal = item.peso === 'exotica' || temAprimoExotico;
     const precisaMunicao = item.alcance === 'longo' || usaCristal;
     if (!precisaMunicao) return '';
     const label = usaCristal ? 'Cristais' : 'Munição';
@@ -1577,16 +1580,29 @@ function _buildInvModal(data) {
   // qtd
   document.getElementById('inv-m-qtd').value = data.qtd != null ? data.qtd : '';
 
-  // aprimoramentos
+  // aprimoramentos — detecta tipo pelo conteúdo salvo
   invAprimos = data.aprimoramentos ? JSON.parse(JSON.stringify(data.aprimoramentos)) : [];
   // ativas
   invAtivas  = data.ativas ? JSON.parse(JSON.stringify(data.ativas)) : [];
+  // Detecta invAprimoTipo ao editar item existente
+  const _peso = data.peso || 'leve';
+  if (_peso === 'exotica') {
+    invAprimoTipo = 'nenhum'; // exótica não usa o seletor
+  } else if (invAprimos.some(a => a.name === 'Dourado')) {
+    invAprimoTipo = 'dourado';
+  } else if (invAprimos.length) {
+    invAprimoTipo = 'exotico';
+  } else {
+    invAprimoTipo = 'nenhum';
+  }
 
   _updateInvModalSections(tipo);
 }
 
 let invAprimos = [];
 let invAtivas  = [];
+// 'nenhum' | 'dourado' | 'exotico'  — estado do seletor de tipo de aprimoramento
+let invAprimoTipo = 'nenhum';
 
 function _updateInvModalSections(tipo) {
   document.getElementById('inv-sec-arma').style.display      = tipo === 'arma'     ? '' : 'none';
@@ -1594,7 +1610,7 @@ function _updateInvModalSections(tipo) {
   document.getElementById('inv-sec-item').style.display      = tipo === 'item'     ? '' : 'none';
 
   const peso = _invSelectedPeso();
-  document.getElementById('inv-sec-exotica').style.display   = (tipo === 'arma' && peso === 'exotica') ? '' : 'none';
+  document.getElementById('inv-sec-exotica').style.display   = (tipo === 'arma') ? '' : 'none';
   document.getElementById('inv-sec-mega').style.display      = (tipo === 'arma' && peso === 'mega')    ? '' : 'none';
 
   // Munição (armas de longo alcance) ou Cristais (armas/proteções exóticas)
@@ -1607,6 +1623,7 @@ function _updateInvModalSections(tipo) {
 
   _renderInvAprimos();
   _renderInvAtivas();
+  _updateAprimoUI();
 }
 
 function _invSelectedTipo() {
@@ -1636,6 +1653,15 @@ function invSelectTipo(tipo) {
 }
 function invSelectPeso(peso) {
   document.querySelectorAll('.inv-peso-btn').forEach(b => b.classList.toggle('active', b.dataset.peso === peso));
+  // Ao trocar o peso, limpa aprimoramentos incompatíveis
+  if (peso === 'exotica') {
+    // Exótica: remove Dourado se existir, mantém livres
+    invAprimos = invAprimos.filter(a => a.name !== 'Dourado');
+    invAprimoTipo = 'nenhum';
+  } else {
+    // Arma comum: se havia Dourado, mantém; se havia exótico livre, mantém; se havia nada, mantém nada
+    if (invAprimoTipo === 'nenhum') invAprimos = [];
+  }
   _updateInvModalSections(_invSelectedTipo());
 }
 function invSelectSub(sub) {
@@ -1652,14 +1678,45 @@ function invSelectAlcance(alcance) {
 function _renderInvAprimos() {
   const el = document.getElementById('inv-aprimos-list');
   if (!el) return;
-  el.innerHTML = invAprimos.map((a,i) => `
-    <div class="inv-extra-item">
+  const peso = _invSelectedPeso();
+  const isExotica = peso === 'exotica';
+
+  if (isExotica) {
+    // Armas exóticas: campos livres, sem Dourado
+    el.innerHTML = invAprimos.map((a,i) => `
+      <div class="inv-extra-item">
+        <div style="flex:1">
+          <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome" oninput="invAprimos[${i}].name=this.value">
+          <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito (opcional)" oninput="invAprimos[${i}].desc=this.value">
+        </div>
+        <button onclick="invAprimos.splice(${i},1);_renderInvAprimos()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
+      </div>`).join('');
+    return;
+  }
+
+  // Armas comuns: renderiza conforme invAprimoTipo
+  if (invAprimoTipo === 'dourado') {
+    // Dourado: exibe o bloco fixo (não editável pelo nome, desc pode ter obs)
+    el.innerHTML = `<div class="inv-extra-item" style="background:rgba(255,200,0,0.07);border:1px solid rgba(255,200,0,0.25);border-radius:6px;padding:6px 8px;">
       <div style="flex:1">
-        <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome" oninput="invAprimos[${i}].name=this.value">
-        <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito (opcional)" oninput="invAprimos[${i}].desc=this.value">
+        <div style="font-size:12px;font-weight:600;color:#e8c53a;margin-bottom:2px">&#10024; Aprimoramento Dourado</div>
+        <div style="font-size:11px;color:var(--text3)">Custo: 300 de Dinheiro. Disponível para personagens com a passiva <strong>Dourado</strong> (Anão) ou por regra da campanha.</div>
       </div>
-      <button onclick="invAprimos.splice(${i},1);_renderInvAprimos()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
-    </div>`).join('');
+    </div>`;
+  } else if (invAprimoTipo === 'exotico') {
+    // Exótico: campos livres
+    el.innerHTML = invAprimos.map((a,i) => `
+      <div class="inv-extra-item">
+        <div style="flex:1">
+          <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome do aprimoramento" oninput="invAprimos[${i}].name=this.value">
+          <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito (opcional)" oninput="invAprimos[${i}].desc=this.value">
+        </div>
+        <button onclick="invAprimos.splice(${i},1);_renderInvAprimos()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
+      </div>`).join('') +
+      `<button class="btn" style="padding:3px 9px;font-size:11px;margin-top:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar</button>`;
+  } else {
+    el.innerHTML = '';
+  }
 }
 
 function _renderInvAtivas() {
@@ -1673,6 +1730,43 @@ function _renderInvAtivas() {
       </div>
       <button onclick="invAtivas.splice(${i},1);_renderInvAtivas()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
     </div>`).join('');
+}
+
+function selectAprimoTipo(tipo) {
+  invAprimoTipo = tipo;
+  if (tipo === 'dourado') {
+    // Dourado é um slot único fixo — representa o aprimoramento especial
+    invAprimos = [{ name: 'Dourado', desc: '' }];
+  } else if (tipo === 'exotico') {
+    // Remove qualquer Dourado existente e inicia lista vazia para preenchimento livre
+    invAprimos = invAprimos.filter(a => a.name !== 'Dourado');
+    if (!invAprimos.length) invAprimos.push({name:'',desc:''});
+  } else {
+    invAprimos = [];
+  }
+  _updateAprimoUI();
+  _renderInvAprimos();
+}
+
+function _updateAprimoUI() {
+  const tipo  = _invSelectedTipo();
+  const peso  = _invSelectedPeso();
+  const seletor = document.getElementById('inv-aprimo-tipo-selector');
+  const hint    = document.getElementById('inv-aprimo-exotica-hint');
+  if (!seletor || !hint) return;
+
+  if (tipo !== 'arma') { seletor.style.display = 'none'; hint.style.display = 'none'; return; }
+
+  const isExotica = peso === 'exotica';
+  seletor.style.display = isExotica ? 'none' : 'flex';
+  hint.style.display    = isExotica ? ''     : 'none';
+
+  // Highlight do botão ativo (armas comuns)
+  ['dourado','exotico','nenhum'].forEach(t => {
+    const btn = document.getElementById('inv-aprimo-btn-' + t);
+    if (btn) btn.style.fontWeight = (invAprimoTipo === t) ? '700' : '';
+    if (btn) btn.style.borderColor = (invAprimoTipo === t) ? 'var(--accent2)' : '';
+  });
 }
 
 function addInvAprimo() { invAprimos.push({name:'',desc:''}); _renderInvAprimos(); }
@@ -1707,8 +1801,9 @@ function saveInvItem() {
   if (tipo === 'arma') {
     Object.assign(base, { peso, dano, alcance });
     if (alcance === 'longo') base.municao = municao;
+    // Aprimoramentos disponíveis para todas as armas
+    base.aprimoramentos = invAprimos.filter(a => a.name);
     // Armas exóticas: cristais ficam em p.cristais (pool do personagem), não no item
-    if (peso === 'exotica') base.aprimoramentos = invAprimos.filter(a => a.name);
     if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
   } else if (tipo === 'protecao') {
     Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, equipado });
