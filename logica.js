@@ -316,7 +316,7 @@ const RACAS_WEAPONS = {
       name: 'Garras Dracônicas',
       tipo: 'arma',
       peso: 'pesada',
-      dano: '',
+      dano: '1d10',
       alcance: 'curto',
       efeito: 'Na forma Dracônica, utilize as Garras como Arma. Ataques possuem área de (2x3) Casas à frente. Não pode ser Aparada. No Nível 3, escolha uma Maestria para as Garras (padrão: Força).',
       aprimoramentos: [],
