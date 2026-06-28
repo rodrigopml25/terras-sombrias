@@ -1640,15 +1640,34 @@ function renderInventarioArea(p) {
     const temAprimoExotico = Array.isArray(item.aprimoramentos) && item.aprimoramentos.length > 0
       && !item.aprimoramentos.every(a => a.name === 'Dourado');
     const usaCristal = item.peso === 'exotica' || temAprimoExotico;
-    const precisaMunicao = item.alcance === 'longo' || usaCristal;
+    const isLongoAlcance = item.alcance === 'longo';
+    const precisaMunicao = isLongoAlcance || usaCristal;
     if (!precisaMunicao) return '';
-    const label = usaCristal ? 'Cristais' : 'Munição';
-    const icon  = usaCristal ? 'ti-diamond' : 'ti-target-arrow';
-    const color = usaCristal ? 'var(--accent2)' : 'var(--teal)';
+
+    // Arma exótica de longo alcance: mostra cristais E munição
+    if (usaCristal && isLongoAlcance && item.peso === 'exotica') {
+      return `<div class="inv-municao-row">
+        <span class="inv-municao-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais <span style="font-size:10px;color:var(--text3)">(compartilhados)</span></span>
+        <div class="inv-municao-ctrl">
+          <button onclick="adjCristais(${p.id},-1)">−</button>
+          <span class="inv-municao-val">${p.cristais || 0}</span>
+          <button onclick="adjCristais(${p.id},+1)">+</button>
+        </div>
+      </div>
+      <div class="inv-municao-row">
+        <span class="inv-municao-lbl"><i class="ti ti-target-arrow" style="color:var(--teal)"></i> Munição</span>
+        <div class="inv-municao-ctrl">
+          <button onclick="adjInvMunicao(${p.id},'${item.id}',-1)">−</button>
+          <span class="inv-municao-val">${item.municao || 0}</span>
+          <button onclick="adjInvMunicao(${p.id},'${item.id}',+1)">+</button>
+        </div>
+      </div>`;
+    }
+
     if (usaCristal) {
       // Cristais são do personagem, compartilhados entre todos os itens exóticos
       return `<div class="inv-municao-row">
-        <span class="inv-municao-lbl"><i class="ti ${icon}" style="color:${color}"></i> ${label} <span style="font-size:10px;color:var(--text3)">(compartilhados)</span></span>
+        <span class="inv-municao-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais <span style="font-size:10px;color:var(--text3)">(compartilhados)</span></span>
         <div class="inv-municao-ctrl">
           <button onclick="adjCristais(${p.id},-1)">−</button>
           <span class="inv-municao-val">${p.cristais || 0}</span>
@@ -1657,7 +1676,7 @@ function renderInventarioArea(p) {
       </div>`;
     }
     return `<div class="inv-municao-row">
-      <span class="inv-municao-lbl"><i class="ti ${icon}" style="color:${color}"></i> ${label}</span>
+      <span class="inv-municao-lbl"><i class="ti ti-target-arrow" style="color:var(--teal)"></i> Munição</span>
       <div class="inv-municao-ctrl">
         <button onclick="adjInvMunicao(${p.id},'${item.id}',-1)">−</button>
         <span class="inv-municao-val">${item.municao || 0}</span>
@@ -1844,6 +1863,11 @@ function _buildInvModal(data) {
     if (pOwner) municaoVal = pOwner.cristais || 0;
   }
   document.getElementById('inv-m-municao').value = municaoVal;
+  // Campo extra de munição para arma exótica de longo alcance
+  const inputMunicaoExtra = document.getElementById('inv-m-municao-extra');
+  if (inputMunicaoExtra) {
+    inputMunicaoExtra.value = (data.peso === 'exotica' && data.alcance === 'longo' && data.municao != null) ? data.municao : '';
+  }
   // valor protecao
   document.getElementById('inv-m-valor').value = data.valor != null ? data.valor : '';
   // subtipo protecao
@@ -1894,11 +1918,32 @@ function _updateInvModalSections(tipo) {
 
   // Munição (armas de longo alcance) ou Cristais (armas/proteções exóticas)
   const alcance = _invSelectedAlcance();
+  const isExoticaLongoAlcance = tipo === 'arma' && peso === 'exotica' && alcance === 'longo';
   const precisaMunicao = (tipo === 'arma' && (alcance === 'longo' || peso === 'exotica'))
                       || (tipo === 'protecao' && peso === 'exotica');
   document.getElementById('inv-sec-municao').style.display = precisaMunicao ? '' : 'none';
   const municaoLabel = document.getElementById('inv-municao-label');
-  if (municaoLabel) municaoLabel.textContent = peso === 'exotica' ? 'Cristais' : 'Munição';
+  // Exótica: campo principal mostra Cristais (informativo, read-only)
+  // Comum longo alcance: campo principal = Munição editável
+  if (municaoLabel) municaoLabel.textContent = (peso === 'exotica') ? 'Cristais (compartilhados)' : 'Munição';
+  // Campo extra de munição — só aparece quando exótica + longo alcance
+  const secMunicaoExtra = document.getElementById('inv-sec-municao-extra');
+  if (secMunicaoExtra) secMunicaoExtra.style.display = isExoticaLongoAlcance ? '' : 'none';
+  // Campo de cristais vira informativo quando exótica (valor vem do personagem, não do item)
+  const inputMunicao = document.getElementById('inv-m-municao');
+  if (inputMunicao) {
+    if (peso === 'exotica') {
+      const pOwner = modalInvPid != null ? PLAYERS.find(x => x.id === modalInvPid) : null;
+      inputMunicao.value = pOwner ? (pOwner.cristais || 0) : 0;
+      inputMunicao.readOnly = true;
+      inputMunicao.style.opacity = '0.6';
+      inputMunicao.title = 'Cristais são compartilhados entre todos os itens exóticos e gerenciados na ficha';
+    } else {
+      inputMunicao.readOnly = false;
+      inputMunicao.style.opacity = '';
+      inputMunicao.title = '';
+    }
+  }
 
   _renderInvAprimos();
   _renderInvAtivas();
@@ -2079,7 +2124,15 @@ function saveInvItem() {
   const base = { name, efeito, tipo };
   if (tipo === 'arma') {
     Object.assign(base, { peso, dano, alcance });
-    if (alcance === 'longo') base.municao = municao;
+    if (alcance === 'longo') {
+      if (peso === 'exotica') {
+        // Exótica longo alcance: munição vem do campo extra
+        const municaoExtraRaw = (document.getElementById('inv-m-municao-extra') || {}).value || '';
+        base.municao = municaoExtraRaw !== '' ? Math.max(0, parseInt(municaoExtraRaw)) : 0;
+      } else {
+        base.municao = municao;
+      }
+    }
     // Aprimoramentos disponíveis para todas as armas
     base.aprimoramentos = invAprimos.filter(a => a.name);
     // Armas exóticas: cristais ficam em p.cristais (pool do personagem), não no item
