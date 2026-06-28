@@ -1109,7 +1109,16 @@ function renderTestes(p, readonly) {
       </div>`;
     }).join('');
 
-    return `<div class="teste-col" style="border-color:${bdMap[g.cor]};background:${bgMap[g.cor]}">
+    if (readonly) {
+      // Narrador: grupo "plano" com cabeçalho colorido, igual ao padrão das Habilidades (.nar-skill-group)
+      return `<div class="teste-col teste-col-flat">
+        <div class="teste-col-header teste-col-header-flat" style="color:${corMap[g.cor]};border-color:${bdMap[g.cor]}">${g.label}</div>
+        ${rows}
+      </div>`;
+    }
+
+    // Jogador: cartão colorido, igual ao padrão das Habilidades/Passivas (.skill-card / .passiva-card)
+    return `<div class="teste-col teste-col-card" style="border-color:${bdMap[g.cor]};background:${bgMap[g.cor]}">
       <div class="teste-col-header" style="color:${corMap[g.cor]}">${g.label}</div>
       ${rows}
     </div>`;
@@ -1127,14 +1136,31 @@ function renderTestes(p, readonly) {
     const tv = p.testes[t.id];
     return tv && (tv.mv || tv.md || (tv.bonus && tv.bonus.trim()));
   }).length;
+  const readyBadge = (collapsed && totalConfig > 0)
+    ? `<span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${totalConfig} configurado${totalConfig !== 1 ? 's' : ''}</span>`
+    : '';
 
+  if (readonly) {
+    // Narrador: mesma "caixa" visual usada nas Habilidades / Passivas (.nar-skills-box / .nar-passivas-box)
+    return `<div class="testes-section testes-section-nar">
+      <div class="testes-title-nar testes-header-toggle" onclick="${toggleFn}">
+        <i class="ti ti-dice-d20"></i> Testes
+        ${readyBadge}
+        <i class="ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron" style="margin-left:auto"></i>
+      </div>
+      ${collapsed ? '' : `<div class="testes-grid testes-grid-nar">${colunas}</div>`}
+    </div>`;
+  }
+
+  // Jogador: mesmo cabeçalho usado nas Habilidades / Passivas (.group-title)
   return `<div class="testes-section">
-    <div class="testes-header testes-header-toggle" onclick="${toggleFn}">
-      <i class="ti ti-dice-d20" style="color:var(--accent2)"></i> Testes
-      ${collapsed && totalConfig > 0 ? `<span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${totalConfig} configurado${totalConfig !== 1 ? 's' : ''}</span>` : ''}
-      <span class="testes-legend" style="${collapsed ? 'display:none' : ''}"><span class="teste-badge mv">MV</span> Mega Vantagem &nbsp; <span class="teste-badge md">MD</span> Mega Desvantagem</span>
-      <i class="ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron" style="margin-left:auto;color:var(--text3);font-size:13px"></i>
+    <div class="group-title group-title-toggle" style="margin-top:24px" onclick="${toggleFn}">
+      <span class="gt-dot" style="background:var(--accent2)"></span>
+      Testes
+      <span class="gt-collapse-info">${readyBadge}</span>
+      <i class="ti ${collapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron"></i>
     </div>
+    ${collapsed ? '' : `<div class="testes-legend-row"><span class="teste-badge mv">MV</span> Mega Vantagem &nbsp; <span class="teste-badge md">MD</span> Mega Desvantagem</div>`}
     ${collapsed ? '' : `<div class="testes-grid">${colunas}</div>`}
   </div>`;
 }
