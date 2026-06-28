@@ -1564,60 +1564,86 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .jog-nota-area::placeholder { color: var(--text3); }
 
 /* ═══════════════════════════════════════════
-   TESTES
+   TESTES — mesmo padrão visual de Habilidades / Passivas
 ═══════════════════════════════════════════ */
-.testes-section {
-  margin-top: 24px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 14px;
+
+/* JOGADOR — cabeçalho com linha (igual "Passivas — Talentos") + cartões coloridos */
+.testes-section { }
+
+.testes-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text3);
+  margin: -4px 0 10px;
 }
-.testes-header {
+
+.testes-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.teste-col-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all .2s;
+}
+.teste-col-card .teste-col-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+/* NARRADOR — caixa plana, igual .nar-skills-box / .nar-passivas-box */
+.testes-section-nar {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-top: 10px;
+}
+.testes-title-nar {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .08em;
-  color: var(--text3);
-  margin-bottom: 12px;
+  letter-spacing: .05em;
+  color: var(--accent2);
+  margin-bottom: 8px;
   flex-wrap: wrap;
 }
-.testes-legend {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 11px;
-  color: var(--text3);
-  margin-left: auto;
-}
-.testes-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-.teste-col {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 10px;
+.testes-grid-nar {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
 }
-.teste-col-header {
-  font-size: 10px;
-  font-weight: 700;
+.teste-col-flat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.teste-col-header-flat {
+  font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .08em;
-  margin-bottom: 6px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid var(--border);
+  letter-spacing: .06em;
+  padding: 3px 0;
+  margin-bottom: 4px;
+  border-bottom: 1px solid;
 }
+
+/* Linhas de teste — compartilhado entre os dois contextos */
 .teste-row {
   display: flex;
   align-items: center;
@@ -1715,7 +1741,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   cursor: pointer;
   user-select: none;
   border-radius: var(--radius-sm);
-  margin: -4px -4px 8px;
+  margin: -4px -4px 4px;
   padding: 4px;
 }
 .testes-header-toggle:hover { background: rgba(255,255,255,0.03); }
@@ -1727,15 +1753,3 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 @media (max-width: 500px) {
   .testes-grid { grid-template-columns: 1fr; }
 }
-
-/* Testes no narrador — compacto, sem inputs */
-.prow .testes-section {
-  margin-top: 10px;
-  padding: 10px 12px;
-  background: var(--bg3);
-  border-color: var(--border);
-}
-.prow .testes-grid { gap: 6px; }
-.prow .teste-col { padding: 6px 8px; gap: 2px; }
-.prow .teste-col-header { font-size: 9px; margin-bottom: 4px; padding-bottom: 3px; }
-.prow .teste-nome { font-size: 10px; }
