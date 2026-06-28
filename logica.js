@@ -1032,7 +1032,9 @@ function toggleJogTestes() {
   renderJogador();
 }
 function toggleNarTestes(pid) {
-  narTestesCollapsed[pid] = !narTestesCollapsed[pid];
+  // Padrão: fechado. Só abre quando o valor guardado for explicitamente false.
+  const estaFechado = narTestesCollapsed[pid] !== false;
+  narTestesCollapsed[pid] = !estaFechado;
   renderNarrador();
 }
 
@@ -1125,7 +1127,7 @@ function renderTestes(p, readonly) {
   }).join('');
 
   const collapsed = readonly
-    ? !!narTestesCollapsed[p.id]
+    ? narTestesCollapsed[p.id] !== false   // narrador: fechado por padrão, só abre se explicitamente false
     : jogTestesCollapsed;
   const toggleFn = readonly
     ? `toggleNarTestes(${p.id})`
