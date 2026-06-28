@@ -916,7 +916,7 @@ function renderNarrador() {
         </div>
         <button class="prow-edit-btn ${skillsExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarSkills(${p.id})" title="Ver habilidades agrupadas por atributo"><i class="ti ti-sword"></i></button>
         <button class="prow-edit-btn ${passivasExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarPassivas(${p.id})" title="Ver passivas / talentos"><i class="ti ti-sparkles"></i></button>
-        <button class="prow-edit-btn ${narTestesCollapsed[p.id] === false ? 'prow-passiva-on' : ''}" onclick="toggleNarTestes(${p.id})" title="Ver testes"><i class="ti ti-dice-d20"></i></button>
+        <button class="prow-edit-btn ${narTestesCollapsed[p.id] === false ? 'prow-passiva-on' : ''}" onclick="toggleNarTestes(${p.id})" title="Ver testes"><i class="ti ti-hexagon-letter-d"></i></button>
         <button class="prow-edit-btn" onclick="editCharacter(${p.id})" title="Editar ficha do personagem"><i class="ti ti-edit"></i></button>
       </div>
       <div class="bars">
@@ -1144,10 +1144,9 @@ function renderTestes(p, readonly) {
     : '';
 
   if (readonly) {
-    // Narrador: caixa de testes controlada pelo botão do header do personagem
     return collapsed ? '' : `<div class="testes-section testes-section-nar">
       <div class="testes-title-nar">
-        <i class="ti ti-dice-d20"></i> Testes
+        <i class="ti ti-hexagon-letter-d"></i> Testes
         ${readyBadge}
       </div>
       <div class="testes-grid testes-grid-nar">${colunas}</div>
