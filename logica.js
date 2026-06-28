@@ -112,6 +112,7 @@ const RACAS = {
   ],
   'Dragão': [
     { id: 'dragao_dualidade_draconica', name: 'Dualidade Dracônica', desc: 'Escolha uma outra Raça para ser sua forma humanoide. Não receberá as Passivas e Habilidades dela! Enquanto estiver em forma de Dragão não poderá Aparar e terá Mega Desvantagem em Desviar no chão.' },
+    { id: 'dragao_espectro_draconico', name: 'Espectro Dracônico', desc: 'Ao chegar no nível 3, você consegue utilizar suas Habilidades do seu Grimório na forma de Dragão. Nessa forma, suas Garras Dracônicas se tornam suas Armas. Se for um Bardo, elas têm uma Tatuagem Arcana que libera "Qualquer Nota" no Ataque.' },
   ],
 };
 
@@ -123,6 +124,8 @@ const RACAS_SKILLS = {
   ],
   'Dragão': [
     { id: 'sk_racial_dragao_metamorfose', name: 'Metamorfose', color: 'gray', cost: 1, tipo: 'perturn', usosMax: 1, turnosRecarga: 1, desc: 'Liberta sua forma de Dragão. Enquanto estiver nela, receba 7+nível em Armadura corporal, 5+nível em Armadura de cabeça, suas Armaduras não podem baixar de 5 e ganhe Habilidades Dracônicas. Em forma de Dragão não pode usar Habilidades de Classe.' },
+    { id: 'sk_racial_dragao_iniciar_voo', name: 'Iniciar Voo', color: 'gray', cost: 1, tipo: 'perturn', usosMax: 1, turnosRecarga: 1, desc: 'Levanta Voo, deslocando-se 5 casas para cima! Enquanto estiver voando, possui +10 de Passos e poderá Desviar. Subir uma Casa consome 2 Passos. (Disponível apenas na forma de Dragão | 1 ação | Recarga 1)' },
+    { id: 'sk_racial_dragao_impacto_pouso', name: 'Impacto de Pouso', color: 'red', cost: 1, tipo: 'perturn', usosMax: 1, turnosRecarga: 1, desc: 'Precisa estar voando. Pouse causando 1d12 de Dano para TODOS em raio de 3 Casas e Empurre-os 2 Casas para trás. (Disponível apenas na forma de Dragão | 1 ação | Recarga 1)' },
   ],
 };
 
@@ -300,6 +303,40 @@ function ensureRacePassivas(p) {
   ensureOrigemPassiva(p);
   // Garante que as habilidades raciais estejam presentes
   ensureRaceSkills(p);
+  // Garante a arma racial das Garras Dracônicas para Dragões
+  ensureRaceWeapons(p);
+}
+
+// Armas raciais fixas — injetadas automaticamente no inventário de personagens
+// de certas raças, sem duplicar e respeitando remoções manuais.
+const RACAS_WEAPONS = {
+  'Dragão': [
+    {
+      id: 'racial_dragao_garras_draconicas',
+      name: 'Garras Dracônicas',
+      tipo: 'arma',
+      peso: 'pesada',
+      dano: '',
+      alcance: 'curto',
+      efeito: 'Na forma Dracônica, utilize as Garras como Arma. Ataques possuem área de (2x3) Casas à frente. Não pode ser Aparada. No Nível 3, escolha uma Maestria para as Garras (padrão: Força).',
+      aprimoramentos: [],
+    },
+  ],
+};
+
+// Injeta as armas raciais no inventário do personagem, sem duplicar e sem
+// recolocar armas que o jogador removeu (rastreado em p.racialWeaponsRemovidas).
+function ensureRaceWeapons(p) {
+  if (!Array.isArray(p.inventario)) p.inventario = [];
+  if (!Array.isArray(p.racialWeaponsRemovidas)) p.racialWeaponsRemovidas = [];
+  const defs = RACAS_WEAPONS[p.race] || [];
+  defs.forEach(def => {
+    const jaTem = p.inventario.some(it => it.racialId === def.id);
+    const foiRemovida = p.racialWeaponsRemovidas.includes(def.id);
+    if (!jaTem && !foiRemovida) {
+      p.inventario.push({ ...def, racialId: def.id, id: 'inv_racial_' + def.id });
+    }
+  });
 }
 
 // ═══════════════════════════════════════
