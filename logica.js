@@ -64,6 +64,39 @@ function countNotasAtivas(p) {
 }
 
 // ═══════════════════════════════════════
+// TESTES
+// ═══════════════════════════════════════
+// Cada teste: { id, name, attr }
+// attr: 'agi' | 'forca' | 'intel' | 'neutro'
+const TESTES_LISTA = [
+  { id: 'acrobacia',   name: 'Acrobacia',   attr: 'agi'    },
+  { id: 'desviar',     name: 'Desviar',     attr: 'agi'    },
+  { id: 'furtividade', name: 'Furtividade', attr: 'agi'    },
+  { id: 'percepcao',   name: 'Percepção',   attr: 'agi'    },
+  { id: 'aparar',      name: 'Aparar',      attr: 'forca'  },
+  { id: 'arremessar',  name: 'Arremessar',  attr: 'forca'  },
+  { id: 'empurrar',    name: 'Empurrar',    attr: 'forca'  },
+  { id: 'resistir',    name: 'Resistir',    attr: 'forca'  },
+  { id: 'arcano',      name: 'Arcano',      attr: 'intel'  },
+  { id: 'mistico',     name: 'Místico',     attr: 'intel'  },
+  { id: 'geografia',   name: 'Geografia',   attr: 'intel'  },
+  { id: 'historia',    name: 'História',    attr: 'intel'  },
+  { id: 'emocao',      name: 'Emoção',      attr: 'neutro' },
+];
+
+// Retorna o objeto de testes de um personagem, com fallback seguro.
+// Formato: { acrobacia: { mv: false, md: false, bonus: '' }, ... }
+function getTestePersonagem(p) {
+  if (!p.testes || typeof p.testes !== 'object') p.testes = {};
+  TESTES_LISTA.forEach(t => {
+    if (!p.testes[t.id] || typeof p.testes[t.id] !== 'object') {
+      p.testes[t.id] = { mv: false, md: false, bonus: '' };
+    }
+  });
+  return p.testes;
+}
+
+// ═══════════════════════════════════════
 // PASSIVAS RACIAIS
 // ═══════════════════════════════════════
 // Cada raça pode ter passivas fixas que todo personagem daquela raça possui
@@ -348,6 +381,8 @@ function applyData(data) {
       if (!algumDefinido && itensSub.length) itensSub[0].equipado = true;
     });
     recomputeProtMax(p);
+    // Migração: testes — fichas antigas que ainda não têm o campo
+    getTestePersonagem(p);
   });
   turnGlobal = data.turnGlobal || 1;
   INITIATIVE = data.INITIATIVE || [];
@@ -967,6 +1002,7 @@ function renderNarrador() {
         <div class="nar-passivas-title"><i class="ti ti-sparkles"></i> Passivas / Talentos</div>
         ${passivasHtml}
       </div>` : ''}
+      ${renderTestes(p, true)}
     </div>`;
   }).join('');
 }
@@ -986,6 +1022,94 @@ function renderPsel() {
   const currentVal = psel.value;
   psel.innerHTML = myPlayers.map(p => `<option value="${p.id}">${p.name} — ${p.race} ${p.cls}</option>`).join('');
   if (currentVal && myPlayers.find(p => p.id == currentVal)) psel.value = currentVal;
+}
+
+// ─── Ações dos Testes ────────────────────────────────────────────────────────
+function setTesteMV(pid, testeId, val) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  getTestePersonagem(p);
+  p.testes[testeId].mv = val;
+  if (val) p.testes[testeId].md = false; // MV e MD são exclusivos
+  saveState(); renderAll();
+}
+
+function setTesteMD(pid, testeId, val) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  getTestePersonagem(p);
+  p.testes[testeId].md = val;
+  if (val) p.testes[testeId].mv = false;
+  saveState(); renderAll();
+}
+
+function setTesteBonus(pid, testeId, val) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  getTestePersonagem(p);
+  p.testes[testeId].bonus = val;
+  saveState();
+}
+
+// Renderiza a seção de testes para o jogador (editável)
+function renderTestes(p, readonly) {
+  readonly = !!readonly;
+  getTestePersonagem(p);
+  const grupos = [
+    { label: 'Agilidade',  cor: 'green',  attr: 'agi',    ids: ['acrobacia','desviar','furtividade','percepcao'] },
+    { label: 'Força',      cor: 'red',    attr: 'forca',  ids: ['aparar','arremessar','empurrar','resistir']      },
+    { label: 'Intelecto',  cor: 'blue',   attr: 'intel',  ids: ['arcano','mistico','geografia','historia']        },
+    { label: 'Neutros',    cor: 'gray',   attr: 'neutro', ids: ['emocao']                                        },
+  ];
+
+  const corMap = { green: 'var(--green)', red: 'var(--red)', blue: 'var(--blue)', gray: 'var(--gray)' };
+  const bgMap  = { green: 'var(--green-bg)', red: 'var(--red-bg)', blue: 'var(--blue-bg)', gray: 'var(--gray-bg)' };
+  const bdMap  = { green: 'var(--green-bd)', red: 'var(--red-bd)', blue: 'var(--blue-bd)', gray: 'var(--gray-bd)' };
+
+  const colunas = grupos.map(g => {
+    const rows = g.ids.map(tid => {
+      const def  = TESTES_LISTA.find(t => t.id === tid);
+      const t    = p.testes[tid];
+      const hasMV = t.mv, hasMD = t.md, hasBonus = t.bonus && t.bonus.trim();
+
+      if (readonly) {
+        // Narrador: só leitura — mostra badges se houver algo configurado
+        const badges = [];
+        if (hasMV)    badges.push(`<span class="teste-badge mv">MV</span>`);
+        if (hasMD)    badges.push(`<span class="teste-badge md">MD</span>`);
+        if (hasBonus) badges.push(`<span class="teste-badge bonus">${t.bonus}</span>`);
+        return `<div class="teste-row${badges.length ? ' teste-row-ativo' : ''}">
+          <span class="teste-nome">${def.name}</span>
+          <span class="teste-badges">${badges.join('')}</span>
+        </div>`;
+      }
+
+      // Jogador: editável
+      return `<div class="teste-row">
+        <span class="teste-nome">${def.name}</span>
+        <div class="teste-ctrl">
+          <button class="teste-mv-btn ${hasMV ? 'ativo' : ''}" onclick="setTesteMV(${p.id},'${tid}',${!hasMV})" title="Mega Vantagem">MV</button>
+          <button class="teste-md-btn ${hasMD ? 'ativo' : ''}" onclick="setTesteMD(${p.id},'${tid}',${!hasMD})" title="Mega Desvantagem">MD</button>
+          <input class="teste-bonus-input" type="text" value="${t.bonus || ''}" placeholder="Bônus" maxlength="8"
+            onchange="setTesteBonus(${p.id},'${tid}',this.value)"
+            title="Bônus/penalidade (ex: +3, -1d4)">
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="teste-col" style="border-color:${bdMap[g.cor]};background:${bgMap[g.cor]}">
+      <div class="teste-col-header" style="color:${corMap[g.cor]}">${g.label}</div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  return `<div class="testes-section">
+    <div class="testes-header">
+      <i class="ti ti-dice-d20" style="color:var(--accent2)"></i> Testes
+      <span class="testes-legend"><span class="teste-badge mv">MV</span> Mega Vantagem &nbsp; <span class="teste-badge md">MD</span> Mega Desvantagem</span>
+    </div>
+    <div class="testes-grid">${colunas}</div>
+  </div>`;
 }
 
 function renderJogador() {
@@ -1223,6 +1347,7 @@ function renderJogador() {
       ${passivasCollapsed ? '' : `<button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>`}
 
       ${renderInventarioArea(p)}
+      ${renderTestes(p, false)}
     </div>
     </div>
     `;
