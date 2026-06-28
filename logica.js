@@ -198,7 +198,7 @@ const RACAS_ORIGENS = {
       skill: {
         id: 'sk_origem_draenei_forjado_luz',
         name: 'Forjado a Luz',
-        color: 'blue',
+        color: 'gray',
         cost: 1,
         tipo: 'sessao',
         usosMax: 4,
