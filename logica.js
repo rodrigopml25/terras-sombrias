@@ -2961,15 +2961,39 @@ function getPointBuyTotal(level) {
 
 // Calcula quantos pontos foram gastos ALÉM das bases fixas
 function getPointsSpent() {
-  const hp  = parseInt(document.getElementById('c-hp')?.value)  || ATTR_BASE_HP;
-  const agi = parseInt(document.getElementById('c-agi')?.value) || ATTR_BASE_STAT;
+  const hp    = parseInt(document.getElementById('c-hp')?.value)  || ATTR_BASE_HP;
+  const agi   = parseInt(document.getElementById('c-agi')?.value) || ATTR_BASE_STAT;
   const forca = parseInt(document.getElementById('c-for')?.value) || ATTR_BASE_STAT;
   const intel = parseInt(document.getElementById('c-int')?.value) || ATTR_BASE_STAT;
   return (hp - ATTR_BASE_HP) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
 }
 
+// Botões +/− para cada atributo com point-buy
+function stepStat(field, delta) {
+  const input = document.getElementById('c-' + field);
+  if (!input) return;
+
+  const level = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : 1;
+  const total = getPointBuyTotal(level);
+  const isNv1 = level === 1;
+  const base  = field === 'hp' ? ATTR_BASE_HP : ATTR_BASE_STAT;
+  const cur   = parseInt(input.value) || base;
+  const next  = cur + delta;
+
+  // Não vai abaixo da base
+  if (next < base) return;
+  // Limite de 20 nos atributos no Nv 1
+  if (isNv1 && field !== 'hp' && next > 20) return;
+  // Não gasta mais pontos do que o disponível
+  const spent = getPointsSpent();
+  const left  = total - spent;
+  if (delta > 0 && left <= 0) return;
+
+  input.value = next;
+  updatePointBuy();
+}
+
 function updatePointBuy(levelOverride) {
-  // Determina o nível: usa override (ao abrir modal), ou o personagem em edição, ou 1
   let level = levelOverride;
   if (level == null) {
     if (modalCharId) {
@@ -2980,29 +3004,73 @@ function updatePointBuy(levelOverride) {
     }
   }
 
-  const total = getPointBuyTotal(level);
-  const spent = getPointsSpent();
+  const total  = getPointBuyTotal(level);
+  const hp     = parseInt(document.getElementById('c-hp')?.value)  || ATTR_BASE_HP;
+  const agi    = parseInt(document.getElementById('c-agi')?.value) || ATTR_BASE_STAT;
+  const forca  = parseInt(document.getElementById('c-for')?.value) || ATTR_BASE_STAT;
+  const intel  = parseInt(document.getElementById('c-int')?.value) || ATTR_BASE_STAT;
+  const costs  = {
+    hp:  hp    - ATTR_BASE_HP,
+    agi: agi   - ATTR_BASE_STAT,
+    for: forca - ATTR_BASE_STAT,
+    int: intel - ATTR_BASE_STAT,
+  };
+  const spent = costs.hp + costs.agi + costs.for + costs.int;
   const left  = total - spent;
   const isNv1 = level === 1;
 
-  // Atualiza contador
-  const leftEl  = document.getElementById('c-points-left');
-  const totalEl = document.getElementById('c-points-total');
-  if (leftEl)  { leftEl.textContent = left; leftEl.style.color = left < 0 ? '#f08080' : left === 0 ? 'var(--green)' : 'var(--accent2)'; }
-  if (totalEl) totalEl.textContent = '/ ' + total;
+  // Barra de progresso
+  const pct  = Math.max(0, Math.min(100, (left / total) * 100));
+  const barColor = left < 0 ? '#f08080' : left === 0 ? 'var(--green)' : 'var(--accent2)';
+  const fillEl = document.getElementById('c-points-bar-fill');
+  if (fillEl) { fillEl.style.width = pct + '%'; fillEl.style.background = barColor; }
 
-  // Mostra/esconde o hint de limite por nível
+  // Texto do contador
+  const dispEl = document.getElementById('c-points-display');
+  if (dispEl) { dispEl.textContent = left + ' / ' + total; dispEl.style.color = left < 0 ? '#f08080' : left === 0 ? 'var(--green)' : 'var(--accent2)'; }
+
+  // Hint
   const hintEl = document.getElementById('c-points-hint');
-  if (hintEl) {
-    hintEl.textContent = isNv1
-      ? 'Base: Vida 10, AGI/FOR/INT 5. Limite de 20 por atributo no Nv 1.'
-      : `Base: Vida 10, AGI/FOR/INT 5. Sem limite de atributo no Nv ${level}.`;
-  }
+  if (hintEl) hintEl.textContent = isNv1
+    ? 'Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Limite de 20 por atributo no Nv 1.'
+    : `Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Sem limite de atributo no Nv ${level}.`;
 
-  // Mostra/esconde labels de limite (máx 20) nos atributos
+  // Labels de limite (máx 20)
   ['agi','for','int'].forEach(a => {
     const lbl = document.getElementById(`c-${a}-limit`);
     if (lbl) lbl.style.display = isNv1 ? '' : 'none';
+  });
+
+  // Custo individual por campo
+  Object.entries(costs).forEach(([key, cost]) => {
+    const el = document.getElementById(`c-${key}-cost`);
+    if (el) {
+      el.textContent = cost > 0 ? `+${cost} pts` : '—';
+      el.style.color = cost > 0 ? 'var(--accent2)' : 'var(--text3)';
+    }
+  });
+
+  // Botão + bloqueado se não há pontos OU se atingiu limite Nv1
+  const noPoints = left <= 0;
+  ['hp','agi','for','int'].forEach(key => {
+    const incBtn = document.getElementById(`c-${key}-inc`);
+    const decBtn = document.getElementById(`c-${key}-dec`);
+    const inputEl = document.getElementById(`c-${key}`);
+    const base = key === 'hp' ? ATTR_BASE_HP : ATTR_BASE_STAT;
+    const val  = parseInt(inputEl?.value) || base;
+    const atLimit = isNv1 && key !== 'hp' && val >= 20;
+    if (incBtn) {
+      const blocked = noPoints || atLimit;
+      incBtn.disabled = blocked;
+      incBtn.style.opacity = blocked ? '0.35' : '1';
+      incBtn.style.cursor  = blocked ? 'not-allowed' : 'pointer';
+    }
+    if (decBtn) {
+      const atBase = val <= base;
+      decBtn.disabled = atBase;
+      decBtn.style.opacity = atBase ? '0.35' : '1';
+      decBtn.style.cursor  = atBase ? 'not-allowed' : 'pointer';
+    }
   });
 }
 
