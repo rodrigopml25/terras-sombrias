@@ -1181,6 +1181,14 @@ function removeXP(id) {
   saveState(); renderAll();
 }
 
+function setXPDirect(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  p.xp = Math.max(0, Math.min(10, val));
+  if (p.xp >= 10 && p.level < 5) { p.xp = 0; p.level++; }
+  saveState(); renderAll();
+}
+
 // ═══════════════════════════════════════
 // RENDER NARRADOR
 // ═══════════════════════════════════════
@@ -1344,6 +1352,14 @@ function renderNarrador() {
             <button onclick="adjCristais(${p.id},+1)">+1</button>
           </div>
         </div>` : ''}
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">⭐ XP <span style="font-size:10px;color:var(--text3);font-weight:400">(Nv ${p.level})</span></span>
+          <div class="nar-ctrl-btns">
+            <button onclick="removeXP(${p.id})" title="Remover XP">−XP</button>
+            <div class="xp-pips" style="display:flex;align-items:center;gap:3px;padding:0 4px">${Array.from({length:10},(_,i)=>`<span onclick="setXPDirect(${p.id},${i+1})" title="Definir ${i+1} XP" style="width:10px;height:10px;border-radius:50%;background:${(p.xp||0)>i?'var(--accent2)':'var(--border2)'};cursor:pointer;transition:background .15s;flex-shrink:0"></span>`).join('')}</div>
+            <button onclick="addXP(${p.id})" title="Adicionar XP">+XP</button>
+          </div>
+        </div>
       </div>
       ${skillsExpanded ? `<div class="nar-skills-box">${gruposHtml}</div>` : ''}
       ${passivasExpanded ? `<div class="nar-passivas-box">
