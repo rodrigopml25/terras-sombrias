@@ -1819,6 +1819,27 @@ function renderInventarioArea(p) {
       ? `<i class="ti ti-music" style="color:#e8a838"></i>`
       : `<i class="ti ti-sword" style="color:var(--red)"></i>`;
 
+    // ── Bônus de maestria por peso da arma ──────────────────────────────────
+    // Leve → INT; Média → AGI; Pesada → FOR; Exótica → piso(AGI/2); Mega → sem bônus
+    function armaMaestriaBonus(peso) {
+      if (peso === 'leve')   return { val: maestria(p.intel), attr: 'INT', color: 'var(--blue)'  };
+      if (peso === 'media')  return { val: maestria(p.agi),   attr: 'AGI', color: 'var(--green)' };
+      if (peso === 'pesada') return { val: maestria(p.forca), attr: 'FOR', color: 'var(--red)'   };
+      if (peso === 'exotica') {
+        const v = Math.ceil(maestria(p.agi) / 2);
+        return { val: v, attr: 'AGI/2', color: 'var(--green-dim)' };
+      }
+      return null; // mega pesada — sem bônus
+    }
+    function danoRow(peso) {
+      if (!item.dano) return '';
+      const mb = armaMaestriaBonus(peso);
+      const bonus = mb && mb.val > 0
+        ? `<span style="font-size:11px;color:${mb.color};margin-left:2px" title="Bônus de Maestria de ${mb.attr}">+${mb.val} <span style="font-size:10px;opacity:.8">${mb.attr}</span></span>`
+        : (mb && mb.val === 0 ? `<span style="font-size:10px;color:var(--text3);margin-left:2px" title="Maestria de ${mb.attr} ainda é 0">+0 <span style="opacity:.7">${mb.attr}</span></span>` : '');
+      return `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}</div>`;
+    }
+
     if (isInstrumento) {
       // Instrumentos: título + botão editar na primeira linha; tags na segunda
       return `<div class="inv-card">
@@ -1831,14 +1852,13 @@ function renderInventarioArea(p) {
           ${alcanceTag(item)}
           ${pesoTag(item)}
         </div>
-        ${item.dano ? `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span></div>` : ''}
+        ${danoRow(item.peso)}
         ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
         ${municaoRow(item)}
         ${aprimoramentos}${ativas}
       </div>`;
     }
 
-    const instTag = '';
     return `<div class="inv-card">
       <div class="inv-card-header">
         <div class="inv-card-title">${icone} ${item.name}</div>
@@ -1848,7 +1868,7 @@ function renderInventarioArea(p) {
           <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
         </div>
       </div>
-      ${item.dano ? `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span></div>` : ''}
+      ${danoRow(item.peso)}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
       ${municaoRow(item)}
       ${aprimoramentos}${ativas}
