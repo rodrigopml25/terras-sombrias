@@ -1756,7 +1756,7 @@ function renderInventarioArea(p) {
   }
 
   function municaoRow(item) {
-    // Usa cristais se: arma exótica, OU arma comum com aprimoramento exótico (não-Dourado)
+    // Usa cristais se: arma/instrumento exótico, OU arma/instrumento comum com aprimoramento exótico (não-Dourado)
     const temAprimoExotico = Array.isArray(item.aprimoramentos) && item.aprimoramentos.length > 0
       && !item.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado'));
     const usaCristal = item.peso === 'exotica' || temAprimoExotico;
@@ -1764,7 +1764,7 @@ function renderInventarioArea(p) {
     const precisaMunicao = isLongoAlcance || usaCristal;
     if (!precisaMunicao) return '';
 
-    // Arma exótica de longo alcance: mostra cristais E munição
+    // Arma/instrumento exótico de longo alcance: mostra cristais E munição
     if (usaCristal && isLongoAlcance && item.peso === 'exotica') {
       return `<div class="inv-municao-row">
         <span class="inv-municao-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais <span style="font-size:10px;color:var(--text3)">(compartilhados)</span></span>
@@ -1826,14 +1826,14 @@ function renderInventarioArea(p) {
         <div class="inv-card-title">${icone} ${item.name}</div>
         <div style="display:flex;align-items:center;gap:6px">
           ${instTag}
-          ${isInstrumento ? '' : alcanceTag(item)}
+          ${alcanceTag(item)}
           ${pesoTag(item)}
           <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
         </div>
       </div>
       ${item.dano ? `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span></div>` : ''}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
-      ${isInstrumento ? '' : municaoRow(item)}
+      ${municaoRow(item)}
       ${aprimoramentos}${ativas}
     </div>`;
   }
@@ -1910,7 +1910,7 @@ function toggleInvSection(key) {
   renderJogador();
 }
 
-// Ajusta a munição (ou cristais, no caso de armas exóticas) de uma arma
+// Ajusta a munição (ou cristais, no caso de itens exóticos) de uma arma/instrumento
 // diretamente pelo card, sem precisar abrir o modal de edição.
 function adjInvMunicao(pid, itemId, d) {
   const p = PLAYERS.find(x => x.id === pid);
@@ -2042,20 +2042,22 @@ let invAtivas  = [];
 let invAprimoTipo = 'nenhum';
 
 function _updateInvModalSections(tipo) {
+  const ehArmaOuInstrumento = (tipo === 'arma' || tipo === 'instrumento');
   document.getElementById('inv-sec-arma').style.display         = tipo === 'arma'        ? '' : 'none';
   document.getElementById('inv-sec-instrumento').style.display  = tipo === 'instrumento' ? '' : 'none';
+  document.getElementById('inv-sec-alcance').style.display      = ehArmaOuInstrumento     ? '' : 'none';
   document.getElementById('inv-sec-protecao').style.display     = tipo === 'protecao'    ? '' : 'none';
   document.getElementById('inv-sec-item').style.display         = tipo === 'item'        ? '' : 'none';
 
   const peso = _invSelectedPeso();
   // Aprimoramentos: disponíveis para armas e instrumentos
-  document.getElementById('inv-sec-exotica').style.display = (tipo === 'arma' || tipo === 'instrumento') ? '' : 'none';
+  document.getElementById('inv-sec-exotica').style.display = ehArmaOuInstrumento ? '' : 'none';
   document.getElementById('inv-sec-mega').style.display    = (tipo === 'arma' && peso === 'mega') ? '' : 'none';
 
-  // Munição (armas de longo alcance) ou Cristais (armas/proteções exóticas)
+  // Munição (armas/instrumentos de longo alcance) ou Cristais (armas/instrumentos/proteções exóticos)
   const alcance = _invSelectedAlcance();
-  const isExoticaLongoAlcance = tipo === 'arma' && peso === 'exotica' && alcance === 'longo';
-  const precisaMunicao = (tipo === 'arma' && (alcance === 'longo' || peso === 'exotica'))
+  const isExoticaLongoAlcance = ehArmaOuInstrumento && peso === 'exotica' && alcance === 'longo';
+  const precisaMunicao = (ehArmaOuInstrumento && (alcance === 'longo' || peso === 'exotica'))
                       || (tipo === 'protecao' && peso === 'exotica');
   document.getElementById('inv-sec-municao').style.display = precisaMunicao ? '' : 'none';
   const municaoLabel = document.getElementById('inv-municao-label');
@@ -2279,8 +2281,19 @@ function saveInvItem() {
     if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
   } else if (tipo === 'instrumento') {
     const danoInst = (document.getElementById('inv-m-dano-inst') || {}).value || '';
-    Object.assign(base, { peso, dano: danoInst.trim() });
+    Object.assign(base, { peso, dano: danoInst.trim(), alcance });
+    if (alcance === 'longo') {
+      if (peso === 'exotica') {
+        // Instrumento exótico de longo alcance: munição vem do campo extra
+        const municaoExtraRaw = (document.getElementById('inv-m-municao-extra') || {}).value || '';
+        base.municao = municaoExtraRaw !== '' ? Math.max(0, parseInt(municaoExtraRaw)) : 0;
+      } else {
+        base.municao = municao;
+      }
+    }
+    // Aprimoramentos disponíveis para todos os instrumentos
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
+    // Instrumentos exóticos: cristais ficam em p.cristais (pool do personagem), não no item
   } else if (tipo === 'protecao') {
     Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, equipado });
     // Proteções exóticas: atualiza o pool de cristais do personagem
