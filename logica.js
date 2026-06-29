@@ -296,6 +296,28 @@ const RACAS_ORIGENS = {
       },
     },
   ],
+  'Elfo': [
+    {
+      id: 'elfo_origem_sangrento',
+      name: 'Elfo Sangrento',
+      desc: 'Natural de Lua Prata, a capital dos Elfos Sangrentos, marcado por uma cultura de poder e refinamento arcano.',
+      passiva: {
+        id: 'elfo_origem_sangrento_passiva',
+        name: 'Origem Sangrenta',
+        desc: 'Por viver em Lua Prata, uma capital de Elfos Sangrentos, começa o jogo com +200 de Dinheiro e uma Habilidade de outra Classe, porém não poderá pegar mais nenhuma Habilidade dessa mesma Classe.',
+      },
+    },
+    {
+      id: 'elfo_origem_noturno',
+      name: 'Elfo Noturno',
+      desc: 'Descendente das antigas tribos noturnas, adaptado às sombras e aos segredos da escuridão.',
+      passiva: {
+        id: 'elfo_origem_noturno_passiva',
+        name: 'Origem Noturna',
+        desc: 'Por pertencer a uma raça noturna, consegue enxergar no escuro natural. Escolha um Caminho de uma outra Classe e role 1d10 para receber uma Habilidade aleatória daquele Caminho, porém não poderá pegar mais nenhuma Habilidade daquele Caminho dessa Classe.',
+      },
+    },
+  ],
 };
 
 // Retorna a lista de origens disponíveis para uma raça (ou [] se não houver).
