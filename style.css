@@ -589,7 +589,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 
 .equip2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
 .equip1 { grid-template-columns: 1fr; }
-.eqm { border-radius: var(--radius-sm); padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; }
+.eqm { border-radius: var(--radius-sm); padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center; }
 .eqm-lbl { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
 .eqm-val { font-size: 15px; font-weight: 700; font-family: var(--font-display); }
 .eqm-arm { background: var(--amber-bg); } .eqm-arm .eqm-lbl,.eqm-arm .eqm-val { color: var(--amber); }
