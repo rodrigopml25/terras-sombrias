@@ -831,6 +831,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   .jog-toolbar > button { flex: 1 1 auto; justify-content: center; }
 
   .passivas-grid,
+  .expressoes-grid,
   .inv-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 
   .modal-overlay { padding: 12px; }
@@ -842,6 +843,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 @media (max-width: 500px) {
   .skills-grid,
   .passivas-grid,
+  .expressoes-grid,
   .inv-grid { grid-template-columns: 1fr; }
   .header-logo { font-size: 13px; }
   .turn-pill { font-size: 12px; padding: 4px 9px; }
@@ -1451,6 +1453,52 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 /* Mini-stat de notas no cabeçalho do card do narrador */
 .mstat-bardo {
   color: var(--bardo);
+}
+
+/* ═══════════════════════════════════════════
+   EXPRESSÕES ETÉREAS — ETÉREO
+═══════════════════════════════════════════ */
+:root {
+  --eter:    #4fc3d9;  /* azul-ciano — identidade etérea */
+  --eter-bg: #0a1c20;
+  --eter-bd: #103840;
+  --eter-dim:#155060;
+}
+
+.expressoes-legend {
+  font-size: 11px; color: var(--text3); margin-bottom: 10px;
+}
+
+.expressoes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-bottom: 4px; }
+
+.expressao-card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--eter-bd);
+  background: var(--eter-bg);
+  padding: 12px 12px 12px 38px;
+}
+.expressao-indice {
+  position: absolute;
+  top: 10px; left: 10px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--eter-dim);
+  background: rgba(79,195,217,0.12);
+  color: var(--eter);
+  font-family: var(--font-display);
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.expressao-name {
+  font-size: 13px; font-weight: 600; margin-bottom: 6px;
+  font-family: var(--font-display); letter-spacing: .02em;
+  color: var(--eter); display: flex; align-items: center; gap: 6px;
+}
+.expressao-name i { font-size: 13px; }
+.expressao-desc {
+  font-size: 11px; color: var(--text2); line-height: 1.5;
+  white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;
 }
 
 /* ═══════════════════════════════════════════
