@@ -118,6 +118,10 @@ const RACAS = {
     { id: 'elfo_decreptico', name: 'Decréptico', desc: 'Por ter muitos anos de vida escolha 2 Testes de Intelecto para conceder, consequentemente, +1 de Vantagem e +3 de vantagem. Possui -2 de Desvantagem em Resistir.' },
     { id: 'elfo_aprendizagem_elfica', name: 'Aprendizagem Élfica', desc: 'Ao subir de Nível aprenda uma Habilidade de outra classe. (Os efeitos exclusivos não funcionam e podem ser ajustados caso queira)' },
   ],
+  'Etéreo': [
+    { id: 'etereo_lampejo_eterno', name: 'Lampejo Eterno', desc: 'Por ter seu corpo tomado por Éter seu movimento é sempre por meio de um teletransporte, ou seja, sempre está Engajado e seu deslocamento não possui obstáculos. (não atravessa paredes grossas)' },
+    { id: 'etereo_entropia_constante', name: 'Entropia Constante', desc: 'Durante uma Luta/Cena de perigo, seu etér vibrará, assim, ao obter um Erro Crítico ou um Acerto Crítico em uma Ação ou Teste, libere uma Expressão Etérea rolando 1d6 sendo 2 dos resultados ligados à sua origem. Possui +5% tanto para acertos críticos quanto para erros críticos em ações e testes.' },
+  ],
 };
 
 // Habilidades raciais fixas — funcionam igual às habilidades gerais mas são
