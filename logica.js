@@ -322,6 +322,28 @@ const RACAS_ORIGENS = {
       },
     },
   ],
+  'Etéreo': [
+    {
+      id: 'etereo_origem_natural',
+      name: 'Natural',
+      desc: 'Você caiu em um buraco negro, tendo seu corpo tomado pelo éter de forma natural. Libera as Expressões Etéreas Levitação em Massa (5) e Transmutação (6).',
+      passiva: {
+        id: 'etereo_origem_natural_passiva',
+        name: 'Origem Natural',
+        desc: 'Você caiu em um buraco negro, assim você possui Levitação em Massa e Transmutação como Expressões do Étéreo. Consegue enxergar no escuro natural e possui Mega Vantagem no teste de História.',
+      },
+    },
+    {
+      id: 'etereo_origem_mistica',
+      name: 'Mística',
+      desc: 'Você caiu em um buraco negro místico, tendo seu éter impregnado de energia arcana. Libera as Expressões Etéreas Éter Macabro (5) e Metamorfose Cósmica (6).',
+      passiva: {
+        id: 'etereo_origem_mistica_passiva',
+        name: 'Origem Mística',
+        desc: 'Você caiu em um buraco negro místico, assim você possui Éter Macabro e Metamorfose Cósmica como Expressões do Etéreo. Seu teste de Emoção possui +2d20 de Vantagem e possui Mega Vantagem no teste Místico.',
+      },
+    },
+  ],
 };
 
 // Retorna a lista de origens disponíveis para uma raça (ou [] se não houver).
@@ -451,9 +473,10 @@ function ensureRaceWeapons(p) {
 // ═══════════════════════════════════════
 // Ligadas à passiva "Entropia Constante": ao tirar um Acerto Crítico ou Erro
 // Crítico numa Ação ou Teste, o Etéreo rola 1d6 para saber qual Expressão
-// Etérea se manifesta. As 4 abaixo (índices 1 a 4) são padrão de qualquer
-// Etéreo. Os índices 5 e 6 ficam reservados às Origens do Etéreo (a definir);
-// quando existirem, entrarão em getExpressoesEtereas() de acordo com p.origemId.
+// Etérea se manifesta. Os índices 1–4 são padrão para qualquer Etéreo.
+// Os índices 5 e 6 variam conforme a Origem escolhida:
+//   - Natural  → Levitação em Massa (5) + Transmutação (6)
+//   - Mística  → Éter Macabro (5) + Metamorfose Cósmica (6)
 const ETEREO_EXPRESSOES_PADRAO = [
   {
     id: 'expressao_aprisionamento_eter',
@@ -481,12 +504,48 @@ const ETEREO_EXPRESSOES_PADRAO = [
   },
 ];
 
-// Retorna a lista de Expressões Etéreas de um personagem ([] se não for Etéreo).
-// Hoje contém só as 4 padrão; quando as Origens do Etéreo forem definidas, as
-// 2 expressões extras (índices 5 e 6) entram aqui também, de acordo com p.origemId.
+// Expressões de origem — cada Origem do Etéreo contribui com 2 expressões (índices 5 e 6).
+const ETEREO_EXPRESSOES_ORIGEM = {
+  'etereo_origem_natural': [
+    {
+      id: 'expressao_levitacao_em_massa',
+      indice: 5,
+      name: 'Levitação em Massa',
+      origemName: 'Natural',
+      desc: 'O éter do seu corpo se manifesta e levita objetos leves por um turno. Em caso de Erro Crítico, também levita todas as armas leves e pessoas com armaduras leves. Em caso de Acerto Crítico, você escolhe quais objetos ou pessoas leves serão levitados. Ao retornar, causa 1d6 de Dano direto na Vida e retira a ação de movimento por um turno.',
+    },
+    {
+      id: 'expressao_transmutacao',
+      indice: 6,
+      name: 'Transmutação',
+      origemName: 'Natural',
+      desc: 'O Éter do seu corpo transforma sua arma em outra arma por um turno. Se foi Erro Crítico, é uma arma aleatória de um peso aleatório. Se foi um Acerto Crítico, é uma arma de sua escolha.',
+    },
+  ],
+  'etereo_origem_mistica': [
+    {
+      id: 'expressao_eter_macabro',
+      indice: 5,
+      name: 'Éter Macabro',
+      origemName: 'Mística',
+      desc: 'O éter do seu corpo juntamente com a energia mística dele se manifestam. Se foi Erro Crítico, TODOS os seus aliados ficam cegos por 1 turno. Se foi Acerto Crítico, escolha até 3 alvos para ficarem cegos por 1 turno.',
+    },
+    {
+      id: 'expressao_metamorfose_cosmica',
+      indice: 6,
+      name: 'Metamorfose Cósmica',
+      origemName: 'Mística',
+      desc: 'A energia mística do seu corpo faz uma conexão direta com alguns deuses antigos, alterando seu éter. Em caso de Erro Crítico, você perde o controle e se transforma em um monstro por 1 turno, com acesso a todas as Expressões Etéreas em forma de Erro Crítico. Em caso de Acerto Crítico, você se transforma nesse monstro com controle, tendo acesso a todas as Expressões Etéreas em forma de Acerto Crítico por 1 turno.',
+    },
+  ],
+};
+
+// Retorna a lista completa de Expressões Etéreas de um personagem ([] se não for Etéreo).
+// Sempre inclui as 4 padrão (índices 1–4) + 2 de origem (índices 5–6), se a origem estiver definida.
 function getExpressoesEtereas(p) {
   if (p.race !== 'Etéreo') return [];
-  return ETEREO_EXPRESSOES_PADRAO;
+  const extras = (p.origemId && ETEREO_EXPRESSOES_ORIGEM[p.origemId]) || [];
+  return [...ETEREO_EXPRESSOES_PADRAO, ...extras];
 }
 
 // ═══════════════════════════════════════
@@ -1292,12 +1351,15 @@ function renderNarrador() {
         ${passivasHtml}
         ${getExpressoesEtereas(p).length ? `
         <div class="nar-passivas-title" style="margin-top:14px;color:var(--eter)"><i class="ti ti-atom-2"></i> Expressões Etéreas <span style="font-size:10px;color:var(--text3);font-weight:400">(crítico → 1d6)</span></div>
-        <div class="expressoes-grid">${getExpressoesEtereas(p).map(ex => `
+        <div class="expressoes-grid">${getExpressoesEtereas(p).map(ex => {
+          const origemTag = ex.origemName ? ` <span style="font-size:10px;color:var(--eter);font-weight:400;opacity:.8">(${ex.origemName})</span>` : '';
+          return `
           <div class="expressao-card">
             <div class="expressao-indice">${ex.indice}</div>
-            <div class="expressao-name"><i class="ti ti-atom-2"></i> ${ex.name}</div>
+            <div class="expressao-name"><i class="ti ti-atom-2"></i> ${ex.name}${origemTag}</div>
             <div class="expressao-desc">${ex.desc}</div>
-          </div>`).join('')}</div>
+          </div>`;
+        }).join('')}</div>
         ` : ''}
       </div>` : ''}
       ${renderTestes(p, true)}
@@ -1579,12 +1641,15 @@ function renderJogador() {
 
   const expressoesList = getExpressoesEtereas(p);
   const expressoesCollapsed = !!jogSkillsCollapsed['expressoes'];
-  const expressoesHtml = expressoesCollapsed ? '' : expressoesList.map(ex => `
+  const expressoesHtml = expressoesCollapsed ? '' : expressoesList.map(ex => {
+    const origemTag = ex.origemName ? ` <span style="font-size:10px;color:var(--eter);font-weight:400;opacity:.8">(${ex.origemName})</span>` : '';
+    return `
     <div class="expressao-card">
       <div class="expressao-indice">${ex.indice}</div>
-      <div class="expressao-name"><i class="ti ti-atom-2"></i> ${ex.name}</div>
+      <div class="expressao-name"><i class="ti ti-atom-2"></i> ${ex.name}${origemTag}</div>
       <div class="expressao-desc">${ex.desc}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   content.innerHTML = `
     <div class="jog-inner-grid">
