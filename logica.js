@@ -447,6 +447,49 @@ function ensureRaceWeapons(p) {
 }
 
 // ═══════════════════════════════════════
+// EXPRESSÕES ETÉREAS — exclusivo do Etéreo
+// ═══════════════════════════════════════
+// Ligadas à passiva "Entropia Constante": ao tirar um Acerto Crítico ou Erro
+// Crítico numa Ação ou Teste, o Etéreo rola 1d6 para saber qual Expressão
+// Etérea se manifesta. As 4 abaixo (índices 1 a 4) são padrão de qualquer
+// Etéreo. Os índices 5 e 6 ficam reservados às Origens do Etéreo (a definir);
+// quando existirem, entrarão em getExpressoesEtereas() de acordo com p.origemId.
+const ETEREO_EXPRESSOES_PADRAO = [
+  {
+    id: 'expressao_aprisionamento_eter',
+    indice: 1,
+    name: 'Aprisionamento do Éter',
+    desc: 'O Éter do seu corpo manifesta no Espaço da Cena/Luta. Se foi Erro Crítico, correntes de Éter aprisionam você ou um Aliado por um turno. Se foi um Acerto Crítico, as correntes do Éter aprisionam um Alvo por um turno. (Não pode se mover e nem Desviar)',
+  },
+  {
+    id: 'expressao_catalisador_etereo',
+    indice: 2,
+    name: 'Catalisador Etéreo',
+    desc: 'O Éter do seu corpo altera a sua velocidade. Se foi Erro Crítico, você perde uma Ação no próximo turno. Se foi um Acerto Crítico, recebe uma Ação a mais no próximo turno.',
+  },
+  {
+    id: 'expressao_lampejo_forcado',
+    indice: 3,
+    name: 'Lampejo Forçado',
+    desc: 'O Éter do seu corpo abre um portal nos seus pés. Se foi Erro Crítico, troca de lugar com um Aliado para sofrer as consequências no seu lugar! Se foi um Acerto Crítico, você se teletransporta até o mesmo número de Passos que você tiver.',
+  },
+  {
+    id: 'expressao_radiacao_cosmica',
+    indice: 4,
+    name: 'Radiação Cósmica',
+    desc: 'O Éter do seu corpo vibra tanto que libera uma radiação cósmica, causando 1d8 de Dano na Vida. Se foi Erro Crítico, o alvo será um Aliado até 8 casas. Se foi Acerto Crítico, o alvo será quem você quiser até 8 casas.',
+  },
+];
+
+// Retorna a lista de Expressões Etéreas de um personagem ([] se não for Etéreo).
+// Hoje contém só as 4 padrão; quando as Origens do Etéreo forem definidas, as
+// 2 expressões extras (índices 5 e 6) entram aqui também, de acordo com p.origemId.
+function getExpressoesEtereas(p) {
+  if (p.race !== 'Etéreo') return [];
+  return ETEREO_EXPRESSOES_PADRAO;
+}
+
+// ═══════════════════════════════════════
 // CLASSES E SUBCLASSES
 // ═══════════════════════════════════════
 // attr: atributo principal da subclasse ('agi' | 'forca' | 'intel')
@@ -564,7 +607,7 @@ let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, n�
 let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidades agrupadas
 let jogTestesCollapsed = true;   // jogador: começa fechado
 let narTestesCollapsed = {};     // narrador: { [playerId]: true/false } — começa fechado
-let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true }; // começa fechado
+let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true, expressoes: true }; // começa fechado
 let jogInvCollapsed = { armas: true, protecoes: true, itens: true }; // inventário começa fechado
 let jogActiveTab = 'ficha'; // 'ficha' | 'anotacoes'
 let modalInvPid = null;
@@ -1247,6 +1290,15 @@ function renderNarrador() {
       ${passivasExpanded ? `<div class="nar-passivas-box">
         <div class="nar-passivas-title"><i class="ti ti-sparkles"></i> Passivas / Talentos</div>
         ${passivasHtml}
+        ${getExpressoesEtereas(p).length ? `
+        <div class="nar-passivas-title" style="margin-top:14px;color:var(--eter)"><i class="ti ti-atom-2"></i> Expressões Etéreas <span style="font-size:10px;color:var(--text3);font-weight:400">(crítico → 1d6)</span></div>
+        <div class="expressoes-grid">${getExpressoesEtereas(p).map(ex => `
+          <div class="expressao-card">
+            <div class="expressao-indice">${ex.indice}</div>
+            <div class="expressao-name"><i class="ti ti-atom-2"></i> ${ex.name}</div>
+            <div class="expressao-desc">${ex.desc}</div>
+          </div>`).join('')}</div>
+        ` : ''}
       </div>` : ''}
       ${renderTestes(p, true)}
     </div>`;
@@ -1525,6 +1577,15 @@ function renderJogador() {
     </div>`;
   }).join('');
 
+  const expressoesList = getExpressoesEtereas(p);
+  const expressoesCollapsed = !!jogSkillsCollapsed['expressoes'];
+  const expressoesHtml = expressoesCollapsed ? '' : expressoesList.map(ex => `
+    <div class="expressao-card">
+      <div class="expressao-indice">${ex.indice}</div>
+      <div class="expressao-name"><i class="ti ti-atom-2"></i> ${ex.name}</div>
+      <div class="expressao-desc">${ex.desc}</div>
+    </div>`).join('');
+
   content.innerHTML = `
     <div class="jog-inner-grid">
     <div class="j-sidebar">
@@ -1649,6 +1710,16 @@ function renderJogador() {
       </div>
       ${passivasCollapsed ? '' : `<div class="passivas-grid">${passivasHtml || '<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma passiva cadastrada ainda.</div>'}</div>`}
       ${passivasCollapsed ? '' : `<button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>`}
+
+      ${expressoesList.length ? `
+      <div class="group-title group-title-toggle" style="margin-top:24px" onclick="toggleJogSkillGroup('expressoes')">
+        <span class="gt-dot" style="background:var(--eter)"></span>Expressões Etéreas
+        <span class="gt-collapse-info">${expressoesCollapsed ? `<span class="gt-ready-badge" style="background:rgba(79,195,219,0.15);color:var(--eter);border-color:rgba(79,195,219,0.3)">${expressoesList.length} ${expressoesList.length !== 1 ? 'expressões' : 'expressão'}</span>` : ''}</span>
+        <i class="ti ${expressoesCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron"></i>
+      </div>
+      ${expressoesCollapsed ? '' : `<div class="expressoes-legend">Crítico (Acerto ou Erro) em Ação/Teste → role 1d6 e confira o índice abaixo.</div>`}
+      ${expressoesCollapsed ? '' : `<div class="expressoes-grid">${expressoesHtml}</div>`}
+      ` : ''}
 
       ${renderTestes(p, false)}
       ${renderInventarioArea(p)}
