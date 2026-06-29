@@ -1818,14 +1818,31 @@ function renderInventarioArea(p) {
     const icone = isInstrumento
       ? `<i class="ti ti-music" style="color:#e8a838"></i>`
       : `<i class="ti ti-sword" style="color:var(--red)"></i>`;
-    const instTag = isInstrumento
-      ? `<span class="inv-peso-tag" style="color:#e8a838;background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.3)">🎵 Instrumento</span>`
-      : '';
+
+    if (isInstrumento) {
+      // Instrumentos: título + botão editar na primeira linha; tags na segunda
+      return `<div class="inv-card">
+        <div class="inv-card-header" style="flex-wrap:nowrap;align-items:center">
+          <div class="inv-card-title">${icone} ${item.name}</div>
+          <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px">
+          <span class="inv-peso-tag" style="color:#e8a838;background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.3)">🎵 Instrumento</span>
+          ${alcanceTag(item)}
+          ${pesoTag(item)}
+        </div>
+        ${item.dano ? `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span></div>` : ''}
+        ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
+        ${municaoRow(item)}
+        ${aprimoramentos}${ativas}
+      </div>`;
+    }
+
+    const instTag = '';
     return `<div class="inv-card">
       <div class="inv-card-header">
         <div class="inv-card-title">${icone} ${item.name}</div>
         <div style="display:flex;align-items:center;gap:6px">
-          ${instTag}
           ${alcanceTag(item)}
           ${pesoTag(item)}
           <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
