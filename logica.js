@@ -1592,7 +1592,7 @@ function renderJogador() {
           <button onclick="adjDinheiro(${p.id},+1)">+1</button><button onclick="adjDinheiro(${p.id},+10)">+10</button>
         </div>
       </div>
-      ${(p.inventario || []).some(i => i.peso === 'exotica') ? `
+      ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais</span><span class="stat-val" style="color:var(--accent2)">${p.cristais || 0}</span></div>
         <div class="arm-ctrl arm-ctrl-3">
@@ -1756,7 +1756,7 @@ function renderInventarioArea(p) {
   }
 
   function municaoRow(item) {
-    // Usa cristais se: arma/instrumento exótico, OU arma/instrumento comum com aprimoramento exótico (não-Dourado)
+    // Usa cristais se: item exótico por peso, OU item com aprimoramento exótico (não-Dourado)
     const temAprimoExotico = Array.isArray(item.aprimoramentos) && item.aprimoramentos.length > 0
       && !item.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado'));
     const usaCristal = item.peso === 'exotica' || temAprimoExotico;
@@ -1857,14 +1857,12 @@ function renderInventarioArea(p) {
       </div>
       ${item.valor != null ? `<div class="inv-dano"><span class="inv-dano-label">${valLabel}</span><span class="inv-dano-val">${item.valor}</span></div>` : ''}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
-      ${item.peso === 'exotica' ? `<div class="inv-municao-row">
-        <span class="inv-municao-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais <span style="font-size:10px;color:var(--text3)">(compartilhados)</span></span>
-        <div class="inv-municao-ctrl">
-          <button onclick="adjCristais(${p.id},-1)">−</button>
-          <span class="inv-municao-val">${p.cristais || 0}</span>
-          <button onclick="adjCristais(${p.id},+1)">+</button>
-        </div>
-      </div>` : ''}
+      ${municaoRow(item)}
+      ${item.aprimoramentos && item.aprimoramentos.length ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>{
+          const isDourado = a.dourado || a.name === 'Dourado';
+          const label = isDourado ? (a.dourado ? (a.name || 'Aprimoramento Dourado') : 'Dourado') : a.name;
+          return `<div class="inv-aprimo-item"><span class="inv-aprimo-name"${isDourado?' style="color:#e8c53a"':''}>${isDourado?'✨ ':''}${label}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`;
+        }).join('')}</div>` : ''}
     </div>`;
   }
 
@@ -2024,7 +2022,7 @@ function _buildInvModal(data) {
   // Detecta invAprimoTipo ao editar item existente
   const _peso = data.peso || 'leve';
   if (_peso === 'exotica') {
-    invAprimoTipo = 'nenhum'; // exótica não usa o seletor
+    invAprimoTipo = 'nenhum'; // exótica não usa o seletor (campos livres via hint)
   } else if (invAprimos.some(a => a.dourado || a.name === 'Dourado')) {
     invAprimoTipo = 'dourado';
   } else if (invAprimos.length) {
@@ -2050,27 +2048,30 @@ function _updateInvModalSections(tipo) {
   document.getElementById('inv-sec-item').style.display         = tipo === 'item'        ? '' : 'none';
 
   const peso = _invSelectedPeso();
-  // Aprimoramentos: disponíveis para armas e instrumentos
-  document.getElementById('inv-sec-exotica').style.display = ehArmaOuInstrumento ? '' : 'none';
+  // Aprimoramentos: disponíveis para armas, instrumentos e proteções
+  document.getElementById('inv-sec-exotica').style.display = (ehArmaOuInstrumento || tipo === 'protecao') ? '' : 'none';
   document.getElementById('inv-sec-mega').style.display    = (tipo === 'arma' && peso === 'mega') ? '' : 'none';
 
-  // Munição (armas/instrumentos de longo alcance) ou Cristais (armas/instrumentos/proteções exóticos)
+  // Munição (armas/instrumentos de longo alcance) ou Cristais (itens exóticos ou com aprimo exótico)
   const alcance = _invSelectedAlcance();
   const isExoticaLongoAlcance = ehArmaOuInstrumento && peso === 'exotica' && alcance === 'longo';
+  // Proteção com aprimo exótico também mostra cristais (via hint, sem campo extra de munição)
+  const temAprimoExoticoModal = invAprimos.length > 0 && !invAprimos.every(a => a.dourado || a.name === 'Dourado');
+  const protComAprimoExotico = tipo === 'protecao' && peso !== 'exotica' && temAprimoExoticoModal;
   const precisaMunicao = (ehArmaOuInstrumento && (alcance === 'longo' || peso === 'exotica'))
-                      || (tipo === 'protecao' && peso === 'exotica');
+                      || (tipo === 'protecao' && (peso === 'exotica' || protComAprimoExotico));
   document.getElementById('inv-sec-municao').style.display = precisaMunicao ? '' : 'none';
   const municaoLabel = document.getElementById('inv-municao-label');
-  // Exótica: campo principal mostra Cristais (informativo, read-only)
+  // Exótica ou com aprimo exótico: campo principal mostra Cristais (informativo, read-only)
   // Comum longo alcance: campo principal = Munição editável
-  if (municaoLabel) municaoLabel.textContent = (peso === 'exotica') ? 'Cristais (compartilhados)' : 'Munição';
+  if (municaoLabel) municaoLabel.textContent = (peso === 'exotica' || protComAprimoExotico) ? 'Cristais (compartilhados)' : 'Munição';
   // Campo extra de munição — só aparece quando exótica + longo alcance
   const secMunicaoExtra = document.getElementById('inv-sec-municao-extra');
   if (secMunicaoExtra) secMunicaoExtra.style.display = isExoticaLongoAlcance ? '' : 'none';
-  // Campo de cristais vira informativo quando exótica (valor vem do personagem, não do item)
+  // Campo de cristais vira informativo quando exótica ou proteção com aprimo exótico (valor vem do personagem, não do item)
   const inputMunicao = document.getElementById('inv-m-municao');
   if (inputMunicao) {
-    if (peso === 'exotica') {
+    if (peso === 'exotica' || protComAprimoExotico) {
       const pOwner = modalInvPid != null ? PLAYERS.find(x => x.id === modalInvPid) : null;
       inputMunicao.value = pOwner ? (pOwner.cristais || 0) : 0;
       inputMunicao.readOnly = true;
@@ -2220,12 +2221,17 @@ function _updateAprimoUI() {
   const hint    = document.getElementById('inv-aprimo-exotica-hint');
   if (!seletor || !hint) return;
 
-  const suportaAprimo = tipo === 'arma' || tipo === 'instrumento';
+  const suportaAprimo = tipo === 'arma' || tipo === 'instrumento' || tipo === 'protecao';
   if (!suportaAprimo) { seletor.style.display = 'none'; hint.style.display = 'none'; return; }
 
   const isExotica = peso === 'exotica';
   seletor.style.display = isExotica ? 'none' : 'flex';
   hint.style.display    = isExotica ? ''     : 'none';
+
+  // Atualiza o texto do hint para proteções exóticas
+  if (isExotica && tipo === 'protecao') {
+    hint.innerHTML = '⚠ Armaduras e Elmos Exóticos não podem receber Aprimoramento Dourado. <button class="btn" style="padding:3px 9px;font-size:11px;margin-left:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar Aprimoramento</button>';
+  }
 
   // Highlight do botão ativo (armas/instrumentos comuns)
   ['dourado','exotico','nenhum'].forEach(t => {
@@ -2296,11 +2302,15 @@ function saveInvItem() {
     // Instrumentos exóticos: cristais ficam em p.cristais (pool do personagem), não no item
   } else if (tipo === 'protecao') {
     Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, equipado });
+    // Aprimoramentos disponíveis para proteções (Draenei)
+    base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Proteções exóticas: atualiza o pool de cristais do personagem
     if (peso === 'exotica') {
       const p2 = PLAYERS.find(x => x.id === modalInvPid);
       if (p2) { p2.cristais = municao; }
     }
+    // Proteção comum com aprimoramento exótico: também usa cristais compartilhados (não altera p.cristais aqui,
+    // pois o pool já é do personagem — apenas garante que o item salva seus aprimoramentos)
   } else {
     if (qtd !== null) base.qtd = qtd;
   }
