@@ -1886,13 +1886,13 @@ function renderInventarioArea(p) {
     }
 
     return `<div class="inv-card">
-      <div class="inv-card-header">
+      <div class="inv-card-header" style="flex-wrap:nowrap;align-items:center">
         <div class="inv-card-title">${icone} ${item.name}</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          ${alcanceTag(item)}
-          ${pesoTag(item)}
-          <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
-        </div>
+        <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px">
+        ${alcanceTag(item)}
+        ${pesoTag(item)}
       </div>
       ${danoRow(item.peso)}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
