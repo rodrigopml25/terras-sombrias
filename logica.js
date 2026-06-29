@@ -706,7 +706,7 @@ function applyData(data) {
     if (typeof p.elmoMax !== 'number') p.elmoMax = typeof p.elmo === 'number' ? p.elmo : 0;
     if (typeof p.elmo !== 'number') p.elmo = p.elmoMax;
     if (p.elmo > p.elmoMax) p.elmo = p.elmoMax;
-    if (typeof p.passos !== 'number') p.passos = 6;
+    if (typeof p.passos !== 'number') p.passos = 10;
     if (typeof p.dinheiro !== 'number') p.dinheiro = 100;
     if (typeof p.cristais !== 'number') p.cristais = 0;
     // Migração: notas de Bardo — fichas antigas que ainda não têm o campo
@@ -2963,7 +2963,7 @@ function openCharModal() {
   document.getElementById('c-agi').value = '5';
   document.getElementById('c-for').value = '5';
   document.getElementById('c-int').value = '5';
-  document.getElementById('c-passos').value = '6';
+  document.getElementById('c-passos').value = '10';
   document.getElementById('c-dinheiro').value = '100';
   setTimeout(() => document.getElementById('c-name').focus(), 50);
 }
