@@ -245,21 +245,6 @@
             <label class="form-label">Dano (ex: 1d6, 2d8+2)</label>
             <input type="text" id="inv-m-dano" placeholder="Ex: 1d8">
           </div>
-          <div class="form-row">
-            <label class="form-label">Alcance</label>
-            <div class="inv-tipo-group">
-              <button class="inv-alcance-btn active" data-alcance="curto" onclick="invSelectAlcance('curto')">🎯 Curto Alcance</button>
-              <button class="inv-alcance-btn"        data-alcance="longo" onclick="invSelectAlcance('longo')">🏹 Longo Alcance</button>
-            </div>
-          </div>
-          <div class="form-row" id="inv-sec-municao" style="display:none">
-            <label class="form-label" id="inv-municao-label">Munição</label>
-            <input type="number" id="inv-m-municao" min="0" placeholder="Ex: 12" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
-          </div>
-          <div class="form-row" id="inv-sec-municao-extra" style="display:none">
-            <label class="form-label">Munição <span style="font-size:10px;color:var(--text3)">(arma de longo alcance)</span></label>
-            <input type="number" id="inv-m-municao-extra" min="0" placeholder="Ex: 12" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
-          </div>
         </div>
 
         <!-- Seção: INSTRUMENTO MUSICAL -->
@@ -277,6 +262,25 @@
           <div class="form-row">
             <label class="form-label">Dano (opcional, ex: 1d6)</label>
             <input type="text" id="inv-m-dano-inst" placeholder="Ex: 1d6" style="width:120px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+          </div>
+        </div>
+
+        <!-- Seção: ALCANCE / MUNIÇÃO-CRISTAIS (armas e instrumentos) -->
+        <div id="inv-sec-alcance">
+          <div class="form-row">
+            <label class="form-label">Alcance</label>
+            <div class="inv-tipo-group">
+              <button class="inv-alcance-btn active" data-alcance="curto" onclick="invSelectAlcance('curto')">🎯 Curto Alcance</button>
+              <button class="inv-alcance-btn"        data-alcance="longo" onclick="invSelectAlcance('longo')">🏹 Longo Alcance</button>
+            </div>
+          </div>
+          <div class="form-row" id="inv-sec-municao" style="display:none">
+            <label class="form-label" id="inv-municao-label">Munição</label>
+            <input type="number" id="inv-m-municao" min="0" placeholder="Ex: 12" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+          </div>
+          <div class="form-row" id="inv-sec-municao-extra" style="display:none">
+            <label class="form-label">Munição <span style="font-size:10px;color:var(--text3)">(longo alcance)</span></label>
+            <input type="number" id="inv-m-municao-extra" min="0" placeholder="Ex: 12" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
           </div>
         </div>
 
@@ -340,7 +344,7 @@
           </div>
           <!-- Aviso para armas exoticas: apenas aprimoramentos livres, sem Dourado -->
           <div id="inv-aprimo-exotica-hint" style="display:none;font-size:11px;color:var(--text3);margin-bottom:6px">
-            ⚠ Armas Exóticas não podem receber Aprimoramento Dourado.
+            ⚠ Armas e Instrumentos Exóticos não podem receber Aprimoramento Dourado.
             <button class="btn" style="padding:3px 9px;font-size:11px;margin-left:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar Aprimoramento</button>
           </div>
           <div id="inv-aprimos-list"></div>
