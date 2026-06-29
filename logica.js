@@ -2946,6 +2946,66 @@ function selectOrigem(origemId) {
   }
 }
 
+// ─── Sistema de Point Buy ───────────────────────────────────────────────────
+// Pontos base por nível: 35 no Nv 1, +5 por nível adicional
+// Base fixa: HP 10, AGI/FOR/INT 5 cada → total base gasto = 25
+// Atributos (AGI/FOR/INT) têm limite de 20 apenas no Nv 1
+const POINT_BUY_BASE = 35;
+const POINT_BUY_PER_LEVEL = 5;
+const ATTR_BASE_HP = 10;
+const ATTR_BASE_STAT = 5;
+
+function getPointBuyTotal(level) {
+  return POINT_BUY_BASE + (Math.max(1, level || 1) - 1) * POINT_BUY_PER_LEVEL;
+}
+
+// Calcula quantos pontos foram gastos ALÉM das bases fixas
+function getPointsSpent() {
+  const hp  = parseInt(document.getElementById('c-hp')?.value)  || ATTR_BASE_HP;
+  const agi = parseInt(document.getElementById('c-agi')?.value) || ATTR_BASE_STAT;
+  const forca = parseInt(document.getElementById('c-for')?.value) || ATTR_BASE_STAT;
+  const intel = parseInt(document.getElementById('c-int')?.value) || ATTR_BASE_STAT;
+  return (hp - ATTR_BASE_HP) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
+}
+
+function updatePointBuy(levelOverride) {
+  // Determina o nível: usa override (ao abrir modal), ou o personagem em edição, ou 1
+  let level = levelOverride;
+  if (level == null) {
+    if (modalCharId) {
+      const p = PLAYERS.find(x => x.id === modalCharId);
+      level = p ? (p.level || 1) : 1;
+    } else {
+      level = 1;
+    }
+  }
+
+  const total = getPointBuyTotal(level);
+  const spent = getPointsSpent();
+  const left  = total - spent;
+  const isNv1 = level === 1;
+
+  // Atualiza contador
+  const leftEl  = document.getElementById('c-points-left');
+  const totalEl = document.getElementById('c-points-total');
+  if (leftEl)  { leftEl.textContent = left; leftEl.style.color = left < 0 ? '#f08080' : left === 0 ? 'var(--green)' : 'var(--accent2)'; }
+  if (totalEl) totalEl.textContent = '/ ' + total;
+
+  // Mostra/esconde o hint de limite por nível
+  const hintEl = document.getElementById('c-points-hint');
+  if (hintEl) {
+    hintEl.textContent = isNv1
+      ? 'Base: Vida 10, AGI/FOR/INT 5. Limite de 20 por atributo no Nv 1.'
+      : `Base: Vida 10, AGI/FOR/INT 5. Sem limite de atributo no Nv ${level}.`;
+  }
+
+  // Mostra/esconde labels de limite (máx 20) nos atributos
+  ['agi','for','int'].forEach(a => {
+    const lbl = document.getElementById(`c-${a}-limit`);
+    if (lbl) lbl.style.display = isNv1 ? '' : 'none';
+  });
+}
+
 // ─── Modal Personagem ──────────────────────────────────────────────────────────
 function openCharModal() {
   modalCharId = null;
@@ -2965,6 +3025,7 @@ function openCharModal() {
   document.getElementById('c-int').value = '5';
   document.getElementById('c-passos').value = '10';
   document.getElementById('c-dinheiro').value = '100';
+  updatePointBuy(1);
   setTimeout(() => document.getElementById('c-name').focus(), 50);
 }
 
@@ -3010,6 +3071,7 @@ function editCharacter(id) {
   document.getElementById('c-int').value = p.intel;
   document.getElementById('c-passos').value = p.passos;
   document.getElementById('c-dinheiro').value = (typeof p.dinheiro === 'number') ? p.dinheiro : 100;
+  updatePointBuy(p.level || 1);
 }
 
 function deleteCharacter(id) {
@@ -3031,18 +3093,32 @@ function saveCharacter() {
   const race   = document.getElementById('c-race').value.trim() || 'Sem Raça';
   const cls    = getSelectedSubclasse() || 'Aventureiro';
   const classeBase = getBaseClass(cls) || cls;
-  const hpMax  = parseInt(document.getElementById('c-hp').value)  || 30;
+  const hpMax  = parseInt(document.getElementById('c-hp').value)  || 10;
   const ins    = parseInt(document.getElementById('c-ins').value) || 0;
-  const agi    = parseInt(document.getElementById('c-agi').value) || 10;
-  const forca  = parseInt(document.getElementById('c-for').value) || 10;
-  const intel  = parseInt(document.getElementById('c-int').value) || 10;
-  const passos = parseInt(document.getElementById('c-passos').value) || 0;
+  const agi    = parseInt(document.getElementById('c-agi').value) || 5;
+  const forca  = parseInt(document.getElementById('c-for').value) || 5;
+  const intel  = parseInt(document.getElementById('c-int').value) || 5;
+  const passos = parseInt(document.getElementById('c-passos').value) || 10;
   const dinheiroEl = document.getElementById('c-dinheiro');
   const dinheiro = dinheiroEl && dinheiroEl.value.trim() !== '' ? Math.max(0, parseInt(dinheiroEl.value)) : 100;
 
   // Origem racial (ex: Anão Comum / Anão Profundezas)
   const origemEl = document.getElementById('c-origem');
   const origemId = origemEl ? (origemEl.value || null) : null;
+
+  // Validação de point-buy
+  const editLevel = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : 1;
+  const totalPontos = getPointBuyTotal(editLevel);
+  const gasto = (hpMax - ATTR_BASE_HP) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
+  if (gasto > totalPontos) {
+    alert(`Pontos excedidos! Você gastou ${gasto} pontos mas tem apenas ${totalPontos} disponíveis.`);
+    return;
+  }
+  // Limite de 20 por atributo no Nv 1
+  if (editLevel === 1 && (agi > 20 || forca > 20 || intel > 20)) {
+    alert('No Nível 1, AGI, FOR e INT não podem ultrapassar 20.');
+    return;
+  }
 
   if (modalCharId) {
     const p = PLAYERS.find(x => x.id === modalCharId);
