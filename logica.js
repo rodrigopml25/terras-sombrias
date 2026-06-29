@@ -114,6 +114,10 @@ const RACAS = {
     { id: 'dragao_dualidade_draconica', name: 'Dualidade Dracônica', desc: 'Escolha uma outra Raça para ser sua forma humanoide. Não receberá as Passivas e Habilidades dela! Enquanto estiver em forma de Dragão não poderá Aparar e terá Mega Desvantagem em Desviar no chão.' },
     { id: 'dragao_espectro_draconico', name: 'Espectro Dracônico', desc: 'Ao chegar no nível 3, você consegue utilizar suas Habilidades do seu Grimório na forma de Dragão. Nessa forma, suas Garras Dracônicas se tornam suas Armas. Se for um Bardo, elas têm uma Tatuagem Arcana que libera "Qualquer Nota" no Ataque.' },
   ],
+  'Elfo': [
+    { id: 'elfo_decreptico', name: 'Decréptico', desc: 'Por ter muitos anos de vida escolha 2 Testes de Intelecto para conceder, consequentemente, +1 de Vantagem e +3 de vantagem. Possui -2 de Desvantagem em Resistir.' },
+    { id: 'elfo_aprendizagem_elfica', name: 'Aprendizagem Élfica', desc: 'Ao subir de Nível aprenda uma Habilidade de outra classe. (Os efeitos exclusivos não funcionam e podem ser ajustados caso queira)' },
+  ],
 };
 
 // Habilidades raciais fixas — funcionam igual às habilidades gerais mas são
