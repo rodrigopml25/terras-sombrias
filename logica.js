@@ -1,6 +1,8 @@
 // ═══════════════════════════════════════
 // SISTEMA DE LOGIN
 // ═══════════════════════════════════════
+const POINT_BUY_PER_LEVEL = 5;
+
 // currentUser = { id, name, role: 'player'|'narrator' }
 let currentUser = null;
 
@@ -707,6 +709,7 @@ function applyData(data) {
     if (typeof p.elmo !== 'number') p.elmo = p.elmoMax;
     if (p.elmo > p.elmoMax) p.elmo = p.elmoMax;
     if (typeof p.passos !== 'number') p.passos = 10;
+    if (typeof p.pontosPendentes !== 'number') p.pontosPendentes = 0;
     if (typeof p.dinheiro !== 'number') p.dinheiro = 100;
     if (typeof p.cristais !== 'number') p.cristais = 0;
     // Migração: notas de Bardo — fichas antigas que ainda não têm o campo
@@ -1168,7 +1171,7 @@ function recomputeProtMax(p) {
 function addXP(id) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return;
-  if (p.xp >= 10 && p.level < 5) { p.xp = 0; p.level++; }
+  if (p.xp >= 10 && p.level < 5) { p.xp = 0; p.level++; p.pontosPendentes = (p.pontosPendentes || 0) + POINT_BUY_PER_LEVEL; }
   else if (p.xp < 10) p.xp++;
   saveState(); renderAll();
 }
@@ -1177,15 +1180,19 @@ function removeXP(id) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return;
   if (p.xp > 0) { p.xp--; }
-  else if (p.level > 1) { p.level--; p.xp = 9; }
+  else if (p.level > 1) { p.level--; p.xp = 9; p.pontosPendentes = Math.max(0, (p.pontosPendentes || 0) - POINT_BUY_PER_LEVEL); }
   saveState(); renderAll();
 }
 
 function setXPDirect(id, val) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return;
-  p.xp = Math.max(0, Math.min(10, val));
-  if (p.xp >= 10 && p.level < 5) { p.xp = 0; p.level++; }
+  const newVal = Math.max(0, Math.min(10, val));
+  if (newVal >= 10 && p.xp < 10 && p.level < 5) {
+    p.xp = 0; p.level++; p.pontosPendentes = (p.pontosPendentes || 0) + POINT_BUY_PER_LEVEL;
+  } else {
+    p.xp = newVal;
+  }
   saveState(); renderAll();
 }
 
@@ -1258,10 +1265,11 @@ function renderNarrador() {
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
     const origemSubLabel = origemObj ? ` · <span style="color:var(--accent2);font-size:11px">⛏ ${origemObj.name}</span>` : '';
+    const pendBadge = (p.pontosPendentes > 0) ? ` <span title="Personagem subiu de nível e tem pontos de atributo não distribuídos" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">⬆ ${p.pontosPendentes} pts</span>` : '';
     return `<div class="prow ${bm ? 'beira-morte' : ''}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}${pendBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -1677,6 +1685,14 @@ function renderJogador() {
         </div>
         <div class="char-av-big" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div class="char-name">${p.name}</div><div class="char-sub">${p.race} · ${p.classeBase ? p.classeBase + ' / ' : ''}${p.cls}</div>
+        ${p.pontosPendentes > 0 ? `
+        <div onclick="editCharacter(${p.id})" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(124,92,191,0.15);border:1px solid rgba(124,92,191,0.45);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">⬆</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--accent2)">Você subiu de nível!</div>
+            <div style="font-size:11px;color:var(--text2)">${p.pontosPendentes} pontos de atributo para distribuir · toque para editar</div>
+          </div>
+        </div>` : ''}
         <div class="xp-bar-wrap">
           <div class="xp-lbl"><span>XP — ${p.xp}/10</span><span>Nv ${p.level}${p.level<5?' → '+(p.level+1):' (máx)'}</span></div>
           <div class="xp-track"><div class="xp-fill" style="width:${xpPct}%"></div></div>
@@ -2951,7 +2967,6 @@ function selectOrigem(origemId) {
 // Base fixa: HP 10, AGI/FOR/INT 5 cada → total base gasto = 25
 // Atributos (AGI/FOR/INT) têm limite de 20 apenas no Nv 1
 const POINT_BUY_BASE = 35;
-const POINT_BUY_PER_LEVEL = 5;
 const ATTR_BASE_HP = 10;
 const ATTR_BASE_STAT = 5;
 
@@ -3202,6 +3217,7 @@ function saveCharacter() {
       p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
       p.passos = passos; p.dinheiro = dinheiro;
       p.origemId = origemId;
+      p.pontosPendentes = 0;
       // Humanidade: vira Bruxo agora (ou ainda não tinha o campo) → inicia
       // cheia (10/10). Se já era Bruxo, mantém o valor atual sem resetar.
       if (classeBase === 'Bruxo' && (!eraBruxo || typeof p.humanidade !== 'number')) {
