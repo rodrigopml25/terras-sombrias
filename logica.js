@@ -2098,7 +2098,7 @@ function renderInventarioArea(p) {
       : `<i class="ti ti-sword" style="color:var(--red)"></i>`;
 
     // ── Bônus de maestria por peso da arma ──────────────────────────────────
-    // Leve → INT; Média → AGI; Pesada → FOR; Exótica → piso(AGI/2); Mega → sem bônus
+    // Leve → INT; Média → AGI; Pesada → FOR; Exótica → piso(AGI/2); Mega Pesada → piso(FOR/2)
     function armaMaestriaBonus(peso) {
       if (peso === 'leve')   return { val: maestria(p.intel), attr: 'INT', color: 'var(--blue)'  };
       if (peso === 'media')  return { val: maestria(p.agi),   attr: 'AGI', color: 'var(--green)' };
@@ -2107,7 +2107,11 @@ function renderInventarioArea(p) {
         const v = Math.ceil(maestria(p.agi) / 2);
         return { val: v, attr: 'AGI/2', color: 'var(--green-dim)' };
       }
-      return null; // mega pesada — sem bônus
+      if (peso === 'mega') {
+        const v = Math.ceil(maestria(p.forca) / 2);
+        return { val: v, attr: 'FOR/2', color: '#c44aff' };
+      }
+      return null;
     }
     function danoRow(peso) {
       if (!item.dano) return '';
