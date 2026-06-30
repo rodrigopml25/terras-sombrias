@@ -3093,6 +3093,8 @@ function openCharModal() {
   document.getElementById('c-int').value = '5';
   document.getElementById('c-passos').value = '10';
   document.getElementById('c-dinheiro').value = '100';
+  const extraFields = document.getElementById('c-extra-fields');
+  if (extraFields) extraFields.style.display = 'none';
   updatePointBuy(1);
   setTimeout(() => document.getElementById('c-name').focus(), 50);
 }
@@ -3139,6 +3141,8 @@ function editCharacter(id) {
   document.getElementById('c-int').value = p.intel;
   document.getElementById('c-passos').value = p.passos;
   document.getElementById('c-dinheiro').value = (typeof p.dinheiro === 'number') ? p.dinheiro : 100;
+  const extraFields = document.getElementById('c-extra-fields');
+  if (extraFields) extraFields.style.display = '';
   updatePointBuy(p.level || 1);
 }
 
