@@ -1310,7 +1310,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .inv-peso-btn.active[data-peso="media"]  { background: var(--green-bg); border-color: var(--green-bd); color: var(--green); }
 .inv-peso-btn.active[data-peso="pesada"] { background: var(--red-bg);   border-color: var(--red-bd);   color: var(--red);   }
 .inv-peso-btn.active[data-peso="exotica"]{ background: var(--green-bg); border-color: var(--green-bd); color: var(--green-dim);}
-.inv-peso-btn.active[data-peso="mega"]   { background: rgba(196,74,255,.1); border-color: rgba(196,74,255,.3); color: #c44aff; }
+.inv-peso-btn.active[data-peso="mega"]   { background: rgba(139,31,31,.12); border-color: rgba(139,31,31,.4); color: #8b1f1f; }
 
 .inv-sub-header {
   display: flex;
