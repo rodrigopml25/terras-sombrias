@@ -436,6 +436,8 @@ function ensureRacePassivas(p) {
   ensureRaceSkills(p);
   // Garante a arma racial das Garras Dracônicas para Dragões
   ensureRaceWeapons(p);
+  // Fora da forma de Dragão, remove de novo o que é exclusivo da Metamorfose
+  syncFormaDragaoLock(p);
 }
 
 // Armas raciais fixas — injetadas automaticamente no inventário de personagens
@@ -468,6 +470,43 @@ function ensureRaceWeapons(p) {
       p.inventario.push({ ...def, racialId: def.id, id: 'inv_racial_' + def.id });
     }
   });
+}
+
+// ═══════════════════════════════════════
+// FORMA DE DRAGÃO — Metamorfose
+// ═══════════════════════════════════════
+// Habilidades raciais do Dragão que só existem enquanto ele estiver na
+// forma Dracônica (após usar a Metamorfose). A própria "Metamorfose" NÃO
+// entra nessa lista, pois é a habilidade usada para entrar/sair da forma.
+const DRAGAO_FORMA_SKILL_IDS = ['sk_racial_dragao_iniciar_voo', 'sk_racial_dragao_impacto_pouso'];
+
+// Fora da forma de Dragão, remove do personagem: Iniciar Voo, Impacto de
+// Pouso, o Sopro da sua Revoada (cor correspondente à origem escolhida) e a
+// arma Garras Dracônicas. Enquanto p.formaDragao estiver ativo, não faz nada
+// — quem reinjeta essas habilidades/arma é o ensureRacePassivas() normal,
+// chamado logo após a Metamorfose ser ativada.
+function syncFormaDragaoLock(p) {
+  if (p.race !== 'Dragão') return;
+  if (typeof p.formaDragao !== 'boolean') p.formaDragao = false;
+  if (p.formaDragao) return;
+
+  if (Array.isArray(p.skills)) {
+    const origemAtual = getOrigemPersonagem(p);
+    const soproId = (origemAtual && origemAtual.skill) ? origemAtual.skill.id : null;
+    p.skills = p.skills.filter(sk => !DRAGAO_FORMA_SKILL_IDS.includes(sk.id) && sk.id !== soproId);
+  }
+  if (Array.isArray(p.inventario)) {
+    p.inventario = p.inventario.filter(it => it.racialId !== 'racial_dragao_garras_draconicas');
+  }
+}
+
+// Ativa ou desativa a forma de Dragão. Ao ativar, reinjeta o Sopro da
+// Revoada, Iniciar Voo, Impacto de Pouso e as Garras Dracônicas (via
+// ensureRacePassivas, que é idempotente). Ao desativar, syncFormaDragaoLock
+// (chamado dentro de ensureRacePassivas) remove tudo de novo.
+function setFormaDragao(p, active) {
+  p.formaDragao = !!active;
+  ensureRacePassivas(p);
 }
 
 // ═══════════════════════════════════════
@@ -969,7 +1008,26 @@ function isReady(sk) {
 function useSkill(pid, skid) {
   const p = PLAYERS.find(x => x.id === pid);
   const sk = p && p.skills.find(s => s.id === skid);
-  if (!sk || !isReady(sk) || sk.tipo === 'infinite') return;
+  if (!sk) return;
+
+  // Metamorfose do Dragão funciona como um interruptor de forma: ativar
+  // consome a carga normalmente (1 por turno, como qualquer perturn), mas
+  // voltar à forma humanóide é livre — não gasta carga nem espera recarga.
+  if (sk.id === 'sk_racial_dragao_metamorfose') {
+    if (p.formaDragao) {
+      setFormaDragao(p, false);
+      saveState(); renderAll();
+      return;
+    }
+    if (!isReady(sk) || sk.tipo === 'infinite') return;
+    sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
+    if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
+    setFormaDragao(p, true);
+    saveState(); renderAll();
+    return;
+  }
+
+  if (!isReady(sk) || sk.tipo === 'infinite') return;
   sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
   if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
   saveState();
@@ -1272,10 +1330,11 @@ function renderNarrador() {
 
     const origemSubLabel = origemObj ? ` · <span style="color:var(--accent2);font-size:11px">⛏ ${origemObj.name}</span>` : '';
     const pendBadge = (p.pontosPendentes > 0) ? ` <span title="Personagem subiu de nível e tem pontos de atributo não distribuídos" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">⬆ ${p.pontosPendentes} pts</span>` : '';
+    const formaDragaoBadge = (p.race === 'Dragão' && p.formaDragao) ? ` <span title="Em forma de Dragão: Sopro, Iniciar Voo, Impacto de Pouso e Garras Dracônicas disponíveis" style="display:inline-flex;align-items:center;gap:3px;background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐉 Forma de Dragão</span>` : '';
     return `<div class="prow ${bm ? 'beira-morte' : ''}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}${pendBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}${pendBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -1691,6 +1750,14 @@ function renderJogador() {
         </div>
         <div class="char-av-big" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div class="char-name">${p.name}</div><div class="char-sub">${p.race} · ${p.classeBase ? p.classeBase + ' / ' : ''}${p.cls}</div>
+        ${(p.race === 'Dragão' && p.formaDragao) ? `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--red-bg);border:1px solid var(--red-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">🐉</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--red)">Forma de Dragão ativa</div>
+            <div style="font-size:11px;color:var(--text2)">Sopro, Iniciar Voo, Impacto de Pouso e Garras Dracônicas disponíveis</div>
+          </div>
+        </div>` : ''}
         ${p.pontosPendentes > 0 ? `
         <div onclick="editCharacter(${p.id})" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(124,92,191,0.15);border:1px solid rgba(124,92,191,0.45);border-radius:10px;padding:8px 12px;margin-top:10px">
           <span style="font-size:18px">⬆</span>
