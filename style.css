@@ -775,6 +775,49 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .form-row input, .form-row select { margin-top: 0; }
 .modal-btns { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
 
+/* Assistente passo-a-passo de criação de personagem */
+.wizard-steps {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+.wstep {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+  padding: 8px 4px;
+  border-bottom: 2px solid var(--border);
+  text-align: center;
+  transition: color .2s, border-color .2s;
+}
+.wstep-num {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  flex-shrink: 0;
+  transition: background .2s, color .2s;
+}
+.wstep.active { color: var(--text); border-color: var(--accent2); }
+.wstep.active .wstep-num { background: var(--accent2); color: #fff; }
+
+.modal-step { display: none; }
+.modal-step.active { display: block; }
+.modal-step .modal-btns { margin-top: 22px; }
+
+/* No modo de edição todas as etapas ficam visíveis ao mesmo tempo, sem navegação por passos */
+.modal.editmode .wizard-steps { display: none; }
+.modal.editmode .modal-step { display: block !important; }
+.modal.editmode .modal-step .step-nav { display: none; }
+.modal.editmode .modal-step[data-step="4"] .modal-btns { display: flex; }
+
 .color-picker { display: flex; gap: 6px; margin-top: 4px; }
 .color-opt {
   width: 28px; height: 28px; border-radius: var(--radius-sm);
