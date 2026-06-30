@@ -674,6 +674,12 @@ let jogActiveTab = 'ficha'; // 'ficha' | 'anotacoes'
 let modalInvPid = null;
 let modalInvId = null;
 
+// Controla a notificação (toast) de "subiu de nível" no lado do Jogador.
+// null = ainda não inicializado (primeiro render após carregar dados);
+// depois disso guarda { [playerId]: level } pra detectar aumentos, sejam
+// eles feitos pelo próprio jogador OU sincronizados a partir do Narrador.
+let lastSeenLevels = null;
+
 let firebaseRef = null;
 let firebaseOnline = false;
 let firebaseConfigured = false;
@@ -3342,6 +3348,51 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════════════════════
 // RENDER GERAL
 // ═══════════════════════════════════════
+// ═══════════════════════════════════════
+// NOTIFICAÇÃO DE SUBIDA DE NÍVEL (TOAST)
+// ═══════════════════════════════════════
+// Mostra um toast comemorativo no canto superior da tela do Jogador.
+function showLevelUpToast(p) {
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap';
+    wrap.className = 'toast-wrap';
+    document.body.appendChild(wrap);
+  }
+  const el = document.createElement('div');
+  el.className = 'toast-levelup';
+  el.innerHTML = `
+    <div class="toast-icon">⬆</div>
+    <div class="toast-body">
+      <div class="toast-title">${p.name} subiu de nível!</div>
+      <div class="toast-sub">Nível ${p.level} alcançado · ${p.pontosPendentes || 0} pontos de atributo para distribuir</div>
+    </div>`;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 4700);
+}
+
+// Compara o nível atual dos personagens do jogador com o último nível visto
+// e dispara o toast quando detecta um aumento — não importa se a subida veio
+// de um clique do próprio jogador (+XP) ou de uma sincronização vinda do
+// Narrador (Firebase). Só roda na tela do Jogador.
+function checkLevelUpToasts() {
+  if (!IS_JOGADOR) return;
+  const mine = getMyPlayers();
+  if (!lastSeenLevels) {
+    // Primeira execução: apenas grava o estado inicial, sem notificar
+    // (evita disparar toasts ao carregar a página pela primeira vez).
+    lastSeenLevels = {};
+    mine.forEach(p => { lastSeenLevels[p.id] = p.level; });
+    return;
+  }
+  mine.forEach(p => {
+    const prev = lastSeenLevels[p.id];
+    if (prev != null && p.level > prev) showLevelUpToast(p);
+    lastSeenLevels[p.id] = p.level;
+  });
+}
+
 function renderAll() {
   const tn = document.getElementById('turn-num');
   if (tn) tn.textContent = turnGlobal;
@@ -3352,6 +3403,7 @@ function renderAll() {
     renderPsel();
     renderJogador();
     if (jogActiveTab === 'anotacoes') renderJogNotas();
+    checkLevelUpToasts();
   }
 }
 
