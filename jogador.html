@@ -343,54 +343,54 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
 
           <!-- Vida -->
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-              <span style="font-size:12px;font-weight:600;color:var(--text)">❤ Vida (HP)</span>
-              <span id="c-hp-cost" style="font-size:10px;color:var(--text3)">—</span>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
+              <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap">❤ Vida (HP)</span>
+              <span id="c-hp-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">—</span>
             </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <button type="button" onclick="stepStat('hp',-1)" id="c-hp-dec" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">−</button>
-              <input type="number" id="c-hp" value="10" min="10" oninput="updatePointBuy()" style="flex:1;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:15px;font-weight:700">
-              <button type="button" onclick="stepStat('hp',+1)" id="c-hp-inc" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>
+            <div style="display:flex;align-items:center;gap:6px;min-width:0">
+              <button type="button" onclick="stepStat('hp',-1)" id="c-hp-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+              <input type="number" id="c-hp" value="10" min="10" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
+              <button type="button" onclick="stepStat('hp',+1)" id="c-hp-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
             </div>
           </div>
 
           <!-- AGI -->
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-              <span style="font-size:12px;font-weight:600;color:#6db33f">🏃 AGI <span id="c-agi-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
-              <span id="c-agi-cost" style="font-size:10px;color:var(--text3)">—</span>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
+              <span style="font-size:12px;font-weight:600;color:#6db33f;white-space:nowrap">🏃 AGI <span id="c-agi-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
+              <span id="c-agi-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">—</span>
             </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <button type="button" onclick="stepStat('agi',-1)" id="c-agi-dec" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">−</button>
-              <input type="number" id="c-agi" value="5" min="5" oninput="updatePointBuy()" style="flex:1;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:15px;font-weight:700">
-              <button type="button" onclick="stepStat('agi',+1)" id="c-agi-inc" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>
+            <div style="display:flex;align-items:center;gap:6px;min-width:0">
+              <button type="button" onclick="stepStat('agi',-1)" id="c-agi-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+              <input type="number" id="c-agi" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
+              <button type="button" onclick="stepStat('agi',+1)" id="c-agi-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
             </div>
           </div>
 
           <!-- FOR -->
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-              <span style="font-size:12px;font-weight:600;color:#c94040">⚔️ FOR <span id="c-for-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
-              <span id="c-for-cost" style="font-size:10px;color:var(--text3)">—</span>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
+              <span style="font-size:12px;font-weight:600;color:#c94040;white-space:nowrap">⚔️ FOR <span id="c-for-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
+              <span id="c-for-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">—</span>
             </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <button type="button" onclick="stepStat('for',-1)" id="c-for-dec" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">−</button>
-              <input type="number" id="c-for" value="5" min="5" oninput="updatePointBuy()" style="flex:1;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:15px;font-weight:700">
-              <button type="button" onclick="stepStat('for',+1)" id="c-for-inc" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>
+            <div style="display:flex;align-items:center;gap:6px;min-width:0">
+              <button type="button" onclick="stepStat('for',-1)" id="c-for-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+              <input type="number" id="c-for" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
+              <button type="button" onclick="stepStat('for',+1)" id="c-for-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
             </div>
           </div>
 
           <!-- INT -->
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-              <span style="font-size:12px;font-weight:600;color:#4a8fd4">✨ INT <span id="c-int-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
-              <span id="c-int-cost" style="font-size:10px;color:var(--text3)">—</span>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
+              <span style="font-size:12px;font-weight:600;color:#4a8fd4;white-space:nowrap">✨ INT <span id="c-int-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
+              <span id="c-int-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">—</span>
             </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <button type="button" onclick="stepStat('int',-1)" id="c-int-dec" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">−</button>
-              <input type="number" id="c-int" value="5" min="5" oninput="updatePointBuy()" style="flex:1;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:15px;font-weight:700">
-              <button type="button" onclick="stepStat('int',+1)" id="c-int-inc" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>
+            <div style="display:flex;align-items:center;gap:6px;min-width:0">
+              <button type="button" onclick="stepStat('int',-1)" id="c-int-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+              <input type="number" id="c-int" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
+              <button type="button" onclick="stepStat('int',+1)" id="c-int-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
             </div>
           </div>
 
