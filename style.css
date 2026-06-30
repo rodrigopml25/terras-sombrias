@@ -761,6 +761,15 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 #modal-char-overlay .modal {
   max-width: 560px;
 }
+/* Remove as setas nativas dos inputs number do point-buy, que causavam overflow */
+#modal-char-overlay input[type="number"]::-webkit-inner-spin-button,
+#modal-char-overlay input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#modal-char-overlay input[type="number"] {
+  -moz-appearance: textfield;
+}
 .form-row { margin-bottom: 12px; }
 .form-label { font-size: 11px; color: var(--text3); margin-bottom: 5px; display: block; font-weight: 500; letter-spacing: .03em; }
 .form-row input, .form-row select { margin-top: 0; }
