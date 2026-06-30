@@ -114,7 +114,7 @@ const RACAS = {
   ],
   'Dragão': [
     { id: 'dragao_dualidade_draconica', name: 'Dualidade Dracônica', desc: 'Escolha uma outra Raça para ser sua forma humanoide. Não receberá as Passivas e Habilidades dela! Enquanto estiver em forma de Dragão não poderá Aparar e terá Mega Desvantagem em Desviar no chão.' },
-    { id: 'dragao_espectro_draconico', name: 'Espectro Dracônico', desc: 'Ao chegar no nível 3, você consegue utilizar suas Habilidades do seu Grimório na forma de Dragão. Nessa forma, suas Garras Dracônicas se tornam suas Armas. Se for um Bardo, elas têm uma Tatuagem Arcana que libera "Qualquer Nota" no Ataque.' },
+    { id: 'dragao_espectro_draconico', name: 'Espectro Dracônico', minLevel: 3, desc: 'Ao chegar no nível 3, você consegue utilizar suas Habilidades do seu Grimório na forma de Dragão. Nessa forma, suas Garras Dracônicas se tornam suas Armas. Se for um Bardo, elas têm uma Tatuagem Arcana que libera "Qualquer Nota" no Ataque.' },
   ],
   'Elfo': [
     { id: 'elfo_decreptico', name: 'Decréptico', desc: 'Por ter muitos anos de vida escolha 2 Testes de Intelecto para conceder, consequentemente, +1 de Vantagem e +3 de vantagem. Possui -2 de Desvantagem em Resistir.' },
@@ -424,10 +424,17 @@ function ensureRacePassivas(p) {
   if (!Array.isArray(p.passivas)) p.passivas = [];
   if (!Array.isArray(p.racialPassivasRemovidas)) p.racialPassivasRemovidas = [];
   getRacePassivas(p).forEach(rp => {
+    // Algumas passivas raciais só existem a partir de um certo nível
+    // (ex: Espectro Dracônico, só a partir do Nível 3). Abaixo disso, a
+    // passiva nem aparece — e se o personagem descer de nível depois de já
+    // tê-la, ela é removida de novo automaticamente.
+    const atendeNivel = !rp.minLevel || (p.level || 1) >= rp.minLevel;
     const jaTem = p.passivas.some(pas => pas.racialId === rp.id);
     const foiRemovida = p.racialPassivasRemovidas.includes(rp.id);
-    if (!jaTem && !foiRemovida) {
+    if (atendeNivel && !jaTem && !foiRemovida) {
       p.passivas.push({ id: 'pas_racial_' + rp.id, racialId: rp.id, name: rp.name, desc: rp.desc });
+    } else if (!atendeNivel && jaTem) {
+      p.passivas = p.passivas.filter(pas => pas.racialId !== rp.id);
     }
   });
   // Garante que a passiva de origem racial também esteja presente
