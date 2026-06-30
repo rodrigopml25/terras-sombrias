@@ -3089,6 +3089,66 @@ function updatePointBuy(levelOverride) {
   });
 }
 
+// ─── Assistente de Criação (Wizard) ─────────────────────────────────────────
+// Na criação de um novo personagem, o formulário é dividido em 4 passos:
+// 1) Nome, 2) Raça, 3) Classe, 4) Distribuição de pontos.
+// Na edição de um personagem existente, todos os campos ficam visíveis de uma vez
+// (sem navegação por passos) — ver setModalMode().
+let wizardStep = 1;
+
+function setModalMode(isEdit) {
+  const modal = document.querySelector('#modal-char-overlay .modal');
+  if (!modal) return;
+  modal.classList.toggle('editmode', !!isEdit);
+  modal.classList.toggle('wizard', !isEdit);
+}
+
+function showWizardStep(n) {
+  wizardStep = n;
+  document.querySelectorAll('.modal-step').forEach(s => {
+    s.classList.toggle('active', parseInt(s.dataset.step, 10) === n);
+  });
+  document.querySelectorAll('.wstep').forEach(s => {
+    s.classList.toggle('active', parseInt(s.dataset.step, 10) <= n);
+  });
+  // Rola o modal para o topo a cada troca de passo
+  const modal = document.querySelector('#modal-char-overlay .modal');
+  if (modal) modal.scrollTop = 0;
+}
+
+function wizardNext() {
+  // Validação de cada passo antes de avançar
+  if (wizardStep === 1) {
+    const name = document.getElementById('c-name').value.trim();
+    if (!name) {
+      const input = document.getElementById('c-name');
+      input.focus();
+      input.style.borderColor = '#f08080';
+      setTimeout(() => { input.style.borderColor = ''; }, 1200);
+      return;
+    }
+  }
+  if (wizardStep === 2) {
+    const race = document.getElementById('c-race').value;
+    if (!race) {
+      alert('Escolha uma raça para continuar.');
+      return;
+    }
+  }
+  if (wizardStep === 3) {
+    const sub = getSelectedSubclasse();
+    if (!sub) {
+      alert('Escolha uma classe para continuar.');
+      return;
+    }
+  }
+  showWizardStep(Math.min(4, wizardStep + 1));
+}
+
+function wizardBack() {
+  showWizardStep(Math.max(1, wizardStep - 1));
+}
+
 // ─── Modal Personagem ──────────────────────────────────────────────────────────
 function openCharModal() {
   modalCharId = null;
@@ -3111,6 +3171,8 @@ function openCharModal() {
   const extraFields = document.getElementById('c-extra-fields');
   if (extraFields) extraFields.style.display = 'none';
   updatePointBuy(1);
+  setModalMode(false);
+  showWizardStep(1);
   setTimeout(() => document.getElementById('c-name').focus(), 50);
 }
 
@@ -3159,6 +3221,7 @@ function editCharacter(id) {
   const extraFields = document.getElementById('c-extra-fields');
   if (extraFields) extraFields.style.display = '';
   updatePointBuy(p.level || 1);
+  setModalMode(true);
 }
 
 function deleteCharacter(id) {
