@@ -292,129 +292,156 @@
 
     <div class="modal-overlay" id="modal-char-overlay">
       <div class="modal">
-        <h3 id="modal-char-title">Editar Personagem</h3>
-        <div class="form-row">
-          <label class="form-label">Nome</label>
-          <input type="text" id="c-name" placeholder="Nome do personagem">
+                <h3 id="modal-char-title">Editar Personagem</h3>
+
+        <div class="wizard-steps" id="wizard-steps">
+          <div class="wstep active" data-step="1"><span class="wstep-num">1</span> Nome</div>
+          <div class="wstep" data-step="2"><span class="wstep-num">2</span> Raça</div>
+          <div class="wstep" data-step="3"><span class="wstep-num">3</span> Classe</div>
+          <div class="wstep" data-step="4"><span class="wstep-num">4</span> Atributos</div>
         </div>
 
-        <div class="form-flex-row">
-            <div class="form-row">
-              <label class="form-label">Raça</label>
-              <select id="c-race" onchange="updateOrigemSelector(this.value, null)" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
-                <option value="" disabled selected hidden>Selecione...</option>
-                <option value="Anão">Anão</option>
-                <option value="Draenei">Draenei</option>
-                <option value="Dragão">Dragão</option>
-                <option value="Elfo">Elfo</option>
-                <option value="Etéreo">Etéreo</option>
-                <option value="Humano">Humano</option>
-                <option value="Orc">Orc</option>
-                <option value="Pandaren">Pandaren</option>
-                <option value="Tauren">Tauren</option>
-                <option value="Troll">Troll</option>
-              </select>
-              <div id="c-origem-container" style="display:none; margin-top:10px;"></div>
-            </div>
-            <div class="form-row">
-              <label class="form-label">Classe</label>
-              <div id="c-class-btns" class="cls-btn-group"></div>
-              <div id="c-sub-btns" class="sub-btn-group" style="margin-top:6px"></div>
-              <div id="c-bruxo-note" style="display:none;font-size:11px;color:var(--accent2);margin-top:6px;line-height:1.5">🩸 Bruxos possuem o Atributo exclusivo <strong>Humanidade</strong></div>
-              <div id="c-bardo-note" style="display:none;font-size:11px;color:#e8a838;margin-top:6px;line-height:1.5">🎵 Bardos possuem <strong>7 Notas Musicais</strong> (Dó, Ré, Mi, Fá, Sol, Lá, Si)</div>
-            </div>
-        </div>
-
-        <!-- Contador de pontos -->
-        <div id="c-points-bar" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:6px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-            <span style="font-size:12px;color:var(--text2);font-weight:500">Pontos para distribuir</span>
-            <span id="c-points-display" style="font-size:14px;font-weight:700;color:var(--accent2)">35 / 35</span>
+        <div class="modal-step active" data-step="1">
+          <div class="form-row">
+            <label class="form-label">Nome</label>
+            <input type="text" id="c-name" placeholder="Nome do personagem" onkeydown="if(event.key==='Enter'){event.preventDefault();wizardNext();}">
           </div>
-          <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden">
-            <div id="c-points-bar-fill" style="height:100%;border-radius:3px;background:var(--accent2);width:100%;transition:width .2s,background .2s"></div>
-          </div>
-          <div id="c-points-hint" style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">
-            Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Limite de 20 por atributo no Nv 1.
+          <div class="modal-btns step-nav">
+            <button class="btn" onclick="closeCharModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="wizardNext()">Próximo <i class="ti ti-arrow-right"></i></button>
           </div>
         </div>
 
-        <!-- Atributos com point-buy -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-
-          <!-- Vida -->
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
-              <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap">❤ Vida (HP)</span>
-              <span id="c-hp-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">—</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;min-width:0">
-              <button type="button" onclick="stepStat('hp',-1)" id="c-hp-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
-              <input type="number" id="c-hp" value="10" min="10" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
-              <button type="button" onclick="stepStat('hp',+1)" id="c-hp-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
-            </div>
+        <div class="modal-step" data-step="2">
+          <div class="form-row">
+            <label class="form-label">Raça</label>
+            <select id="c-race" onchange="updateOrigemSelector(this.value, null)" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+              <option value="" disabled selected hidden>Selecione...</option>
+              <option value="Anão">Anão</option>
+              <option value="Draenei">Draenei</option>
+              <option value="Dragão">Dragão</option>
+              <option value="Elfo">Elfo</option>
+              <option value="Etéreo">Etéreo</option>
+              <option value="Humano">Humano</option>
+              <option value="Orc">Orc</option>
+              <option value="Pandaren">Pandaren</option>
+              <option value="Tauren">Tauren</option>
+              <option value="Troll">Troll</option>
+            </select>
+            <div id="c-origem-container" style="display:none; margin-top:10px;"></div>
           </div>
-
-          <!-- AGI -->
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
-              <span style="font-size:12px;font-weight:600;color:#6db33f;white-space:nowrap">🏃 AGI <span id="c-agi-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
-              <span id="c-agi-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">—</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;min-width:0">
-              <button type="button" onclick="stepStat('agi',-1)" id="c-agi-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
-              <input type="number" id="c-agi" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
-              <button type="button" onclick="stepStat('agi',+1)" id="c-agi-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
-            </div>
+          <div class="modal-btns step-nav">
+            <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
+            <button class="btn btn-primary" onclick="wizardNext()">Próximo <i class="ti ti-arrow-right"></i></button>
           </div>
-
-          <!-- FOR -->
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
-              <span style="font-size:12px;font-weight:600;color:#c94040;white-space:nowrap">⚔️ FOR <span id="c-for-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
-              <span id="c-for-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">—</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;min-width:0">
-              <button type="button" onclick="stepStat('for',-1)" id="c-for-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
-              <input type="number" id="c-for" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
-              <button type="button" onclick="stepStat('for',+1)" id="c-for-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
-            </div>
-          </div>
-
-          <!-- INT -->
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
-              <span style="font-size:12px;font-weight:600;color:#4a8fd4;white-space:nowrap">✨ INT <span id="c-int-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
-              <span id="c-int-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">—</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;min-width:0">
-              <button type="button" onclick="stepStat('int',-1)" id="c-int-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
-              <input type="number" id="c-int" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
-              <button type="button" onclick="stepStat('int',+1)" id="c-int-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
-            </div>
-          </div>
-
         </div>
 
-        <!-- Insanidade / Passos / Dinheiro (sem point-buy) — oculto na criação, visível na edição -->
-        <div class="form-flex-row" id="c-extra-fields">
-            <div class="form-row">
-              <label class="form-label">Insanidade</label>
-              <input type="number" id="c-ins" value="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
-            </div>
-            <div class="form-row">
-              <label class="form-label">Passos</label>
-              <input type="number" id="c-passos" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
-            </div>
-            <div class="form-row">
-              <label class="form-label">Dinheiro</label>
-              <input type="number" id="c-dinheiro" value="100" min="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
-            </div>
+        <div class="modal-step" data-step="3">
+          <div class="form-row">
+            <label class="form-label">Classe</label>
+            <div id="c-class-btns" class="cls-btn-group"></div>
+            <div id="c-sub-btns" class="sub-btn-group" style="margin-top:6px"></div>
+            <div id="c-bruxo-note" style="display:none;font-size:11px;color:var(--accent2);margin-top:6px;line-height:1.5">🩸 Bruxos possuem o Atributo exclusivo <strong>Humanidade</strong></div>
+            <div id="c-bardo-note" style="display:none;font-size:11px;color:#e8a838;margin-top:6px;line-height:1.5">🎵 Bardos possuem <strong>7 Notas Musicais</strong> (Dó, Ré, Mi, Fá, Sol, Lá, Si)</div>
+          </div>
+          <div class="modal-btns step-nav">
+            <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
+            <button class="btn btn-primary" onclick="wizardNext()">Próximo <i class="ti ti-arrow-right"></i></button>
+          </div>
         </div>
 
-        <div class="modal-btns">
-          <button class="btn" onclick="closeCharModal()">Cancelar</button>
-          <button class="btn btn-primary" id="c-btn-save" onclick="saveCharacter()">Salvar</button>
+        <div class="modal-step" data-step="4">
+          <!-- Contador de pontos -->
+          <div id="c-points-bar" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:12px;color:var(--text2);font-weight:500">Pontos para distribuir</span>
+              <span id="c-points-display" style="font-size:14px;font-weight:700;color:var(--accent2)">35 / 35</span>
+            </div>
+            <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden">
+              <div id="c-points-bar-fill" style="height:100%;border-radius:3px;background:var(--accent2);width:100%;transition:width .2s,background .2s"></div>
+            </div>
+            <div id="c-points-hint" style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">
+              Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Limite de 20 por atributo no Nv 1.
+            </div>
+          </div>
+
+          <!-- Atributos com point-buy -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+
+            <!-- Vida -->
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
+                <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap">❤ Vida (HP)</span>
+                <span id="c-hp-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">+0 pts</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;min-width:0">
+                <button type="button" onclick="stepStat('hp',-1)" id="c-hp-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+                <input type="number" id="c-hp" value="10" min="10" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
+                <button type="button" onclick="stepStat('hp',+1)" id="c-hp-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
+              </div>
+            </div>
+
+            <!-- AGI -->
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
+                <span style="font-size:12px;font-weight:600;color:#6db33f;white-space:nowrap">🏃 AGI <span id="c-agi-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
+                <span id="c-agi-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">+0 pts</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;min-width:0">
+                <button type="button" onclick="stepStat('agi',-1)" id="c-agi-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+                <input type="number" id="c-agi" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
+                <button type="button" onclick="stepStat('agi',+1)" id="c-agi-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
+              </div>
+            </div>
+
+            <!-- FOR -->
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
+                <span style="font-size:12px;font-weight:600;color:#c94040;white-space:nowrap">⚔️ FOR <span id="c-for-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
+                <span id="c-for-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">+0 pts</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;min-width:0">
+                <button type="button" onclick="stepStat('for',-1)" id="c-for-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+                <input type="number" id="c-for" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
+                <button type="button" onclick="stepStat('for',+1)" id="c-for-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
+              </div>
+            </div>
+
+            <!-- INT -->
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0;box-sizing:border-box">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">
+                <span style="font-size:12px;font-weight:600;color:#4a8fd4;white-space:nowrap">✨ INT <span id="c-int-limit" style="font-size:10px;color:var(--text3);font-weight:400">(máx 20)</span></span>
+                <span id="c-int-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">+0 pts</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;min-width:0">
+                <button type="button" onclick="stepStat('int',-1)" id="c-int-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+                <input type="number" id="c-int" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
+                <button type="button" onclick="stepStat('int',+1)" id="c-int-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Insanidade / Passos / Dinheiro (sem point-buy) — oculto na criação, visível na edição -->
+          <div class="form-flex-row" id="c-extra-fields">
+              <div class="form-row">
+                <label class="form-label">Insanidade</label>
+                <input type="number" id="c-ins" value="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+              </div>
+              <div class="form-row">
+                <label class="form-label">Passos</label>
+                <input type="number" id="c-passos" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+              </div>
+              <div class="form-row">
+                <label class="form-label">Dinheiro</label>
+                <input type="number" id="c-dinheiro" value="100" min="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+              </div>
+          </div>
+
+          <div class="modal-btns step-nav">
+            <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
+            <button class="btn btn-primary" id="c-btn-save" onclick="saveCharacter()">Salvar</button>
+          </div>
         </div>
       </div>
     </div>
