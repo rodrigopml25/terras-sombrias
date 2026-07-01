@@ -376,6 +376,28 @@ const RACAS_ORIGENS = {
       },
     },
   ],
+  'Orc': [
+    {
+      id: 'orc_origem_comum',
+      name: 'Comum',
+      desc: 'Seus antepassados consumiram Sangue de Demônio, o que deixou sua pele esverdeada — um Orc como tantos outros das hordas comuns.',
+      passiva: {
+        id: 'orc_origem_comum_passiva',
+        name: 'Origem Comum',
+        desc: 'Seus antepassados consumiram Sangue de Demônio, assim, sua pele é esverdeada. Ao lançar uma Habilidade que utiliza arma e causar o dano total da arma, receberá +1 ação naquele turno; porém, atacará o alvo mais próximo. Se for um golpe, poderá escolher o alvo.',
+      },
+    },
+    {
+      id: 'orc_origem_maghar',
+      name: "Mag'har",
+      desc: "Descendente dos Orcs puros que nunca provaram o Sangue de Demônio, mantendo laços profundos com a natureza e os espíritos animais.",
+      passiva: {
+        id: 'orc_origem_maghar_passiva',
+        name: "Origem Mag'har",
+        desc: "Por ser um Orc puro possui a capacidade de falar com animais. Conceda para uma Habilidade +1d4 de Dano/Cura e, se for um golpe, concede +2 de Vantagem também. Repete isso ao subir de Nível. Só funciona uma vez por Habilidade. Porém, o teste de Arcano ou Místico (escolha) possui Mega Desvantagem.",
+      },
+    },
+  ],
 };
 
 // Retorna a lista de origens disponíveis para uma raça (ou [] se não houver).
