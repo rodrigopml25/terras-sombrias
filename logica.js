@@ -136,6 +136,10 @@ const RACAS = {
     { id: 'tauren_brutao', name: 'Brutão', desc: 'Escolha um Teste de Força e tenha Mega Vantagem nele. E escolha um Teste de Agilidade e tenha Mega Desvantagem nele.' },
     { id: 'tauren_bem_com_a_vida', name: 'De bem com a Vida', desc: 'Ao subir de Nível, recebe +4 de Pontos de Vida (aplicado automaticamente). Ao subir de Nível, não poderá gastar Pontos de Atributo em Vida.' },
   ],
+  'Troll': [
+    { id: 'troll_tatuagem_runica', name: 'Tatuagem Rúnica', desc: 'Seu corpo possui um desenho rúnico que concede +1 de Maestria em Agilidade, Força OU Intelecto (à sua escolha), mas concede apenas 5 Pontos de Vida na criação do personagem.' },
+    { id: 'troll_encantamento_troll', name: 'Encantamento Troll', desc: 'Escolha uma Habilidade da sua Classe e encante-a: troque os dados de lançamento por um Teste de Arcano OU Teste de Místico. Ao subir de Nível, poderá encantar outra Habilidade de sua Classe.' },
+  ],
 };
 
 // Habilidades raciais fixas — funcionam igual às habilidades gerais mas são
@@ -449,6 +453,28 @@ const RACAS_ORIGENS = {
         id: 'tauren_origem_mulgore_passiva',
         name: 'Mulgore',
         desc: 'Por ter vivido em Mulgore, possui a capacidade de utilizar Armas Mega Pesadas, independente do caminho da sua Classe.',
+      },
+    },
+  ],
+  'Troll': [
+    {
+      id: 'troll_origem_comum',
+      name: 'Comum',
+      desc: 'Foi moldado pela cultura tradicional dos Trolls, mantendo laços com o Arcano e o Místico.',
+      passiva: {
+        id: 'troll_origem_comum_passiva',
+        name: 'Comum',
+        desc: 'Você pode trocar os dados de um Teste de Arcano OU Místico por outro Teste (exceto Emoção). Se não realizar a troca, receberá +1 de Vantagem em Testes de Arcano e Místico.',
+      },
+    },
+    {
+      id: 'troll_origem_colosso',
+      name: 'Colosso',
+      desc: 'Fruto de uma linhagem de Trolls gigantes, troca a sutileza da cultura tradicional por força e porte descomunais.',
+      passiva: {
+        id: 'troll_origem_colosso_passiva',
+        name: 'Colosso',
+        desc: 'Sua raça é de seres gigantes, assim, possui capacidade de Arremessar e Empurrar Objetos/Armas Pesadas e poderá equipar Armaduras, Elmos e Armas Pesadas independente do caminho da sua Classe. Porém, seus Encantamentos de Troll se tornam amaldiçoados, causando apenas 1d6 de Dano na sua Vida OU 1d6 de Insanidade (escolha toda vez que for usá-los).',
       },
     },
   ],
