@@ -504,6 +504,108 @@ function getRacePassivas(p) {
   return RACAS[p.race] || [];
 }
 
+// ═══════════════════════════════════════
+// FORMAS SOMBRIAS — Caminho Lun'fan (Pandaren)
+// ═══════════════════════════════════════
+// Ao chegar no Nível 3 escolhendo o caminho Lun'fan, o jogador escolhe UMA das
+// 3 Formas Sombrias abaixo. Cada Forma libera 2 Habilidades fixas: uma
+// Habilidade Neutra (cinza) com o mesmo nome da Forma, e uma Habilidade
+// colorida exclusiva daquela Forma. A escolha é definitiva até ser trocada
+// manualmente (não há como "desescolher" pela ficha — reflete a narrativa).
+const PANDAREN_FORMAS_SOMBRIAS = {
+  bombado: {
+    id: 'bombado',
+    name: 'Bombado',
+    tagline: 'Forma sombria baseada em Força',
+    skillNeutra: {
+      id: 'sk_forma_bombado', name: 'Bombado', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
+      desc: 'Transforme-se em uma criatura sombria baseada em Força. Ao assumir essa forma, receba +20 Pontos de Vida e a Habilidade Fruto Proibido. Nessa forma, só poderá usar Golpes. (Pode desfazê-la quando quiser | 1x por Luta | 0 ações)',
+    },
+    skillColorida: {
+      id: 'sk_forma_bombado_fruto_proibido', name: 'Fruto Proibido', color: 'red', cost: 1, tipo: 'sessao', usosMax: 2,
+      desc: 'Restaura TODA sua Vida ou Armadura. Se outra pessoa comer... (2x por sessão | 1 ação)',
+    },
+  },
+  lutador: {
+    id: 'lutador',
+    name: 'Lutador',
+    tagline: 'Forma sombria baseada em Agilidade',
+    skillNeutra: {
+      id: 'sk_forma_lutador', name: 'Lutador', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
+      desc: 'Transforme-se em uma criatura sombria baseada em Agilidade. Ao assumir essa forma, receba +15 Pontos de Vida e a Habilidade Portal Negro. Nessa forma, só poderá usar Técnicas. (Pode desfazê-la quando quiser | 1x por Luta | 0 ações)',
+    },
+    skillColorida: {
+      id: 'sk_forma_lutador_portal_negro', name: 'Portal Negro', color: 'green', cost: 1, tipo: 'sessao', usosMax: 3,
+      desc: 'Crie 2 Portais Negros — a distância é o Tabuleiro inteiro; ao passar em um, aparecerá no outro. Pode fechá-los quando quiser e só pode ter 2 ativados por vez. Se alguém passar sem você... (3x por sessão | 1 ação)',
+    },
+  },
+  feiticeiro: {
+    id: 'feiticeiro',
+    name: 'Feitiçeiro',
+    tagline: 'Forma sombria baseada em Intelecto',
+    skillNeutra: {
+      id: 'sk_forma_feiticeiro', name: 'Feitiçeiro', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
+      desc: 'Transforme-se em uma criatura sombria baseada em Intelecto. Ao assumir essa forma, receba +10 Pontos de Vida e a Habilidade Runa Sombria. Nessa forma, só poderá usar Feitiços. (Pode desfazê-la quando quiser | 1x por Luta | 0 ações)',
+    },
+    skillColorida: {
+      id: 'sk_forma_feiticeiro_runa_sombria', name: 'Runa Sombria', color: 'blue', cost: 1, tipo: 'sessao', usosMax: 6,
+      desc: 'Crie uma Runa Sombria que, ao ser quebrada, causa 1d8 de Dano em um Alvo (independente da distância) e rouba Vida. Se já estiver criada, conceda +1d8 de Dano e +1 de Vantagem a ela. Se alguém quebrar sem ser você... (6x por sessão | 1 ação)',
+    },
+  },
+};
+
+// Retorna true se o personagem precisa escolher sua Forma Sombria agora
+// (Pandaren, caminho Lun'fan, Nível 3+ e ainda sem escolha feita).
+function precisaEscolherFormaSombria(p) {
+  return p.race === 'Pandaren' && p.origemId === 'pandaren_origem_lunfan'
+    && (p.level || 1) >= 3 && !p.formaSombriaId;
+}
+
+// Define a Forma Sombria escolhida pelo jogador e injeta suas 2 Habilidades.
+function escolherFormaSombria(pid, formaId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || !PANDAREN_FORMAS_SOMBRIAS[formaId]) return;
+  p.formaSombriaId = formaId;
+  ensureFormaSombria(p);
+  saveState(); renderAll();
+}
+
+// Garante que as 2 Habilidades da Forma Sombria escolhida estejam em p.skills,
+// removendo as de qualquer outra Forma não selecionada. Se o personagem
+// deixar de atender os requisitos (nível baixou, mudou de origem/raça), as
+// Habilidades da Forma são removidas — mas a escolha (p.formaSombriaId) é
+// mantida, reativando as mesmas Habilidades automaticamente se voltar a
+// atender os requisitos.
+function ensureFormaSombria(p) {
+  if (!Array.isArray(p.skills)) p.skills = [];
+  Object.values(PANDAREN_FORMAS_SOMBRIAS).forEach(f => {
+    if (f.id !== p.formaSombriaId) {
+      p.skills = p.skills.filter(sk => sk.id !== f.skillNeutra.id && sk.id !== f.skillColorida.id);
+    }
+  });
+  const atende = p.race === 'Pandaren' && p.origemId === 'pandaren_origem_lunfan'
+    && (p.level || 1) >= 3 && p.formaSombriaId;
+  const forma = atende ? PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId] : null;
+  if (!forma) {
+    if (p.formaSombriaId) {
+      const f = PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId];
+      if (f) p.skills = p.skills.filter(sk => sk.id !== f.skillNeutra.id && sk.id !== f.skillColorida.id);
+    }
+    return;
+  }
+  [forma.skillNeutra, forma.skillColorida].forEach(def => {
+    const jaTem = p.skills.some(sk => sk.id === def.id);
+    if (!jaTem) {
+      p.skills.push({
+        id: def.id, name: def.name, desc: def.desc,
+        color: def.color, cost: def.cost, tipo: def.tipo,
+        usosMax: def.usosMax, usosAtuais: def.usosMax,
+        cdRestante: 0, turnosRecarga: 1,
+      });
+    }
+  });
+}
+
 // Garante que as passivas raciais da raça do personagem estejam presentes em
 // p.passivas (como qualquer outra passiva — editável e excluível). Não
 // duplica as que já existem e não recoloca uma que o jogador excluiu de
@@ -529,6 +631,8 @@ function ensureRacePassivas(p) {
   ensureOrigemPassiva(p);
   // Garante que as habilidades raciais estejam presentes
   ensureRaceSkills(p);
+  // Garante as Habilidades da Forma Sombria do caminho Lun'fan (Pandaren)
+  ensureFormaSombria(p);
   // Garante a arma racial das Garras Dracônicas para Dragões
   ensureRaceWeapons(p);
   // Fora da forma de Dragão, remove de novo o que é exclusivo da Metamorfose
@@ -1714,6 +1818,42 @@ function renderTestes(p, readonly) {
   </div>`;
 }
 
+// Renderiza (e mostra/esconde) a tela obrigatória de escolha de Forma
+// Sombria. Recebe o personagem pendente (ou null para esconder o modal).
+function renderFormaSombriaModal(p) {
+  const overlay = document.getElementById('modal-forma-overlay');
+  if (!overlay) return;
+  if (!p) { overlay.classList.remove('open'); return; }
+
+  const cores = { red: 'red', green: 'green', blue: 'blue' };
+  const cardsHtml = Object.values(PANDAREN_FORMAS_SOMBRIAS).map(f => {
+    const cor = cores[f.skillColorida.color] || 'gray';
+    return `
+      <div class="forma-sombria-card forma-${cor}" onclick="escolherFormaSombria(${p.id}, '${f.id}')">
+        <div class="forma-sombria-name">${f.name}</div>
+        <div class="forma-sombria-tagline">${f.tagline}</div>
+        <div class="forma-sombria-skill">
+          <span class="forma-sombria-skill-tag tag-gray">${f.skillNeutra.name}</span>
+          <div class="forma-sombria-skill-desc">${f.skillNeutra.desc}</div>
+        </div>
+        <div class="forma-sombria-skill">
+          <span class="forma-sombria-skill-tag tag-${cor}">${f.skillColorida.name}</span>
+          <div class="forma-sombria-skill-desc">${f.skillColorida.desc}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:520px">
+      <h3><i class="ti ti-moon-stars"></i> Escolha sua Forma Sombria</h3>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:16px">
+        <strong>${p.name}</strong> chegou ao Nível 3 pelo Caminho Lun'fan e desbloqueou o acesso às Sombras e ao Chi. Escolha permanentemente uma das 3 Formas Sombrias abaixo — cada uma libera 2 Habilidades exclusivas.
+      </div>
+      <div class="forma-sombria-grid">${cardsHtml}</div>
+    </div>`;
+  overlay.classList.add('open');
+}
+
 function renderJogador() {
   const content = document.getElementById('jog-content');
   const psel = document.getElementById('psel');
@@ -1729,6 +1869,15 @@ function renderJogador() {
     content.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text3); width: 100%; grid-column: span 2;">Você ainda não tem personagens. Crie um novo clicando em "Novo Personagem"!</div>';
     return;
   }
+
+  // Se algum dos seus personagens acabou de chegar no Nível 3 pelo caminho
+  // Lun'fan e ainda não escolheu sua Forma Sombria, força a seleção dele no
+  // dropdown e exibe a tela de escolha obrigatória antes de qualquer outra coisa.
+  const pendente = myPlayers.find(precisaEscolherFormaSombria);
+  if (pendente && parseInt(psel.value) !== pendente.id) {
+    psel.value = pendente.id;
+  }
+  renderFormaSombriaModal(pendente || null);
 
   const pid = parseInt(psel.value) || myPlayers[0].id;
   const p = myPlayers.find(x => x.id === pid) || myPlayers[0];
