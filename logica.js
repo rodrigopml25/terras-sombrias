@@ -128,6 +128,10 @@ const RACAS = {
     { id: 'humano_normal', name: 'Normal', desc: 'Tem +2 de Vantagem em TODOS os testes. E no Teste de Emoção, ao invés do +2 é +10 de Vantagem.' },
     { id: 'humano_ambicao_humana', name: 'Ambição Humana', desc: 'Possui a ambição humana, assim na beira da Morte possuirá +1d8 de Vantagem em Teste de Resistir e +1d20 de Vantagem no Teste de Emoção.' },
   ],
+  'Pandaren': [
+    { id: 'pandaren_mente_equilibrada', name: 'Mente Equilibrada', desc: 'Seu teste de emoção é em módulo e tem mega vantagem. Porém, não possui vantagens em teste de emoção.' },
+    { id: 'pandaren_bebedor_nato', name: 'Bebedor Nato', desc: 'Pelos costumes de Pandaren, você possui resistência contra bebidas alcoólicas e venenos. Assim, nos testes de resistência contra esses efeitos, precisa obter apenas resultados acima de 1.' },
+  ],
 };
 
 // Habilidades raciais fixas — funcionam igual às habilidades gerais mas são
@@ -398,6 +402,30 @@ const RACAS_ORIGENS = {
       },
     },
   ],
+  'Pandaren': [
+    {
+      id: 'pandaren_origem_comum',
+      name: 'Comum',
+      desc: 'Seguidor da filosofia tradicional pandarênica, buscando o equilíbrio entre corpo e mente através da disciplina.',
+      passiva: {
+        id: 'pandaren_origem_comum_passiva',
+        name: 'Filosofia Pandarênica',
+        minLevel: 3,
+        desc: 'Por escolher o caminho da filosofia pandarênica, ao chegar ao Nível 3, escolha um tipo de Habilidade (Feitiço, Golpe ou Técnica) e elas possuirão +3 de Vantagem.',
+      },
+    },
+    {
+      id: 'pandaren_origem_lunfan',
+      name: "Lun'fan",
+      desc: "Seguidor do caminho proibido de Lun'fan, que abraça as Sombras e canaliza o Chi de forma instável.",
+      passiva: {
+        id: 'pandaren_origem_lunfan_passiva',
+        name: "Caminho Lun'fan",
+        minLevel: 3,
+        desc: "Por escolher o caminho Lun'fan, que utiliza as Sombras e o Chi, ao chegar no Nível 3, escolha e receba uma Forma Sombria: Bombado, Feiticeiro ou Lutador.",
+      },
+    },
+  ],
 };
 
 // Retorna a lista de origens disponíveis para uma raça (ou [] se não houver).
@@ -449,8 +477,14 @@ function ensureOrigemPassiva(p) {
     }
   } else if (origemAtual.passiva) {
     // Origem com passiva — injeta em p.passivas
+    // Algumas passivas de origem só existem a partir de um certo nível
+    // (ex: origens do Pandaren, liberadas apenas no Nível 3). Abaixo disso,
+    // a passiva nem aparece — e se o personagem descer de nível depois de
+    // já tê-la, ela é removida de novo automaticamente.
+    const minLevel = origemAtual.passiva.minLevel;
+    const atendeNivel = !minLevel || (p.level || 1) >= minLevel;
     const jaTem = p.passivas.some(pas => pas.origemId === p.origemId);
-    if (!jaTem) {
+    if (atendeNivel && !jaTem) {
       p.passivas.push({
         id: 'pas_origem_' + p.origemId,
         origemId: p.origemId,
@@ -458,6 +492,8 @@ function ensureOrigemPassiva(p) {
         name: origemAtual.passiva.name,
         desc: origemAtual.passiva.desc,
       });
+    } else if (!atendeNivel && jaTem) {
+      p.passivas = p.passivas.filter(pas => pas.origemId !== p.origemId);
     }
   }
 }
