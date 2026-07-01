@@ -141,6 +141,10 @@ const RACAS_SKILLS = {
     { id: 'sk_racial_dragao_iniciar_voo', name: 'Iniciar Voo', color: 'gray', cost: 1, tipo: 'perturn', usosMax: 1, turnosRecarga: 1, desc: 'Levanta Voo, deslocando-se 5 casas para cima! Enquanto estiver voando, possui +10 de Passos e poderá Desviar. Subir uma Casa consome 2 Passos. (Disponível apenas na forma de Dragão | 1 ação | Recarga 1)' },
     { id: 'sk_racial_dragao_impacto_pouso', name: 'Impacto de Pouso', color: 'red', cost: 1, tipo: 'perturn', usosMax: 1, turnosRecarga: 1, desc: 'Precisa estar voando. Pouse causando 1d12 de Dano para TODOS em raio de 3 Casas e Empurre-os 2 Casas para trás. (Disponível apenas na forma de Dragão | 1 ação | Recarga 1)' },
   ],
+  'Orc': [
+    { id: 'sk_racial_orc_furia', name: 'Fúria de Orc', color: 'gray', cost: 0, tipo: 'sessao', usosMax: 5, desc: 'Sua próxima Habilidade não pode ser Aparada. Caso seja um golpe, possuirá +1d6 de Dano também. (5x por sessão | 0 ações)' },
+    { id: 'sk_racial_orc_treinamento_militar', name: 'Treinamento Militar', color: 'gray', cost: 1, tipo: 'sessao', usosMax: 3, desc: 'Quando for Aparar, gaste uma Ação do seu próximo Turno; assim seu Aparar é Garantido, e ainda assim faça o teste de Aparar com 50% de chance crítica. Se tirar crítico, receba uma ação no próximo turno ou um contra-ataque. (3x por sessão | 1 ação)' },
+  ],
 };
 
 // Retorna a lista de habilidades raciais de uma raça (ou [] se não houver).
