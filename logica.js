@@ -132,6 +132,10 @@ const RACAS = {
     { id: 'pandaren_mente_equilibrada', name: 'Mente Equilibrada', desc: 'Seu teste de emoção é em módulo e tem mega vantagem. Porém, não possui vantagens em teste de emoção.' },
     { id: 'pandaren_bebedor_nato', name: 'Bebedor Nato', desc: 'Pelos costumes de Pandaren, você possui resistência contra bebidas alcoólicas e venenos. Assim, nos testes de resistência contra esses efeitos, precisa obter apenas resultados acima de 1.' },
   ],
+  'Tauren': [
+    { id: 'tauren_brutao', name: 'Brutão', desc: 'Escolha um Teste de Força e tenha Mega Vantagem nele. E escolha um Teste de Agilidade e tenha Mega Desvantagem nele.' },
+    { id: 'tauren_bem_com_a_vida', name: 'De bem com a Vida', desc: 'Ao subir de Nível, recebe +4 de Pontos de Vida (aplicado automaticamente). Ao subir de Nível, não poderá gastar Pontos de Atributo em Vida.' },
+  ],
 };
 
 // Habilidades raciais fixas — funcionam igual às habilidades gerais mas são
@@ -1431,10 +1435,26 @@ function recomputeProtMax(p) {
   });
 }
 
+// Efeitos automáticos de subida/queda de Nível dependentes de raça.
+// Hoje usado apenas pelo Tauren ("De bem com a Vida": +4 de Vida a cada
+// subida de Nível, fora do orçamento normal de pontos de atributo).
+function onLevelUp(p) {
+  if (p.race === 'Tauren') {
+    p.hpMax = (p.hpMax || 0) + 4;
+    p.hp = (p.hp || 0) + 4;
+  }
+}
+function onLevelDown(p) {
+  if (p.race === 'Tauren') {
+    p.hpMax = Math.max(1, (p.hpMax || 0) - 4);
+    p.hp = Math.min(p.hp || 0, p.hpMax);
+  }
+}
+
 function addXP(id) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return;
-  if (p.xp >= 10 && p.level < 5) { p.xp = 0; p.level++; p.pontosPendentes = (p.pontosPendentes || 0) + POINT_BUY_PER_LEVEL; }
+  if (p.xp >= 10 && p.level < 5) { p.xp = 0; p.level++; p.pontosPendentes = (p.pontosPendentes || 0) + POINT_BUY_PER_LEVEL; onLevelUp(p); }
   else if (p.xp < 10) p.xp++;
   saveState(); renderAll();
 }
@@ -1443,7 +1463,7 @@ function removeXP(id) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return;
   if (p.xp > 0) { p.xp--; }
-  else if (p.level > 1) { p.level--; p.xp = 9; p.pontosPendentes = Math.max(0, (p.pontosPendentes || 0) - POINT_BUY_PER_LEVEL); }
+  else if (p.level > 1) { p.level--; p.xp = 9; p.pontosPendentes = Math.max(0, (p.pontosPendentes || 0) - POINT_BUY_PER_LEVEL); onLevelDown(p); }
   saveState(); renderAll();
 }
 
@@ -1452,7 +1472,7 @@ function setXPDirect(id, val) {
   if (!p) return;
   const newVal = Math.max(0, Math.min(10, val));
   if (newVal >= 10 && p.xp < 10 && p.level < 5) {
-    p.xp = 0; p.level++; p.pontosPendentes = (p.pontosPendentes || 0) + POINT_BUY_PER_LEVEL;
+    p.xp = 0; p.level++; p.pontosPendentes = (p.pontosPendentes || 0) + POINT_BUY_PER_LEVEL; onLevelUp(p);
   } else {
     p.xp = newVal;
   }
@@ -3304,10 +3324,21 @@ function getPointsSpent() {
   return (hp - ATTR_BASE_HP) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
 }
 
+// Tauren possui a passiva "De bem com a Vida": ao subir de Nível recebe +4
+// de Vida automaticamente (ver onLevelUp) e, em contrapartida, não pode mais
+// investir Pontos de Atributo em Vida a partir do Nível 2 (a base de Vida
+// definida na criação, no Nível 1, fica congelada).
+function isTaurenHpLocked() {
+  if (!modalCharId) return false;
+  const p = PLAYERS.find(x => x.id === modalCharId);
+  return !!p && p.race === 'Tauren' && (p.level || 1) > 1;
+}
+
 // Botões +/− para cada atributo com point-buy
 function stepStat(field, delta) {
   const input = document.getElementById('c-' + field);
   if (!input) return;
+  if (field === 'hp' && delta > 0 && isTaurenHpLocked()) return;
 
   const level = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : 1;
   const total = getPointBuyTotal(level);
@@ -3367,7 +3398,10 @@ function updatePointBuy(levelOverride) {
 
   // Hint
   const hintEl = document.getElementById('c-points-hint');
-  if (hintEl) hintEl.textContent = isNv1
+  const taurenLocked = isTaurenHpLocked();
+  if (hintEl) hintEl.textContent = taurenLocked
+    ? 'Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Tauren não pode investir pontos em Vida a partir do Nível 2 (recebe +4 automático a cada Nível).'
+    : isNv1
     ? 'Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Limite de 20 por atributo no Nv 1.'
     : `Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Sem limite de atributo no Nv ${level}.`;
 
@@ -3396,7 +3430,7 @@ function updatePointBuy(levelOverride) {
     const val  = parseInt(inputEl?.value) || base;
     const atLimit = isNv1 && key !== 'hp' && val >= 20;
     if (incBtn) {
-      const blocked = noPoints || atLimit;
+      const blocked = noPoints || atLimit || (key === 'hp' && taurenLocked);
       incBtn.disabled = blocked;
       incBtn.style.opacity = blocked ? '0.35' : '1';
       incBtn.style.cursor  = blocked ? 'not-allowed' : 'pointer';
