@@ -350,6 +350,28 @@ const RACAS_ORIGENS = {
       },
     },
   ],
+  'Humano': [
+    {
+      id: 'humano_origem_vento_bravo',
+      name: 'Vento Bravo',
+      desc: 'Natural de Vento Bravo, a capital econômica dos Humanos, criado entre mercados, guildas comerciais e negociações.',
+      passiva: {
+        id: 'humano_origem_vento_bravo_passiva',
+        name: 'Origem de Vento Bravo',
+        desc: 'Por ter vivido em Vento Bravo, capital econômica dos Humanos, concede +2 de Vantagem para Teste de cada tipo (Agilidade, Força e Intelecto). Só funciona 2 vezes por teste. Repete isso ao subir de Nível. Seus Testes não possuem Mega Vantagem (não pode conceder ao teste de Emoção).',
+      },
+    },
+    {
+      id: 'humano_origem_kalindor',
+      name: 'Kalindor',
+      desc: 'Natural de Kalindor, a capital marítima dos Humanos, onde cresceu entre portos, navios e rotas comerciais pelo mar.',
+      passiva: {
+        id: 'humano_origem_kalindor_passiva',
+        name: 'Origem de Kalindor',
+        desc: 'Por ter vivido em Kalindor, capital marítima dos Humanos, sabe pilotar um Navio. Conceda +1d4 de Vantagem a algum Teste de sua escolha e -1d4 de Desvantagem para outro Teste, só funciona uma vez por Teste. Repete isso ao subir de Nível (não pode conceder ao teste de Emoção).',
+      },
+    },
+  ],
 };
 
 // Retorna a lista de origens disponíveis para uma raça (ou [] se não houver).
