@@ -430,6 +430,28 @@ const RACAS_ORIGENS = {
       },
     },
   ],
+  'Tauren': [
+    {
+      id: 'tauren_origem_alta_montanha',
+      name: 'Alta Montanha',
+      desc: 'Nativo dos picos e vales gelados de Alta Montanha, conhece cada trilha e acidente natural da região.',
+      passiva: {
+        id: 'tauren_origem_alta_montanha_passiva',
+        name: 'Alta Montanha',
+        desc: 'Por ter vivido em Alta Montanha, você possui uma noção muito boa sobre a natureza dos lugares. Quando for fazer um Teste de Geografia baseado em Natureza possuirá +4 de Vantagem. Nos demais casos, terá +2 de Vantagem.',
+      },
+    },
+    {
+      id: 'tauren_origem_mulgore',
+      name: 'Mulgore',
+      desc: 'Nativo das planícies de Mulgore, cresceu entre guerreiros que carregam armas do tamanho de árvores.',
+      passiva: {
+        id: 'tauren_origem_mulgore_passiva',
+        name: 'Mulgore',
+        desc: 'Por ter vivido em Mulgore, possui a capacidade de utilizar Armas Mega Pesadas, independente do caminho da sua Classe.',
+      },
+    },
+  ],
 };
 
 // Retorna a lista de origens disponíveis para uma raça (ou [] se não houver).
