@@ -128,6 +128,10 @@ const RACAS = {
     { id: 'humano_normal', name: 'Normal', desc: 'Tem +2 de Vantagem em TODOS os testes. E no Teste de Emoção, ao invés do +2 é +10 de Vantagem.' },
     { id: 'humano_ambicao_humana', name: 'Ambição Humana', desc: 'Possui a ambição humana, assim na beira da Morte possuirá +1d8 de Vantagem em Teste de Resistir e +1d20 de Vantagem no Teste de Emoção.' },
   ],
+  'Pandaren': [
+    { id: 'pandaren_mente_equilibrada', name: 'Mente Equilibrada', desc: 'Seu teste de emoção é em módulo e tem mega vantagem. Porém, não possui vantagens em teste de emoção.' },
+    { id: 'pandaren_bebedor_nato', name: 'Bebedor Nato', desc: 'Pelos costumes de Pandaren, você possui resistência contra bebidas alcoólicas e venenos. Assim, nos testes de resistência contra esses efeitos, precisa obter apenas resultados acima de 1.' },
+  ],
 };
 
 // Habilidades raciais fixas — funcionam igual às habilidades gerais mas são
