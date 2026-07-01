@@ -124,6 +124,10 @@ const RACAS = {
     { id: 'etereo_lampejo_eterno', name: 'Lampejo Eterno', desc: 'Por ter seu corpo tomado por Éter seu movimento é sempre por meio de um teletransporte, ou seja, sempre está Engajado e seu deslocamento não possui obstáculos. (não atravessa paredes grossas)' },
     { id: 'etereo_entropia_constante', name: 'Entropia Constante', desc: 'Durante uma Luta/Cena de perigo, seu etér vibrará, assim, ao obter um Erro Crítico ou um Acerto Crítico em uma Ação ou Teste, libere uma Expressão Etérea rolando 1d6 sendo 2 dos resultados ligados à sua origem. Possui +5% tanto para acertos críticos quanto para erros críticos em ações e testes.' },
   ],
+  'Humano': [
+    { id: 'humano_normal', name: 'Normal', desc: 'Tem +2 de Vantagem em TODOS os testes. E no Teste de Emoção, ao invés do +2 é +10 de Vantagem.' },
+    { id: 'humano_ambicao_humana', name: 'Ambição Humana', desc: 'Possui a ambição humana, assim na beira da Morte possuirá +1d8 de Vantagem em Teste de Resistir e +1d20 de Vantagem no Teste de Emoção.' },
+  ],
 };
 
 // Habilidades raciais fixas — funcionam igual às habilidades gerais mas são
