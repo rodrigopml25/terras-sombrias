@@ -2166,13 +2166,13 @@ function renderInventarioArea(p) {
       ? `<span class="inv-equip-badge inv-equip-on" onclick="toggleEquipProt(${p.id},'${item.id}')" title="Equipado — clique para guardar"><i class="ti ti-check"></i> Equipado</span>`
       : `<span class="inv-equip-badge inv-equip-off" onclick="toggleEquipProt(${p.id},'${item.id}')" title="Guardado — clique para equipar">Guardado</span>`;
     return `<div class="inv-card">
-      <div class="inv-card-header">
+      <div class="inv-card-header" style="flex-wrap:nowrap;align-items:center">
         <div class="inv-card-title"><i class="ti ${icone}" style="color:${cor}"></i> ${item.name}</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          ${equipBadge}
-          ${pesoTag(item)}
-          <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
-        </div>
+        <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px">
+        ${equipBadge}
+        ${pesoTag(item)}
       </div>
       ${item.valor != null ? `<div class="inv-dano"><span class="inv-dano-label">${valLabel}</span><span class="inv-dano-val">${item.valor}</span></div>` : ''}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
