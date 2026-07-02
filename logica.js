@@ -1140,6 +1140,7 @@ function bindCampaign(campaignId) {
   const metaRef = firebase.database().ref('campaigns/' + campaignId + '/meta');
   const dataRef = firebase.database().ref('campaigns/' + campaignId + '/data');
   firebaseRef = dataRef;
+  bindRollsSync(campaignId);
 
   metaRef.once('value').then(snap => {
     activeCampaignMeta = snap.val() || { name: 'Campanha' };
@@ -1188,6 +1189,7 @@ function trocarCampanha() {
   firebaseRef = null;
   activeCampaignId = null;
   activeCampaignMeta = null;
+  bindRollsSync(null);
   PLAYERS = []; INITIATIVE = []; curI = 0;
   notes = {geral:'', missão:'', inimigos:'', locais:''};
   turnGlobal = 1;
@@ -4203,4 +4205,273 @@ document.addEventListener('DOMContentLoaded', () => {
   IS_NARRADOR = !!document.getElementById('nar-players');
   loginInit();
   initFirebaseSync();
+  initDiceWidget();
 });
+
+// ═══════════════════════════════════════
+// DADOS — ROLAGEM COMPARTILHADA ENTRE A MESA
+// ═══════════════════════════════════════
+// Cada rolagem fica em campaigns/{id}/rolls/{pushId} — um nó separado do
+// snapshotState() principal, para não disputar com o debounce de salvamento
+// da ficha. Jogadores e Narrador veem as rolagens uns dos outros em tempo
+// real. O Narrador pode marcar uma rolagem como "oculta": ela some para os
+// jogadores (some substituída por um aviso de "rolagem oculta") até ele
+// clicar em "Revelar".
+let DICE_ROLLS = [];        // rolagens recentes carregadas, mais nova primeiro
+let diceBaseRef = null;     // ref('campaigns/{id}/rolls') sem limite — usada para push()
+let diceQueryRef = null;    // ref com limitToLast — usada para os listeners
+let diceAddedHandler = null;
+let diceChangedHandler = null;
+let diceSelSides = 20;
+let diceSelQty = 1;
+let dicePanelOpen = false;
+let diceUnread = 0;
+
+function escHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Cria o botão flutuante + painel de dados (uma vez só, funciona tanto na
+// tela do Jogador quanto na do Narrador, pois ambas carregam este script).
+function initDiceWidget() {
+  if (document.getElementById('dice-fab')) return;
+  if (!IS_JOGADOR && !IS_NARRADOR) return;
+
+  const fab = document.createElement('button');
+  fab.id = 'dice-fab';
+  fab.className = 'dice-fab';
+  fab.title = 'Dados da Mesa';
+  fab.setAttribute('aria-label', 'Dados da Mesa');
+  fab.innerHTML = '🎲<span id="dice-fab-badge" class="dice-fab-badge hidden">0</span>';
+  fab.onclick = toggleDicePanel;
+  document.body.appendChild(fab);
+
+  const sidesOptions = [2, 4, 6, 8, 10, 12, 20, 100];
+  const panel = document.createElement('div');
+  panel.id = 'dice-panel';
+  panel.className = 'dice-panel closed';
+  panel.innerHTML = `
+    <div class="dice-panel-header">
+      🎲 Dados da Mesa
+      <button class="dice-panel-close" onclick="toggleDicePanel()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="dice-builder">
+      <div class="dice-sides-row" id="dice-sides-row">
+        ${sidesOptions.map(s => `<button type="button" class="dice-side-btn ${s === diceSelSides ? 'active' : ''}" data-sides="${s}" onclick="selDiceSides(${s})">d${s}</button>`).join('')}
+      </div>
+      <div class="dice-qty-mod-row">
+        <div class="dice-field">
+          <label>Qtd. de dados</label>
+          <input type="number" id="dice-qty" min="1" max="20" value="${diceSelQty}" oninput="diceSelQty = Math.max(1, Math.min(20, parseInt(this.value)||1))">
+        </div>
+        <div class="dice-field">
+          <label>Modificador</label>
+          <input type="number" id="dice-mod" value="0">
+        </div>
+      </div>
+      <div class="dice-label-row">
+        <input type="text" id="dice-label" placeholder="Motivo (opcional) — ex: Furtividade" maxlength="60">
+      </div>
+      ${IS_NARRADOR ? `
+      <label class="dice-hidden-row" title="A rolagem aparece só para você, com um botão para revelar depois">
+        <input type="checkbox" id="dice-hidden-toggle"> Rolagem oculta (só o Narrador vê)
+      </label>` : ''}
+      <button class="dice-roll-btn" onclick="executarRolagemDados()">🎲 Rolar</button>
+    </div>
+    <div class="dice-feed" id="dice-feed"></div>
+  `;
+  document.body.appendChild(panel);
+
+  renderDiceFeed();
+}
+
+function selDiceSides(s) {
+  diceSelSides = s;
+  document.querySelectorAll('#dice-sides-row .dice-side-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.sides) === s);
+  });
+}
+
+function toggleDicePanel() {
+  const panel = document.getElementById('dice-panel');
+  if (!panel) return;
+  dicePanelOpen = !dicePanelOpen;
+  panel.classList.toggle('closed', !dicePanelOpen);
+  if (dicePanelOpen) {
+    diceUnread = 0;
+    updateDiceBadge();
+  }
+}
+
+function updateDiceBadge() {
+  const badge = document.getElementById('dice-fab-badge');
+  if (!badge) return;
+  if (diceUnread > 0 && !dicePanelOpen) {
+    badge.textContent = diceUnread > 9 ? '9+' : String(diceUnread);
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+// Liga (ou religa) a sincronização das rolagens para a campanha ativa.
+// Chamada ao entrar numa campanha e ao trocar de campanha.
+function bindRollsSync(campaignId) {
+  if (diceQueryRef && diceAddedHandler)   diceQueryRef.off('child_added', diceAddedHandler);
+  if (diceQueryRef && diceChangedHandler) diceQueryRef.off('child_changed', diceChangedHandler);
+  diceQueryRef = null; diceAddedHandler = null; diceChangedHandler = null; diceBaseRef = null;
+  DICE_ROLLS = [];
+  renderDiceFeed();
+
+  if (!firebaseConfigured || !campaignId || campaignId === 'local') return;
+
+  diceBaseRef = firebase.database().ref('campaigns/' + campaignId + '/rolls');
+  diceQueryRef = diceBaseRef.limitToLast(40);
+
+  diceAddedHandler = snap => {
+    const val = snap.val();
+    if (!val) return;
+    val.key = snap.key;
+    if (!DICE_ROLLS.some(r => r.key === val.key)) {
+      DICE_ROLLS.unshift(val);
+      DICE_ROLLS.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      if (DICE_ROLLS.length > 40) DICE_ROLLS.length = 40;
+      renderDiceFeed();
+      if (!dicePanelOpen) { diceUnread++; updateDiceBadge(); }
+    }
+  };
+  diceChangedHandler = snap => {
+    const val = snap.val();
+    if (!val) return;
+    val.key = snap.key;
+    const idx = DICE_ROLLS.findIndex(r => r.key === val.key);
+    if (idx >= 0) DICE_ROLLS[idx] = val;
+    renderDiceFeed();
+  };
+  diceQueryRef.on('child_added', diceAddedHandler);
+  diceQueryRef.on('child_changed', diceChangedHandler);
+}
+
+function executarRolagemDados() {
+  if (!currentUser) return;
+  const qtyInput   = document.getElementById('dice-qty');
+  const modInput   = document.getElementById('dice-mod');
+  const labelInput = document.getElementById('dice-label');
+  const hiddenCk   = document.getElementById('dice-hidden-toggle');
+
+  const qty   = Math.max(1, Math.min(20, parseInt(qtyInput && qtyInput.value) || 1));
+  const sides = diceSelSides;
+  const mod   = (modInput && parseInt(modInput.value)) || 0;
+  const label = labelInput ? labelInput.value.trim().slice(0, 60) : '';
+  const hidden = !!(IS_NARRADOR && hiddenCk && hiddenCk.checked);
+
+  const results = [];
+  for (let i = 0; i < qty; i++) results.push(1 + Math.floor(Math.random() * sides));
+  const total = results.reduce((a, b) => a + b, 0) + mod;
+
+  // Se o Jogador tiver um personagem selecionado, anexa o nome dele à rolagem
+  let charName = null;
+  if (IS_JOGADOR) {
+    const psel = document.getElementById('psel');
+    if (psel && psel.value) {
+      const p = PLAYERS.find(pp => String(pp.id) === String(psel.value));
+      if (p) charName = p.name;
+    }
+  }
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: charName,
+    isNarrator: !!IS_NARRADOR,
+    qty, sides, mod, label,
+    results, total,
+    hidden,
+    ts: Date.now()
+  };
+
+  if (labelInput) labelInput.value = '';
+
+  pushRollEntry(entry);
+}
+
+function pushRollEntry(entry) {
+  if (firebaseConfigured && diceBaseRef) {
+    diceBaseRef.push(entry);
+  } else {
+    // Modo local (sem Firebase configurado): mantém a rolagem só nesta aba.
+    entry.key = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    DICE_ROLLS.unshift(entry);
+    if (DICE_ROLLS.length > 40) DICE_ROLLS.length = 40;
+    renderDiceFeed();
+  }
+}
+
+// Narrador revela para os jogadores uma rolagem que estava marcada como oculta
+function revelarRolagem(key) {
+  if (!IS_NARRADOR) return;
+  if (firebaseConfigured && activeCampaignId && activeCampaignId !== 'local') {
+    firebase.database().ref('campaigns/' + activeCampaignId + '/rolls/' + key + '/hidden').set(false);
+  } else {
+    const r = DICE_ROLLS.find(x => x.key === key);
+    if (r) { r.hidden = false; renderDiceFeed(); }
+  }
+}
+
+function formatDiceTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function renderRollEntry(r) {
+  const notation = `${r.qty}d${r.sides}${r.mod ? (r.mod > 0 ? '+' + r.mod : r.mod) : ''}`;
+  const timeStr = formatDiceTime(r.ts);
+  const who = r.isNarrator ? 'Narrador' : (r.playerName || 'Jogador');
+  const charTag = r.charName ? ` <span class="dice-char">(${escHtml(r.charName)})</span>` : '';
+
+  // Rolagem oculta e eu não sou o Narrador: mostro só o aviso, sem o resultado.
+  if (r.hidden && !IS_NARRADOR) {
+    return `<div class="dice-entry dice-entry-hidden">
+      <div class="dice-entry-top">
+        <span class="dice-who dice-who-nar"><i class="ti ti-lock"></i> Narrador</span>
+        <span class="dice-time">${timeStr}</span>
+      </div>
+      <div class="dice-hidden-msg">Fez uma rolagem oculta</div>
+    </div>`;
+  }
+
+  const labelHtml = r.label ? `<div class="dice-entry-label">${escHtml(r.label)}</div>` : '';
+  const hiddenBadge = r.hidden ? `<span class="dice-badge-oculta">oculta p/ jogadores</span>` : '';
+  const revealBtn = (r.hidden && IS_NARRADOR)
+    ? `<button class="dice-reveal-btn" onclick="revelarRolagem('${r.key}')"><i class="ti ti-eye"></i> Revelar para os jogadores</button>`
+    : '';
+
+  return `<div class="dice-entry ${r.isNarrator ? 'dice-entry-nar' : ''}">
+    <div class="dice-entry-top">
+      <span class="dice-who ${r.isNarrator ? 'dice-who-nar' : ''}">${escHtml(who)}${charTag}</span>
+      <span class="dice-time">${timeStr}</span>
+    </div>
+    ${labelHtml}
+    <div class="dice-entry-mid">
+      <span class="dice-notation">${notation}</span>
+      <span class="dice-results">[${r.results.join(', ')}]</span>
+      ${hiddenBadge}
+    </div>
+    <div class="dice-entry-total">${r.total}</div>
+    ${revealBtn}
+  </div>`;
+}
+
+function renderDiceFeed() {
+  const feed = document.getElementById('dice-feed');
+  if (!feed) return;
+  if (!DICE_ROLLS.length) {
+    feed.innerHTML = '<div class="dice-empty">Nenhuma rolagem ainda. Boa sorte!</div>';
+    return;
+  }
+  feed.innerHTML = DICE_ROLLS.map(renderRollEntry).join('');
+}
