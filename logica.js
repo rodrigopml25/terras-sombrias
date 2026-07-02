@@ -150,12 +150,12 @@ const RACAS_SKILLS = {
   ],
   'Dragão': [
     { id: 'sk_racial_dragao_metamorfose', name: 'Metamorfose', color: 'gray', cost: 1, tipo: 'perturn', usosMax: 1, turnosRecarga: 1, desc: 'Liberta sua forma de Dragão. Enquanto estiver nela, receba 7+nível em Armadura corporal, 5+nível em Armadura de cabeça, suas Armaduras não podem baixar de 5 e ganhe Habilidades Dracônicas. Em forma de Dragão não pode usar Habilidades de Classe.' },
-    { id: 'sk_racial_dragao_iniciar_voo', name: 'Iniciar Voo', color: 'gray', cost: 1, tipo: 'perturn', usosMax: 1, turnosRecarga: 1, desc: 'Levanta Voo, deslocando-se 5 casas para cima! Enquanto estiver voando, possui +10 de Passos e poderá Desviar. Subir uma Casa consome 2 Passos. (Disponível apenas na forma de Dragão | 1 ação | Recarga 1)' },
-    { id: 'sk_racial_dragao_impacto_pouso', name: 'Impacto de Pouso', color: 'red', cost: 1, tipo: 'perturn', usosMax: 1, turnosRecarga: 1, desc: 'Precisa estar voando. Pouse causando 1d12 de Dano para TODOS em raio de 3 Casas e Empurre-os 2 Casas para trás. (Disponível apenas na forma de Dragão | 1 ação | Recarga 1)' },
+    { id: 'sk_racial_dragao_iniciar_voo', name: 'Iniciar Voo', color: 'gray', cost: 1, tipo: 'perturn', usosMax: 1, turnosRecarga: 1, desc: 'Levanta Voo, deslocando-se 5 casas para cima! Enquanto estiver voando, possui +10 de Passos e poderá Desviar. Subir uma Casa consome 2 Passos.' },
+    { id: 'sk_racial_dragao_impacto_pouso', name: 'Impacto de Pouso', color: 'red', cost: 1, tipo: 'perturn', usosMax: 1, turnosRecarga: 1, desc: 'Precisa estar voando. Pouse causando 1d12 de Dano para TODOS em raio de 3 Casas e Empurre-os 2 Casas para trás.' },
   ],
   'Orc': [
-    { id: 'sk_racial_orc_furia', name: 'Fúria de Orc', color: 'gray', cost: 0, tipo: 'sessao', usosMax: 5, desc: 'Sua próxima Habilidade não pode ser Aparada. Caso seja um golpe, possuirá +1d6 de Dano também. (5x por sessão | 0 ações)' },
-    { id: 'sk_racial_orc_treinamento_militar', name: 'Treinamento Militar', color: 'gray', cost: 1, tipo: 'sessao', usosMax: 3, desc: 'Quando for Aparar, gaste uma Ação do seu próximo Turno; assim seu Aparar é Garantido, e ainda assim faça o teste de Aparar com 50% de chance crítica. Se tirar crítico, receba uma ação no próximo turno ou um contra-ataque. (3x por sessão | 1 ação)' },
+    { id: 'sk_racial_orc_furia', name: 'Fúria de Orc', color: 'gray', cost: 0, tipo: 'sessao', usosMax: 5, desc: 'Sua próxima Habilidade não pode ser Aparada. Caso seja um golpe, possuirá +1d6 de Dano também.' },
+    { id: 'sk_racial_orc_treinamento_militar', name: 'Treinamento Militar', color: 'gray', cost: 1, tipo: 'sessao', usosMax: 3, desc: 'Quando for Aparar, gaste uma Ação do seu próximo Turno; assim seu Aparar é Garantido, e ainda assim faça o teste de Aparar com 50% de chance crítica. Se tirar crítico, receba uma ação no próximo turno ou um contra-ataque.' },
   ],
 };
 
@@ -571,11 +571,11 @@ const PANDAREN_FORMAS_SOMBRIAS = {
     tagline: 'Forma sombria baseada em Força',
     skillNeutra: {
       id: 'sk_forma_bombado', name: 'Bombado', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
-      desc: 'Transforme-se em uma criatura sombria baseada em Força. Ao assumir essa forma, receba +20 Pontos de Vida e a Habilidade Fruto Proibido. Nessa forma, só poderá usar Golpes. (Pode desfazê-la quando quiser | 1x por Luta | 0 ações)',
+      desc: 'Transforme-se em uma criatura sombria baseada em Força. Ao assumir essa forma, receba +20 Pontos de Vida e a Habilidade Fruto Proibido. Nessa forma, só poderá usar Golpes. (Pode desfazê-la quando quiser)',
     },
     skillColorida: {
       id: 'sk_forma_bombado_fruto_proibido', name: 'Fruto Proibido', color: 'red', cost: 1, tipo: 'sessao', usosMax: 2,
-      desc: 'Restaura TODA sua Vida ou Armadura. Se outra pessoa comer... (2x por sessão | 1 ação)',
+      desc: 'Restaura TODA sua Vida ou Armadura. Se outra pessoa comer...',
     },
   },
   lutador: {
@@ -584,11 +584,11 @@ const PANDAREN_FORMAS_SOMBRIAS = {
     tagline: 'Forma sombria baseada em Agilidade',
     skillNeutra: {
       id: 'sk_forma_lutador', name: 'Lutador', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
-      desc: 'Transforme-se em uma criatura sombria baseada em Agilidade. Ao assumir essa forma, receba +15 Pontos de Vida e a Habilidade Portal Negro. Nessa forma, só poderá usar Técnicas. (Pode desfazê-la quando quiser | 1x por Luta | 0 ações)',
+      desc: 'Transforme-se em uma criatura sombria baseada em Agilidade. Ao assumir essa forma, receba +15 Pontos de Vida e a Habilidade Portal Negro. Nessa forma, só poderá usar Técnicas. (Pode desfazê-la quando quiser)',
     },
     skillColorida: {
       id: 'sk_forma_lutador_portal_negro', name: 'Portal Negro', color: 'green', cost: 1, tipo: 'sessao', usosMax: 3,
-      desc: 'Crie 2 Portais Negros — a distância é o Tabuleiro inteiro; ao passar em um, aparecerá no outro. Pode fechá-los quando quiser e só pode ter 2 ativados por vez. Se alguém passar sem você... (3x por sessão | 1 ação)',
+      desc: 'Crie 2 Portais Negros — a distância é o Tabuleiro inteiro; ao passar em um, aparecerá no outro. Pode fechá-los quando quiser e só pode ter 2 ativados por vez. Se alguém passar sem você...',
     },
   },
   feiticeiro: {
@@ -597,11 +597,11 @@ const PANDAREN_FORMAS_SOMBRIAS = {
     tagline: 'Forma sombria baseada em Intelecto',
     skillNeutra: {
       id: 'sk_forma_feiticeiro', name: 'Feitiçeiro', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
-      desc: 'Transforme-se em uma criatura sombria baseada em Intelecto. Ao assumir essa forma, receba +10 Pontos de Vida e a Habilidade Runa Sombria. Nessa forma, só poderá usar Feitiços. (Pode desfazê-la quando quiser | 1x por Luta | 0 ações)',
+      desc: 'Transforme-se em uma criatura sombria baseada em Intelecto. Ao assumir essa forma, receba +10 Pontos de Vida e a Habilidade Runa Sombria. Nessa forma, só poderá usar Feitiços. (Pode desfazê-la quando quiser)',
     },
     skillColorida: {
       id: 'sk_forma_feiticeiro_runa_sombria', name: 'Runa Sombria', color: 'blue', cost: 1, tipo: 'sessao', usosMax: 6,
-      desc: 'Crie uma Runa Sombria que, ao ser quebrada, causa 1d8 de Dano em um Alvo (independente da distância) e rouba Vida. Se já estiver criada, conceda +1d8 de Dano e +1 de Vantagem a ela. Se alguém quebrar sem ser você... (6x por sessão | 1 ação)',
+      desc: 'Crie uma Runa Sombria que, ao ser quebrada, causa 1d8 de Dano em um Alvo (independente da distância) e rouba Vida. Se já estiver criada, conceda +1d8 de Dano e +1 de Vantagem a ela. Se alguém quebrar sem ser você...',
     },
   },
 };
