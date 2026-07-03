@@ -762,6 +762,58 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 #modal-char-overlay .modal {
   max-width: 560px;
 }
+
+/* Modal "Teste Mental" — escolha de qual Teste rolar */
+.tm-opcoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.tm-opcao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  transition: all .15s;
+}
+.tm-opcao:hover { border-color: var(--accent-bd); background: var(--accent-bg); transform: translateY(-1px); }
+.tm-opcao-blue { border-left-color: var(--blue); }
+.tm-opcao-gray { border-left-color: var(--gray); }
+.tm-opcao-nome { display: inline-flex; align-items: center; gap: 6px; }
+.tm-opcao-info { font-size: 11px; color: var(--text2); font-weight: 600; white-space: nowrap; }
+.tm-opcao-mega {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: .03em;
+}
+.tm-opcao-mega.mv { background: rgba(109,179,63,0.15); color: var(--green); border: 1px solid var(--green-bd); }
+.tm-opcao-mega.md { background: var(--red-bg); color: #f08080; border: 1px solid var(--red-bd); }
+.tm-cancelar {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-family: var(--font-body);
+}
+.tm-cancelar:hover { background: var(--bg3); color: var(--text); }
 /* Remove as setas nativas dos inputs number do point-buy, que causavam overflow */
 #modal-char-overlay input[type="number"]::-webkit-inner-spin-button,
 #modal-char-overlay input[type="number"]::-webkit-outer-spin-button {
