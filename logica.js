@@ -4315,40 +4315,58 @@ function initDiceWidget() {
         <button class="dice-panel-close" onclick="toggleDicePanel()"><i class="ti ti-x"></i></button>
       </div>
     </div>
-    <div class="dice-builder">
-      <div class="dice-sides-row" id="dice-sides-row">
-        ${sidesOptions.map(s => `<button type="button" class="dice-side-btn ${s === diceSelSides ? 'active' : ''}" data-sides="${s}" onclick="selDiceSides(${s})">d${s}</button>`).join('')}
-      </div>
-      <div class="dice-qty-mod-row">
-        <div class="dice-field">
-          <label>Qtd. de dados</label>
-          <input type="number" id="dice-qty" min="1" max="20" value="${diceSelQty}" oninput="diceSelQty = Math.max(1, Math.min(20, parseInt(this.value)||1))">
-        </div>
-        <div class="dice-field">
-          <label>Modificador</label>
-          <input type="number" id="dice-mod" value="0">
-        </div>
-      </div>
-      <div class="dice-label-row">
-        <input type="text" id="dice-label" placeholder="Motivo (opcional) — ex: Furtividade" maxlength="60">
-      </div>
-      ${IS_NARRADOR ? `
-      <label class="dice-hidden-row" title="A rolagem aparece só para você, com um botão para revelar depois">
-        <input type="checkbox" id="dice-hidden-toggle"> Rolagem oculta (só o Narrador vê)
-      </label>` : ''}
-      <button class="dice-roll-btn" onclick="executarRolagemDados()">🎲 Rolar</button>
-      <div class="dice-divider">ou combine numa fórmula</div>
-      <div class="dice-formula-row">
-        <input type="text" id="dice-formula-input" placeholder="ex: 2d6 + (3d4)d6 + 2" onkeydown="if(event.key==='Enter'){event.preventDefault();executarRolagemFormula();}">
-        <button class="dice-formula-btn" onclick="executarRolagemFormula()">Rolar fórmula</button>
-      </div>
-      <div class="dice-formula-error hidden" id="dice-formula-error"></div>
+    <div class="dice-tabs">
+      <button type="button" class="dice-tab-btn active" id="dice-tab-btn-feed" onclick="switchDiceTab('feed')">
+        <i class="ti ti-history"></i> Histórico
+        <span id="dice-tab-badge" class="dice-tab-badge hidden">0</span>
+      </button>
+      <button type="button" class="dice-tab-btn" id="dice-tab-btn-roll" onclick="switchDiceTab('roll')">
+        <i class="ti ti-dice"></i> Rolar
+      </button>
     </div>
     <div class="dice-feed" id="dice-feed"></div>
+    <div class="dice-builder dice-tab-hidden" id="dice-builder">
+      <div class="dice-builder-scroll">
+        <div class="dice-sides-row" id="dice-sides-row">
+          ${sidesOptions.map(s => `<button type="button" class="dice-side-btn ${s === diceSelSides ? 'active' : ''}" data-sides="${s}" onclick="selDiceSides(${s})">d${s}</button>`).join('')}
+        </div>
+        ${IS_NARRADOR ? `
+        <label class="dice-hidden-row" title="A rolagem aparece só para você, com um botão para revelar depois">
+          <input type="checkbox" id="dice-hidden-toggle"> Rolagem oculta (só o Narrador vê)
+        </label>` : ''}
+        <button class="dice-roll-btn" onclick="executarRolagemDados()">🎲 Rolar</button>
+        <div class="dice-divider">ou combine numa fórmula</div>
+        <div class="dice-formula-row">
+          <input type="text" id="dice-formula-input" placeholder="ex: 2d6 + (3d4)d6 + 2" onkeydown="if(event.key==='Enter'){event.preventDefault();executarRolagemFormula();}">
+          <button class="dice-formula-btn" onclick="executarRolagemFormula()">Rolar fórmula</button>
+        </div>
+        <div class="dice-formula-error hidden" id="dice-formula-error"></div>
+      </div>
+      <div class="dice-last-roll" id="dice-last-roll"></div>
+    </div>
   `;
   document.body.appendChild(panel);
 
   renderDiceFeed();
+}
+
+// Alterna entre a aba de Histórico (feed grande, fácil de ler) e a aba de
+// Rolar (construtor de rolagens). Antes, os dois ficavam empilhados no
+// mesmo painel pequeno e o histórico sobrava só um pedacinho de altura —
+// agora cada aba usa o painel inteiro.
+let dicePanelTab = 'feed';
+function switchDiceTab(tab) {
+  dicePanelTab = tab;
+  const feed = document.getElementById('dice-feed');
+  const builder = document.getElementById('dice-builder');
+  const btnFeed = document.getElementById('dice-tab-btn-feed');
+  const btnRoll = document.getElementById('dice-tab-btn-roll');
+  if (!feed || !builder || !btnFeed || !btnRoll) return;
+  feed.classList.toggle('dice-tab-hidden', tab !== 'feed');
+  builder.classList.toggle('dice-tab-hidden', tab !== 'roll');
+  btnFeed.classList.toggle('active', tab === 'feed');
+  btnRoll.classList.toggle('active', tab === 'roll');
+  if (tab === 'feed') { diceUnread = 0; updateDiceBadge(); }
 }
 
 function selDiceSides(s) {
@@ -4371,12 +4389,24 @@ function toggleDicePanel() {
 
 function updateDiceBadge() {
   const badge = document.getElementById('dice-fab-badge');
-  if (!badge) return;
-  if (diceUnread > 0 && !dicePanelOpen) {
-    badge.textContent = diceUnread > 9 ? '9+' : String(diceUnread);
-    badge.classList.remove('hidden');
-  } else {
-    badge.classList.add('hidden');
+  const tabBadge = document.getElementById('dice-tab-badge');
+  const showFab = diceUnread > 0 && !dicePanelOpen;
+  const showTab = diceUnread > 0 && dicePanelOpen && dicePanelTab !== 'feed';
+  if (badge) {
+    if (showFab) {
+      badge.textContent = diceUnread > 9 ? '9+' : String(diceUnread);
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+  if (tabBadge) {
+    if (showTab) {
+      tabBadge.textContent = diceUnread > 9 ? '9+' : String(diceUnread);
+      tabBadge.classList.remove('hidden');
+    } else {
+      tabBadge.classList.add('hidden');
+    }
   }
 }
 
@@ -4798,14 +4828,82 @@ function renderRollEntry(r, isNew) {
 
 function renderDiceFeed() {
   const feed = document.getElementById('dice-feed');
-  if (!feed) return;
-  if (!DICE_ROLLS.length) {
-    feed.innerHTML = '<div class="dice-empty">Nenhuma rolagem ainda. Boa sorte!</div>';
+  if (feed) {
+    if (!DICE_ROLLS.length) {
+      feed.innerHTML = '<div class="dice-empty">Nenhuma rolagem ainda. Boa sorte!</div>';
+    } else {
+      feed.innerHTML = DICE_ROLLS.map(r => {
+        const isNew = !renderedEntryKeys.has(r.key);
+        renderedEntryKeys.add(r.key);
+        return renderRollEntry(r, isNew);
+      }).join('');
+    }
+  }
+  renderLastRoll();
+}
+
+// Acha a rolagem mais recente feita pelo usuário logado (não a mais recente
+// da mesa toda) — é o que aparece no resumo no fim da aba "Rolar".
+function findLastOwnRoll() {
+  if (!currentUser) return null;
+  const myName = currentUser.name;
+  return DICE_ROLLS.find(r => r.playerName === myName && !!r.isNarrator === !!IS_NARRADOR) || null;
+}
+
+// Resumo compacto do seu último lançamento, mostrado embaixo do construtor
+// de rolagens — assim não é preciso trocar pra aba Histórico só pra ver o
+// resultado que você acabou de rolar.
+function renderLastRoll() {
+  const box = document.getElementById('dice-last-roll');
+  if (!box) return;
+  const r = findLastOwnRoll();
+  if (!r) { box.innerHTML = ''; return; }
+
+  const isFormula = !!r.tree;
+  const notation = isFormula
+    ? r.formula
+    : `${r.qty}d${r.sides}${r.mod ? (r.mod > 0 ? '+' + r.mod : r.mod) : ''}`;
+  const timeStr = formatDiceTime(r.ts);
+
+  if (r.rolling) {
+    box.innerHTML = `
+      <div class="dice-last-roll-label">Seu último lançamento</div>
+      <div class="dice-last-roll-card dice-last-roll-rolling">
+        <span class="dice-notation">${escHtml(notation)}</span>
+        <span class="dice-spin-wrap ${diceAnimClass(r.sides)}">${diceShapeSVG(r.sides)}</span>
+        <span class="dice-rolling-text">rolando…</span>
+      </div>`;
     return;
   }
-  feed.innerHTML = DICE_ROLLS.map(r => {
-    const isNew = !renderedEntryKeys.has(r.key);
-    renderedEntryKeys.add(r.key);
-    return renderRollEntry(r, isNew);
-  }).join('');
+
+  if (r.hidden && !IS_NARRADOR) {
+    box.innerHTML = `
+      <div class="dice-last-roll-label">Seu último lançamento <span class="dice-time">${timeStr}</span></div>
+      <div class="dice-last-roll-card">
+        <span class="dice-hidden-msg"><i class="ti ti-lock"></i> Rolagem oculta — o Narrador ainda não revelou</span>
+      </div>`;
+    return;
+  }
+
+  const labelHtml = r.label ? `<div class="dice-entry-label">${escHtml(r.label)}</div>` : '';
+  const badgesHtml = isFormula
+    ? `<div class="dice-formula-tree">${renderDiceNode(r.tree)}</div>`
+    : (() => {
+        const badges = r.results.map(v => `<span class="dice-badge">${diceShapeSVG(r.sides, v)}</span>`).join('');
+        const modHtml = r.mod ? `<span class="dice-mod-txt">${r.mod > 0 ? '+' + r.mod : r.mod}</span>` : '';
+        return `<div class="dice-badges-row">${badges}${modHtml}</div>`;
+      })();
+  const hiddenBadge = r.hidden ? `<span class="dice-badge-oculta">oculta p/ jogadores</span>` : '';
+
+  box.innerHTML = `
+    <div class="dice-last-roll-label">Seu último lançamento <span class="dice-time">${timeStr}</span></div>
+    <div class="dice-last-roll-card">
+      <div class="dice-entry-mid">
+        <span class="dice-notation">${escHtml(notation)}</span>
+        ${hiddenBadge}
+      </div>
+      ${labelHtml}
+      ${badgesHtml}
+      <div class="dice-entry-total">${r.total}</div>
+    </div>`;
 }
