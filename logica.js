@@ -32,6 +32,7 @@ function logout() {
 // DADOS INICIAIS
 // ═══════════════════════════════════════
 const DEFAULT_PLAYERS = [];
+const ACOES_POR_TURNO_PADRAO = 2;
 
 // Bruxos possuem o Atributo Secundário exclusivo "Humanidade": começa cheio
 // (10/10) ao se tornar Bruxo e o máximo é fixo — não existe forma de aumentá-lo.
@@ -1008,6 +1009,9 @@ function applyData(data) {
     if (typeof p.pontosPendentes !== 'number') p.pontosPendentes = 0;
     if (typeof p.dinheiro !== 'number') p.dinheiro = 100;
     if (typeof p.cristais !== 'number') p.cristais = 0;
+    // Migração: ações por turno — fichas antigas ainda não têm o campo
+    if (typeof p.acoesMax !== 'number') p.acoesMax = ACOES_POR_TURNO_PADRAO;
+    if (typeof p.acoesAtuais !== 'number') p.acoesAtuais = p.acoesMax;
     // Migração: notas de Bardo — fichas antigas que ainda não têm o campo
     if (p.classeBase === 'Bardo' && (!p.notasBardo || typeof p.notasBardo !== 'object')) {
       p.notasBardo = {};
@@ -1263,39 +1267,56 @@ function useSkill(pid, skid) {
   const sk = p && p.skills.find(s => s.id === skid);
   if (!sk) return;
 
-  // Metamorfose do Dragão funciona como um interruptor de forma: ativar
-  // consome a carga normalmente (1 por turno, como qualquer perturn), mas
-  // voltar à forma humanóide é livre — não gasta carga nem espera recarga.
-  if (sk.id === 'sk_racial_dragao_metamorfose') {
-    if (p.formaDragao) {
-      setFormaDragao(p, false);
-      saveState(); renderAll();
-      return;
-    }
-    if (!isReady(sk) || sk.tipo === 'infinite') return;
-    sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
-    if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
-    setFormaDragao(p, true);
+  // Voltar da forma de Dragão pra forma humanóide é sempre livre: não gasta
+  // ação, carga nem espera pronto.
+  if (sk.id === 'sk_racial_dragao_metamorfose' && p.formaDragao) {
+    setFormaDragao(p, false);
     saveState(); renderAll();
     return;
   }
 
-  if (!isReady(sk) || sk.tipo === 'infinite') return;
-  sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
-  if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
+  if (!isReady(sk)) return;
+
+  // Ações do turno: habilidades com custo (0/1/2 ações) descontam do saldo
+  // atual do personagem. Sem saldo suficiente, a ativação é bloqueada.
+  const custo = sk.cost || 0;
+  if (custo > 0) {
+    const atuais = p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
+    if (atuais < custo) {
+      alert(`Ações insuficientes! "${sk.name}" custa ${custo} ${custo === 1 ? 'ação' : 'ações'}, e ${p.name} só tem ${atuais} neste turno.`);
+      return;
+    }
+  }
+
+  if (sk.id === 'sk_racial_dragao_metamorfose') {
+    sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
+    if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
+    setFormaDragao(p, true);
+  } else if (sk.tipo !== 'infinite') {
+    sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
+    if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
+  }
+
+  if (custo > 0) {
+    p.acoesAtuais = Math.max(0, (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) - custo);
+  }
+
   saveState();
   renderAll();
 }
 
 function nextTurnGlobal() {
   turnGlobal++;
-  PLAYERS.forEach(p => p.skills.forEach(sk => {
-    if (sk.tipo === 'perturn') { sk.usosAtuais = sk.usosMax; }
-    if (sk.tipo === 'turno_N' && sk.cdRestante > 0) {
-      sk.cdRestante--;
-      if (sk.cdRestante === 0) sk.usosAtuais = sk.usosMax;
-    }
-  }));
+  PLAYERS.forEach(p => {
+    p.acoesAtuais = p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
+    p.skills.forEach(sk => {
+      if (sk.tipo === 'perturn') { sk.usosAtuais = sk.usosMax; }
+      if (sk.tipo === 'turno_N' && sk.cdRestante > 0) {
+        sk.cdRestante--;
+        if (sk.cdRestante === 0) sk.usosAtuais = sk.usosMax;
+      }
+    });
+  });
   saveState();
   renderAll();
 }
@@ -1304,6 +1325,7 @@ function resetLuta() {
   if (!confirm('Resetar todos os usos por luta e reiniciar os turnos?')) return;
   turnGlobal = 1;
   PLAYERS.forEach(p => {
+    p.acoesAtuais = p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
     p.skills.forEach(sk => {
       if (['perturn','luta','turno_N'].includes(sk.tipo)) {
         sk.usosAtuais = sk.usosMax;
@@ -1462,6 +1484,34 @@ function setDinheiro(id, val) {
   saveState(); renderAll();
 }
 
+// Ações do turno — sem teto: o Mestre pode dar ações-bônus além do normal
+// (ex: 3/2), só não deixa passar de 0 pra baixo. Reseta pro valor base
+// (acoesMax) a cada Próximo Turno, em nextTurnGlobal().
+function adjAcoes(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  p.acoesAtuais = Math.max(0, (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) + d);
+  saveState(); renderAll();
+}
+
+function setAcoes(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  p.acoesAtuais = Math.max(0, v);
+  saveState(); renderAll();
+}
+
+// Ações base por turno (o "2" normal) — mexer aqui muda quantas ações o
+// personagem recupera a cada Próximo Turno, dali pra frente.
+function adjAcoesMax(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  p.acoesMax = Math.max(0, (p.acoesMax ?? ACOES_POR_TURNO_PADRAO) + d);
+  saveState(); renderAll();
+}
+
 // Recalcula armaduraMax/elmoMax a partir do item de proteção EQUIPADO no
 // inventário (apenas 1 armadura e 1 elmo podem estar equipados por vez).
 // Se o jogador ainda não tem nenhum item daquele tipo no inventário, o valor
@@ -1605,7 +1655,7 @@ function renderNarrador() {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}${pendBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
@@ -1630,6 +1680,18 @@ function renderNarrador() {
             <input type="number" class="nar-ctrl-input" value="${p.hp}" onchange="setHP(${p.id}, this.value)">
             <button onclick="adjHP(${p.id},+1)">+1</button>
             <button onclick="adjHP(${p.id},+5)">+5</button>
+          </div>
+        </div>
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">⚡ Ações <span class="nar-acoes-max-ctrl" title="Ações base recuperadas a cada Próximo Turno">
+            <button onclick="adjAcoesMax(${p.id},-1)" title="Diminuir ações base do turno">−</button>
+            máx ${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/turno
+            <button onclick="adjAcoesMax(${p.id},+1)" title="Aumentar ações base do turno">+</button>
+          </span></span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjAcoes(${p.id},-1)">−1</button>
+            <input type="number" class="nar-ctrl-input" value="${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}" onchange="setAcoes(${p.id}, this.value)">
+            <button onclick="adjAcoes(${p.id},+1)">+1</button>
           </div>
         </div>
         <div class="nar-ctrl-group">
@@ -2005,8 +2067,8 @@ function renderJogador() {
             ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
         </div>
         <div class="sk-bottom">
-          <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${(!ready||sk.tipo==='infinite')?'disabled':''}>
-            ${sk.tipo==='infinite' ? 'Livre' : 'Usar'}
+          <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>
+            Usar
           </button>
           ${dotsHtml}${cdHtml}
         </div>
@@ -2098,6 +2160,7 @@ function renderJogador() {
           <button onclick="adjHP(${p.id},+1)">+1</button><button onclick="adjHP(${p.id},+5)">+5</button>
         </div>
         <div class="bm-alert ${bm?'show':''}">⚠ Beira Morte<br><small>Emoção 1d100 ≥ 50 · Resistência 1d20 ≥ 10</small></div>
+        <div class="stat-row" style="margin-top:10px"><span class="stat-lbl"><i class="ti ti-bolt" style="color:var(--accent2)"></i> Ações do turno</span><span class="stat-val" style="color:var(--accent2)">${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span></div>
         <div class="stat-row" style="margin-top:10px"><span class="stat-lbl"><i class="ti ti-brain" style="color:var(--rose)"></i> Insanidade</span><span class="stat-val" style="color:var(--rose)">${p.ins}/100</span></div>
         <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div>
         <div class="ins-ctrl ins-ctrl-5">
@@ -3706,6 +3769,7 @@ function saveCharacter() {
       hp: hpMax, hpMax, agi, forca, intel,
       armadura: 0, armaduraMax: 0,
       elmo: 0, elmoMax: 0,
+      acoesMax: ACOES_POR_TURNO_PADRAO, acoesAtuais: ACOES_POR_TURNO_PADRAO,
       passos, ins, dinheiro, origemId, skills: [], passivas: [], inventario: [],
       jogNotas: Object.fromEntries(JOG_NOTA_TAGS.map(t => [t.toLowerCase(), ''])),
       ownerId: currentUser ? currentUser.id : null,
