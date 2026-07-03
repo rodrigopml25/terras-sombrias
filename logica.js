@@ -4222,15 +4222,70 @@ let diceBaseRef = null;     // ref('campaigns/{id}/rolls') sem limite — usada 
 let diceQueryRef = null;    // ref com limitToLast — usada para os listeners
 let diceAddedHandler = null;
 let diceChangedHandler = null;
+let diceRemovedHandler = null;
 let diceSelSides = 20;
 let diceSelQty = 1;
 let dicePanelOpen = false;
 let diceUnread = 0;
+const ROLL_ANIM_MS = 700;               // duração da animação de "rolando..."
+let renderedEntryKeys = new Set();      // chaves já desenhadas — evita repetir a animação de entrada
+let justRevealedKeys = new Set();       // chaves cujo resultado acabou de ser revelado — dispara o "pop" do total
 
 function escHtml(str) {
   return String(str == null ? '' : str)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Cor própria de cada tipo de dado — estilo "badge" colorido, como os
+// conjuntos de dados de verdade (verde=d4, azul=d6, roxo=d8, rosa=d10,
+// vermelho=d12, laranja=d20).
+const DICE_COLORS = {
+  2:   '#5b6b8c',
+  4:   '#3fae4a',
+  6:   '#2fb6d9',
+  8:   '#8a3ffb',
+  10:  '#e6299b',
+  12:  '#d8342f',
+  20:  '#e8622a',
+  100: '#c99a2e'
+};
+
+// Pontos do polígono (silhueta parecida com o dado real) para cada tipo.
+const DICE_POLY = {
+  4:  '20,6 34,32 6,32',
+  8:  '33.86,25.74 25.74,33.86 14.26,33.86 6.14,25.74 6.14,14.26 14.26,6.14 25.74,6.14 33.86,14.26',
+  10: '20,4 34,15 27,36 13,36 6,15',
+  12: '20,4 35.2,15.06 29.4,32.94 10.6,32.94 4.8,15.06',
+  20: '36,20 28,33.86 12,33.86 4,20 12,6.14 28,6.14',
+  100:'20,4 34,15 27,36 13,36 6,15'
+};
+
+// Ícone do dado no estilo "badge": forma preenchida com a cor do tipo e,
+// opcionalmente, o número do resultado desenhado dentro da forma.
+// Sem `number`, mostra a forma "vazia" (usado durante a animação de rolagem).
+function diceShapeSVG(sides, number) {
+  const color = DICE_COLORS[sides] || DICE_COLORS[20];
+  const label = (number != null) ? String(number) : '';
+  const fontSize = label.length >= 3 ? 11 : (label.length === 2 ? 14 : 16);
+  const textY = sides === 4 ? 27 : 24; // triângulo tem o centro visual mais baixo
+  const textHtml = label
+    ? `<text x="20" y="${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Inter, sans-serif" font-size="${fontSize}" font-weight="800" fill="#fff">${label}</text>`
+    : '';
+
+  if (sides === 2) {
+    return `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="${color}"/>${textHtml}</svg>`;
+  }
+  if (sides === 6) {
+    return `<svg viewBox="0 0 40 40"><rect x="5" y="5" width="30" height="30" rx="8" fill="${color}"/>${textHtml}</svg>`;
+  }
+  const points = DICE_POLY[sides] || DICE_POLY[20];
+  return `<svg viewBox="0 0 40 40"><polygon points="${points}" fill="${color}" stroke="${color}" stroke-width="4" stroke-linejoin="round"/>${textHtml}</svg>`;
+}
+
+// Classe de animação própria para cada tipo de dado (cada um "tomba" diferente).
+function diceAnimClass(sides) {
+  return 'dice-anim-d' + (({2:1,4:1,6:1,8:1,10:1,12:1,20:1,100:1})[sides] ? sides : '20');
 }
 
 // Cria o botão flutuante + painel de dados (uma vez só, funciona tanto na
@@ -4244,7 +4299,7 @@ function initDiceWidget() {
   fab.className = 'dice-fab';
   fab.title = 'Dados da Mesa';
   fab.setAttribute('aria-label', 'Dados da Mesa');
-  fab.innerHTML = '🎲<span id="dice-fab-badge" class="dice-fab-badge hidden">0</span>';
+  fab.innerHTML = '<span id="dice-fab-icon" class="dice-fab-icon">🎲</span><span id="dice-fab-badge" class="dice-fab-badge hidden">0</span>';
   fab.onclick = toggleDicePanel;
   document.body.appendChild(fab);
 
@@ -4255,7 +4310,10 @@ function initDiceWidget() {
   panel.innerHTML = `
     <div class="dice-panel-header">
       🎲 Dados da Mesa
-      <button class="dice-panel-close" onclick="toggleDicePanel()"><i class="ti ti-x"></i></button>
+      <div class="dice-panel-actions">
+        ${IS_NARRADOR ? `<button class="dice-panel-clear" onclick="limparChatDados()" title="Limpar histórico de rolagens para todos"><i class="ti ti-trash"></i></button>` : ''}
+        <button class="dice-panel-close" onclick="toggleDicePanel()"><i class="ti ti-x"></i></button>
+      </div>
     </div>
     <div class="dice-builder">
       <div class="dice-sides-row" id="dice-sides-row">
@@ -4279,6 +4337,12 @@ function initDiceWidget() {
         <input type="checkbox" id="dice-hidden-toggle"> Rolagem oculta (só o Narrador vê)
       </label>` : ''}
       <button class="dice-roll-btn" onclick="executarRolagemDados()">🎲 Rolar</button>
+      <div class="dice-divider">ou combine numa fórmula</div>
+      <div class="dice-formula-row">
+        <input type="text" id="dice-formula-input" placeholder="ex: 2d6 + (3d4)d6 + 2" onkeydown="if(event.key==='Enter'){event.preventDefault();executarRolagemFormula();}">
+        <button class="dice-formula-btn" onclick="executarRolagemFormula()">Rolar fórmula</button>
+      </div>
+      <div class="dice-formula-error hidden" id="dice-formula-error"></div>
     </div>
     <div class="dice-feed" id="dice-feed"></div>
   `;
@@ -4321,8 +4385,11 @@ function updateDiceBadge() {
 function bindRollsSync(campaignId) {
   if (diceQueryRef && diceAddedHandler)   diceQueryRef.off('child_added', diceAddedHandler);
   if (diceQueryRef && diceChangedHandler) diceQueryRef.off('child_changed', diceChangedHandler);
-  diceQueryRef = null; diceAddedHandler = null; diceChangedHandler = null; diceBaseRef = null;
+  if (diceQueryRef && diceRemovedHandler) diceQueryRef.off('child_removed', diceRemovedHandler);
+  diceQueryRef = null; diceAddedHandler = null; diceChangedHandler = null; diceRemovedHandler = null; diceBaseRef = null;
   DICE_ROLLS = [];
+  renderedEntryKeys = new Set();
+  justRevealedKeys = new Set();
   renderDiceFeed();
 
   if (!firebaseConfigured || !campaignId || campaignId === 'local') return;
@@ -4347,12 +4414,39 @@ function bindRollsSync(campaignId) {
     if (!val) return;
     val.key = snap.key;
     const idx = DICE_ROLLS.findIndex(r => r.key === val.key);
+    const wasRolling = idx >= 0 && DICE_ROLLS[idx].rolling;
     if (idx >= 0) DICE_ROLLS[idx] = val;
+    else { DICE_ROLLS.unshift(val); DICE_ROLLS.sort((a,b) => (b.ts||0) - (a.ts||0)); }
+    if (wasRolling && !val.rolling) justRevealedKeys.add(val.key);
+    renderDiceFeed();
+  };
+  diceRemovedHandler = snap => {
+    const key = snap.key;
+    DICE_ROLLS = DICE_ROLLS.filter(r => r.key !== key);
+    renderedEntryKeys.delete(key);
+    justRevealedKeys.delete(key);
     renderDiceFeed();
   };
   diceQueryRef.on('child_added', diceAddedHandler);
   diceQueryRef.on('child_changed', diceChangedHandler);
+  diceQueryRef.on('child_removed', diceRemovedHandler);
 }
+
+// Narrador limpa o histórico de rolagens da mesa inteira (some para todo mundo).
+function limparChatDados() {
+  if (!IS_NARRADOR) return;
+  if (!confirm('Limpar todo o histórico de rolagens desta mesa? Isso apaga o chat de dados para todos os jogadores.')) return;
+
+  if (firebaseConfigured && activeCampaignId && activeCampaignId !== 'local') {
+    firebase.database().ref('campaigns/' + activeCampaignId + '/rolls').remove();
+  } else {
+    DICE_ROLLS = [];
+    renderedEntryKeys = new Set();
+    justRevealedKeys = new Set();
+    renderDiceFeed();
+  }
+}
+
 
 function executarRolagemDados() {
   if (!currentUser) return;
@@ -4388,23 +4482,222 @@ function executarRolagemDados() {
     qty, sides, mod, label,
     results, total,
     hidden,
+    rolling: true,
     ts: Date.now()
   };
 
   if (labelInput) labelInput.value = '';
 
-  pushRollEntry(entry);
+  spinDiceFab(true, sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
 }
 
-function pushRollEntry(entry) {
+// ═══════════════════════════════════════
+// FÓRMULAS AVANÇADAS — ex: "2d6 + (3d4)d6 + 2"
+// ═══════════════════════════════════════
+// Gramática:
+//   expressao := termo (('+'|'-') termo)*
+//   termo     := fator ('d' fator)?          — se tiver 'd', é uma rolagem de dados
+//   fator     := NUMERO | '(' expressao ')'
+// A quantidade de dados (lado esquerdo do 'd') pode ser um número fixo OU o
+// resultado de outra rolagem entre parênteses — por isso "(3d4)d6" funciona:
+// primeiro rola 3d4, e o total vira a quantidade de d6 a rolar.
+const DICE_FORMULA_MAX_PER_TERM = 200;   // limite de dados por termo (evita travar o navegador)
+const DICE_FORMULA_MAX_TOTAL    = 500;   // limite de dados somando a fórmula inteira
+const DICE_FORMULA_MAX_SIDES    = 1000;
+
+function parseFormula(str) {
+  const s = String(str || '').replace(/\s+/g, '');
+  if (!s) throw new Error('Digite uma fórmula, ex: 2d6 + (3d4)d6 + 2');
+
+  let i = 0;
+  let totalDiceRolled = 0;
+  const peek = () => s[i];
+  const eof = () => i >= s.length;
+
+  function parseNumber() {
+    const start = i;
+    while (!eof() && /[0-9]/.test(s[i])) i++;
+    if (start === i) throw new Error('Número esperado perto de "' + (s.slice(i, i + 8) || 'fim da fórmula') + '"');
+    return parseInt(s.slice(start, i), 10);
+  }
+
+  function parseFactor() {
+    if (peek() === '(') {
+      i++;
+      const inner = parseExpression();
+      if (peek() !== ')') throw new Error('Parêntese não fechado');
+      i++;
+      return inner;
+    }
+    const n = parseNumber();
+    return { value: n, node: { type: 'const', value: n } };
+  }
+
+  function parseTerm() {
+    const left = parseFactor();
+    if (!eof() && (peek() === 'd' || peek() === 'D')) {
+      i++;
+      const right = parseFactor();
+      const count = left.value;
+      const sides = right.value;
+      if (!(count >= 1) || count > DICE_FORMULA_MAX_PER_TERM) {
+        throw new Error('Quantidade de dados inválida (1 a ' + DICE_FORMULA_MAX_PER_TERM + ')');
+      }
+      if (!(sides >= 2) || sides > DICE_FORMULA_MAX_SIDES) {
+        throw new Error('Número de lados inválido (2 a ' + DICE_FORMULA_MAX_SIDES + ')');
+      }
+      totalDiceRolled += count;
+      if (totalDiceRolled > DICE_FORMULA_MAX_TOTAL) {
+        throw new Error('Muitos dados nessa fórmula (máx. ' + DICE_FORMULA_MAX_TOTAL + ' no total)');
+      }
+      const results = [];
+      for (let k = 0; k < count; k++) results.push(1 + Math.floor(Math.random() * sides));
+      const sum = results.reduce((a, b) => a + b, 0);
+      return {
+        value: sum,
+        node: {
+          type: 'dice',
+          sides, count, results, sum,
+          countNode: left.node.type === 'const' ? null : left.node
+        }
+      };
+    }
+    return left;
+  }
+
+  function parseExpression() {
+    const terms = [{ sign: '+', ...parseTerm() }];
+    while (!eof() && (peek() === '+' || peek() === '-')) {
+      const sign = s[i]; i++;
+      terms.push({ sign, ...parseTerm() });
+    }
+    const value = terms.reduce((acc, t) => acc + (t.sign === '-' ? -t.value : t.value), 0);
+    return { value, node: { type: 'sum', terms: terms.map(t => ({ sign: t.sign, node: t.node })) } };
+  }
+
+  const result = parseExpression();
+  if (!eof()) throw new Error('Não entendi a partir de "' + s.slice(i) + '"');
+  return result; // { value, node }
+}
+
+// Desenha (em HTML) a árvore de uma rolagem por fórmula, mostrando cada
+// grupo de dados como badges com o número dentro, e rolagens aninhadas
+// como "grupo → quantidade de dados do próximo grupo".
+function renderDiceNode(node) {
+  if (node.type === 'const') {
+    return `<span class="dice-const-txt">${node.value}</span>`;
+  }
+  if (node.type === 'dice') {
+    const nestedHtml = node.countNode
+      ? `<span class="dice-nested">${renderDiceNode(node.countNode)}<span class="dice-arrow">→</span></span>`
+      : '';
+    const badges = node.results.map(v => `<span class="dice-badge">${diceShapeSVG(node.sides, v)}</span>`).join('');
+    return `<span class="dice-term">${nestedHtml}<span class="dice-badges-inline">${badges}</span></span>`;
+  }
+  if (node.type === 'sum') {
+    return node.terms.map((t, idx) => {
+      const signHtml = (idx === 0)
+        ? (t.sign === '-' ? '<span class="dice-sign">−</span>' : '')
+        : `<span class="dice-sign">${t.sign === '-' ? '−' : '+'}</span>`;
+      return signHtml + renderDiceNode(t.node);
+    }).join('');
+  }
+  return '';
+}
+
+function executarRolagemFormula() {
+  if (!currentUser) return;
+  const input   = document.getElementById('dice-formula-input');
+  const errBox  = document.getElementById('dice-formula-error');
+  const hiddenCk = document.getElementById('dice-hidden-toggle');
+  if (!input) return;
+
+  const formula = input.value.trim();
+  if (errBox) { errBox.textContent = ''; errBox.classList.add('hidden'); }
+  if (!formula) return;
+
+  let parsed;
+  try {
+    parsed = parseFormula(formula);
+  } catch (e) {
+    if (errBox) { errBox.textContent = e.message; errBox.classList.remove('hidden'); }
+    return;
+  }
+
+  const hidden = !!(IS_NARRADOR && hiddenCk && hiddenCk.checked);
+
+  let charName = null;
+  if (IS_JOGADOR) {
+    const psel = document.getElementById('psel');
+    if (psel && psel.value) {
+      const p = PLAYERS.find(pp => String(pp.id) === String(psel.value));
+      if (p) charName = p.name;
+    }
+  }
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName,
+    isNarrator: !!IS_NARRADOR,
+    formula,
+    tree: parsed.node,
+    total: parsed.value,
+    hidden,
+    rolling: true,
+    ts: Date.now()
+  };
+
+  input.value = '';
+
+  spinDiceFab(true);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+}
+
+function spinDiceFab(on, sides) {
+  const fab = document.getElementById('dice-fab');
+  const icon = document.getElementById('dice-fab-icon');
+  if (fab) fab.classList.toggle('rolling', !!on);
+  if (icon) {
+    if (on) {
+      icon.innerHTML = diceShapeSVG(sides);
+      icon.className = 'dice-fab-icon ' + diceAnimClass(sides);
+    } else {
+      icon.innerHTML = '🎲';
+      icon.className = 'dice-fab-icon';
+    }
+  }
+}
+
+function pushRollEntry(entry, afterKeyKnown) {
   if (firebaseConfigured && diceBaseRef) {
-    diceBaseRef.push(entry);
+    const newRef = diceBaseRef.push();
+    newRef.set(entry).then(() => {
+      if (afterKeyKnown) afterKeyKnown(newRef.key);
+    });
   } else {
     // Modo local (sem Firebase configurado): mantém a rolagem só nesta aba.
     entry.key = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     DICE_ROLLS.unshift(entry);
     if (DICE_ROLLS.length > 40) DICE_ROLLS.length = 40;
     renderDiceFeed();
+    if (afterKeyKnown) afterKeyKnown(entry.key);
+  }
+}
+
+// Encerra a animação de "rolando..." e revela o resultado (para todos na mesa)
+function finishRollEntry(key) {
+  if (firebaseConfigured && activeCampaignId && activeCampaignId !== 'local') {
+    firebase.database().ref('campaigns/' + activeCampaignId + '/rolls/' + key + '/rolling').set(false);
+  } else {
+    const r = DICE_ROLLS.find(x => x.key === key);
+    if (r) { r.rolling = false; justRevealedKeys.add(key); renderDiceFeed(); }
   }
 }
 
@@ -4427,41 +4720,78 @@ function formatDiceTime(ts) {
   return `${hh}:${mm}`;
 }
 
-function renderRollEntry(r) {
-  const notation = `${r.qty}d${r.sides}${r.mod ? (r.mod > 0 ? '+' + r.mod : r.mod) : ''}`;
+function renderRollEntry(r, isNew) {
+  const isFormula = !!r.tree;
+  const notation = isFormula
+    ? r.formula
+    : `${r.qty}d${r.sides}${r.mod ? (r.mod > 0 ? '+' + r.mod : r.mod) : ''}`;
   const timeStr = formatDiceTime(r.ts);
   const who = r.isNarrator ? 'Narrador' : (r.playerName || 'Jogador');
   const charTag = r.charName ? ` <span class="dice-char">(${escHtml(r.charName)})</span>` : '';
+  const newCls = isNew ? ' dice-entry-new' : '';
+  const isLockedFromMe = r.hidden && !IS_NARRADOR;
 
-  // Rolagem oculta e eu não sou o Narrador: mostro só o aviso, sem o resultado.
-  if (r.hidden && !IS_NARRADOR) {
-    return `<div class="dice-entry dice-entry-hidden">
+  // Rolagem oculta e eu não sou o Narrador: mostro só o aviso, sem o resultado
+  // (durante a animação, mostro que "algo" está sendo rolado, sem detalhes).
+  if (isLockedFromMe) {
+    const msg = r.rolling ? 'Rolando algo oculto…' : 'Fez uma rolagem oculta';
+    const spinnerHtml = r.rolling ? '<span class="dice-spin-wrap dice-anim-generic"><svg viewBox="0 0 40 40"><rect x="6" y="6" width="28" height="28" rx="6" fill="currentColor" fill-opacity=".15" stroke="currentColor" stroke-width="2"/><text x="20" y="26" text-anchor="middle" font-size="16" fill="currentColor">?</text></svg></span>' : '';
+    return `<div class="dice-entry dice-entry-hidden${newCls}">
       <div class="dice-entry-top">
         <span class="dice-who dice-who-nar"><i class="ti ti-lock"></i> Narrador</span>
         <span class="dice-time">${timeStr}</span>
       </div>
-      <div class="dice-hidden-msg">Fez uma rolagem oculta</div>
+      <div class="dice-hidden-msg">${spinnerHtml} ${msg}</div>
     </div>`;
   }
 
   const labelHtml = r.label ? `<div class="dice-entry-label">${escHtml(r.label)}</div>` : '';
+
+  // Ainda rolando: mostra o dado girando, sem revelar o resultado ainda.
+  // (para fórmulas, r.sides é undefined — cai no ícone/animação genéricos)
+  if (r.rolling) {
+    return `<div class="dice-entry dice-entry-rolling ${r.isNarrator ? 'dice-entry-nar' : ''}${newCls}">
+      <div class="dice-entry-top">
+        <span class="dice-who ${r.isNarrator ? 'dice-who-nar' : ''}">${escHtml(who)}${charTag}</span>
+        <span class="dice-time">${timeStr}</span>
+      </div>
+      ${labelHtml}
+      <div class="dice-entry-mid">
+        <span class="dice-notation">${escHtml(notation)}</span>
+        <span class="dice-spin-wrap ${diceAnimClass(r.sides)}">${diceShapeSVG(r.sides)}</span>
+        <span class="dice-rolling-text">rolando…</span>
+      </div>
+    </div>`;
+  }
+
   const hiddenBadge = r.hidden ? `<span class="dice-badge-oculta">oculta p/ jogadores</span>` : '';
   const revealBtn = (r.hidden && IS_NARRADOR)
     ? `<button class="dice-reveal-btn" onclick="revelarRolagem('${r.key}')"><i class="ti ti-eye"></i> Revelar para os jogadores</button>`
     : '';
+  const justRevealed = justRevealedKeys.has(r.key);
+  if (justRevealed) justRevealedKeys.delete(r.key);
+  const popCls = justRevealed ? ' dice-total-pop' : '';
 
-  return `<div class="dice-entry ${r.isNarrator ? 'dice-entry-nar' : ''}">
+  const badgesHtml = isFormula
+    ? `<div class="dice-formula-tree">${renderDiceNode(r.tree)}</div>`
+    : (() => {
+        const badges = r.results.map(v => `<span class="dice-badge">${diceShapeSVG(r.sides, v)}</span>`).join('');
+        const modHtml = r.mod ? `<span class="dice-mod-txt">${r.mod > 0 ? '+' + r.mod : r.mod}</span>` : '';
+        return `<div class="dice-badges-row">${badges}${modHtml}</div>`;
+      })();
+
+  return `<div class="dice-entry ${r.isNarrator ? 'dice-entry-nar' : ''}${newCls}">
     <div class="dice-entry-top">
       <span class="dice-who ${r.isNarrator ? 'dice-who-nar' : ''}">${escHtml(who)}${charTag}</span>
       <span class="dice-time">${timeStr}</span>
     </div>
     ${labelHtml}
     <div class="dice-entry-mid">
-      <span class="dice-notation">${notation}</span>
-      <span class="dice-results">[${r.results.join(', ')}]</span>
+      <span class="dice-notation">${escHtml(notation)}</span>
       ${hiddenBadge}
     </div>
-    <div class="dice-entry-total">${r.total}</div>
+    ${badgesHtml}
+    <div class="dice-entry-total${popCls}">${r.total}</div>
     ${revealBtn}
   </div>`;
 }
@@ -4473,5 +4803,9 @@ function renderDiceFeed() {
     feed.innerHTML = '<div class="dice-empty">Nenhuma rolagem ainda. Boa sorte!</div>';
     return;
   }
-  feed.innerHTML = DICE_ROLLS.map(renderRollEntry).join('');
+  feed.innerHTML = DICE_ROLLS.map(r => {
+    const isNew = !renderedEntryKeys.has(r.key);
+    renderedEntryKeys.add(r.key);
+    return renderRollEntry(r, isNew);
+  }).join('');
 }
