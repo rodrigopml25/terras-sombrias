@@ -1315,7 +1315,14 @@ function useSkill(pid, skid) {
   saveState();
   renderAll();
 
-  // Habilidade vinculada a um Teste (ex: Acrobacia) — rola automaticamente.
+  // "Teste Mental" pode ser usada com qualquer Teste de Intelecto ou o
+  // Teste de Emoção — pergunta qual rolar, em vez de decidir sozinho.
+  if (sk.id === 'sk_geral_teste_mental') {
+    abrirTesteMentalModal(pid);
+    return;
+  }
+
+  // Habilidade vinculada a um único Teste (ex: Acrobacia) — rola automaticamente.
   const testeVinculado = SKILL_TESTE_LINK[sk.id];
   if (testeVinculado) rolarTeste(pid, testeVinculado);
 }
@@ -4911,6 +4918,55 @@ function rolarTeste(pid, testeId) {
   // Abre o painel de dados na aba Histórico para o resultado aparecer na hora.
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+}
+
+// ─── Modal de escolha de Teste — habilidade "Teste Mental" ─────────────────
+// A habilidade "Teste Mental" não é vinculada a um único Teste: pode ser
+// usada com qualquer Teste de Intelecto (Arcano, Místico, Geografia,
+// História) ou com o Teste de Emoção. Ao usar a habilidade, pergunta qual
+// Teste rolar, já aplicando maestria, Mega Vantagem/Desvantagem e Bônus.
+const TESTE_MENTAL_OPCOES = ['arcano', 'mistico', 'geografia', 'historia', 'emocao'];
+
+function abrirTesteMentalModal(pid) {
+  const overlay = document.getElementById('modal-teste-mental-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  getTestePersonagem(p);
+
+  const opcoesHtml = TESTE_MENTAL_OPCOES.map(tid => {
+    const def = TESTES_LISTA.find(t => t.id === tid);
+    const isEmocao = tid === 'emocao';
+    const t = p.testes[tid];
+    const megaTag = t.mv ? '<span class="tm-opcao-mega mv">MV</span>' : (t.md ? '<span class="tm-opcao-mega md">MD</span>' : '');
+    const infoTxt = isEmocao
+      ? `1d100 − ${p.ins || 0} insanidade`
+      : `1d20 +${maestria(p[def.attr] || 0)} maestria`;
+    return `<button class="tm-opcao ${isEmocao ? 'tm-opcao-gray' : 'tm-opcao-blue'}" onclick="escolherTesteMental(${p.id},'${tid}')">
+      <span class="tm-opcao-nome">${def.name}${megaTag}</span>
+      <span class="tm-opcao-info">${infoTxt}</span>
+    </button>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px">
+      <h3><i class="ti ti-brain"></i> Teste Mental — ${escHtml(p.name)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+        Escolha qual Teste rolar: uma área Intelectual ou o Teste de Emoção.
+      </div>
+      <div class="tm-opcoes">${opcoesHtml}</div>
+      <button class="tm-cancelar" onclick="fecharTesteMentalModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function fecharTesteMentalModal() {
+  const overlay = document.getElementById('modal-teste-mental-overlay');
+  if (overlay) { overlay.classList.remove('open'); overlay.innerHTML = ''; }
+}
+
+function escolherTesteMental(pid, testeId) {
+  fecharTesteMentalModal();
+  rolarTeste(pid, testeId);
 }
 
 // Narrador revela para os jogadores uma rolagem que estava marcada como oculta
