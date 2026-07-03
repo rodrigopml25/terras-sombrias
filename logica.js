@@ -1503,15 +1503,6 @@ function setAcoes(id, val) {
   saveState(); renderAll();
 }
 
-// Ações base por turno (o "2" normal) — mexer aqui muda quantas ações o
-// personagem recupera a cada Próximo Turno, dali pra frente.
-function adjAcoesMax(id, d) {
-  const p = PLAYERS.find(x => x.id === id);
-  if (!p) return;
-  p.acoesMax = Math.max(0, (p.acoesMax ?? ACOES_POR_TURNO_PADRAO) + d);
-  saveState(); renderAll();
-}
-
 // Recalcula armaduraMax/elmoMax a partir do item de proteção EQUIPADO no
 // inventário (apenas 1 armadura e 1 elmo podem estar equipados por vez).
 // Se o jogador ainda não tem nenhum item daquele tipo no inventário, o valor
@@ -1683,15 +1674,11 @@ function renderNarrador() {
           </div>
         </div>
         <div class="nar-ctrl-group">
-          <span class="nar-ctrl-lbl">⚡ Ações <span class="nar-acoes-max-ctrl" title="Ações base recuperadas a cada Próximo Turno">
-            <button onclick="adjAcoesMax(${p.id},-1)" title="Diminuir ações base do turno">−</button>
-            máx ${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/turno
-            <button onclick="adjAcoesMax(${p.id},+1)" title="Aumentar ações base do turno">+</button>
-          </span></span>
+          <span class="nar-ctrl-lbl">⚡ Ações <span style="font-size:10px;color:var(--text3);font-weight:400">(máx ${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/turno)</span></span>
           <div class="nar-ctrl-btns">
-            <button onclick="adjAcoes(${p.id},-1)">−1</button>
+            <button onclick="adjAcoes(${p.id},-1)" title="Tirar 1 ação deste turno">−1</button>
             <input type="number" class="nar-ctrl-input" value="${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}" onchange="setAcoes(${p.id}, this.value)">
-            <button onclick="adjAcoes(${p.id},+1)">+1</button>
+            <button onclick="adjAcoes(${p.id},+1)" title="Dar 1 ação extra neste turno">+1</button>
           </div>
         </div>
         <div class="nar-ctrl-group">
