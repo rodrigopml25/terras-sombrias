@@ -1262,6 +1262,17 @@ function isReady(sk) {
 // ═══════════════════════════════════════
 // AÇÕES GLOBAIS
 // ═══════════════════════════════════════
+// Vínculo entre uma Habilidade e o Teste que ela aciona automaticamente ao
+// ser usada — ao ativar a habilidade, já rola o Teste correspondente
+// (1d20 + maestria, respeitando Mega Vantagem/Desvantagem e o Bônus
+// configurados naquele Teste), sem precisar rolar manualmente depois.
+const SKILL_TESTE_LINK = {
+  'sk_geral_acrobacia':   'acrobacia',
+  'sk_geral_arremesso':   'arremessar',
+  'sk_geral_empurrar':    'empurrar',
+  'sk_geral_furtividade': 'furtividade',
+};
+
 function useSkill(pid, skid) {
   const p = PLAYERS.find(x => x.id === pid);
   const sk = p && p.skills.find(s => s.id === skid);
@@ -1303,6 +1314,10 @@ function useSkill(pid, skid) {
 
   saveState();
   renderAll();
+
+  // Habilidade vinculada a um Teste (ex: Acrobacia) — rola automaticamente.
+  const testeVinculado = SKILL_TESTE_LINK[sk.id];
+  if (testeVinculado) rolarTeste(pid, testeVinculado);
 }
 
 function nextTurnGlobal() {
@@ -1863,6 +1878,7 @@ function renderTestes(p, readonly) {
         if (hasBonus) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)">${t.bonus}</span>`);
         const hasConfig = badges.length > 0;
         return `<div class="skill-chip sc-${g.cor}">
+          <button class="teste-roll-btn" onclick="event.stopPropagation();rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name}"><i class="ti ti-dice"></i></button>
           <span class="chip-dot"></span>
           <span class="chip-name">${def.name}</span>
           ${badges.join('')}
@@ -1871,6 +1887,7 @@ function renderTestes(p, readonly) {
 
       // Jogador: editável
       return `<div class="teste-row">
+        <button class="teste-roll-btn" onclick="rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name} (${tid === 'emocao' ? '1d100 − insanidade' : '1d20' + (mst ? '+' + mst + ' maestria' : '')})"><i class="ti ti-dice"></i></button>
         <span class="teste-nome">${def.name}</span>
         <div class="teste-ctrl">
           <button class="teste-mv-btn ${hasMV ? 'ativo' : ''}" onclick="setTesteMV(${p.id},'${tid}',${!hasMV})" title="Mega Vantagem">MV</button>
@@ -4672,6 +4689,22 @@ function renderDiceNode(node) {
   if (node.type === 'const') {
     return `<span class="dice-const-txt">${node.value}</span>`;
   }
+  if (node.type === 'labeled_const') {
+    return `<span class="dice-const-txt dice-const-labeled">${Math.abs(node.value)} <small class="dice-const-label">${escHtml(node.label)}</small></span>`;
+  }
+  if (node.type === 'megaroll') {
+    // Mega Vantagem/Desvantagem: mostra os dois d20, destacando o mantido
+    // (maior para MV, menor para MD) e esmaecendo o descartado.
+    const vals = [node.d1, node.d2];
+    let keptUsed = false;
+    const badges = vals.map(v => {
+      const isKept = !keptUsed && v === node.kept;
+      if (isKept) keptUsed = true;
+      return `<span class="dice-badge ${isKept ? 'dice-badge-kept' : 'dice-badge-dropped'}">${diceShapeSVG(node.sides, v)}</span>`;
+    }).join('');
+    const modeLabel = node.mode === 'mv' ? 'mega vantagem — mantém o maior' : 'mega desvantagem — mantém o menor';
+    return `<span class="dice-term"><span class="dice-badges-inline">${badges}</span><span class="dice-mega-label" title="${modeLabel}">${node.mode === 'mv' ? 'MV' : 'MD'}</span></span>`;
+  }
   if (node.type === 'dice') {
     const nestedHtml = node.countNode
       ? `<span class="dice-nested">${renderDiceNode(node.countNode)}<span class="dice-arrow">→</span></span>`
@@ -4780,6 +4813,104 @@ function finishRollEntry(key) {
     const r = DICE_ROLLS.find(x => x.key === key);
     if (r) { r.rolling = false; justRevealedKeys.add(key); renderDiceFeed(); }
   }
+}
+
+// ═══════════════════════════════════════
+// ROLAGEM DE TESTES (Acrobacia, Furtividade, Aparar, etc.)
+// ═══════════════════════════════════════
+// Rola 1d20 + maestria do atributo do teste. Se o teste tiver Mega Vantagem
+// (t.mv) ou Mega Desvantagem (t.md) configurada, rola 2 dados e mantém o
+// maior ou o menor resultado, respectivamente. Se houver um Bônus
+// configurado (t.bonus), soma/subtrai também — o bônus pode ser um número
+// fixo (ex: "+3") ou uma fórmula de dados (ex: "-1d4", "1d6").
+// Exceção: o Teste de Emoção usa 1d100 no lugar do 1d20 e subtrai a
+// Insanidade atual do personagem (1d100 − Insanidade).
+function rolarTeste(pid, testeId) {
+  if (!currentUser) return;
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  getTestePersonagem(p);
+  const def = TESTES_LISTA.find(t => t.id === testeId);
+  if (!def) return;
+  const t = p.testes[testeId];
+
+  const isEmocao = testeId === 'emocao';
+  const sides = isEmocao ? 100 : 20;
+  const mst = def.attr !== 'neutro' ? maestria(p[def.attr] || 0) : 0;
+
+  // Mega Vantagem / Mega Desvantagem: rola 2 dados e mantém o melhor ou o pior.
+  const isMega = !!(t.mv || t.md);
+  const d1 = 1 + Math.floor(Math.random() * sides);
+  const d2 = isMega ? (1 + Math.floor(Math.random() * sides)) : null;
+  const kept = !isMega ? d1 : (t.mv ? Math.max(d1, d2) : Math.min(d1, d2));
+
+  const dadoNode = isMega
+    ? { type: 'megaroll', mode: t.mv ? 'mv' : 'md', sides, d1, d2, kept }
+    : { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null };
+
+  const terms = [{ sign: '+', node: dadoNode }];
+  let total = kept;
+
+  if (mst) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: mst, label: 'maestria' } });
+    total += mst;
+  }
+
+  // Teste de Emoção: subtrai a Insanidade atual do personagem (0-100)
+  if (isEmocao && p.ins) {
+    terms.push({ sign: '-', node: { type: 'labeled_const', value: p.ins, label: 'insanidade' } });
+    total -= p.ins;
+  }
+
+  // Bônus/penalidade configurado no teste (número fixo ou fórmula de dados)
+  const bonusText = (t.bonus || '').trim();
+  if (bonusText) {
+    let sign = '+', rest = bonusText;
+    if (rest[0] === '+' || rest[0] === '-') { sign = rest[0]; rest = rest.slice(1).trim(); }
+    if (rest) {
+      let bonusNode = null, bonusVal = 0;
+      try {
+        const parsed = parseFormula(rest);
+        bonusVal = parsed.value;
+        bonusNode = parsed.node;
+      } catch (e) {
+        const n = parseFloat(rest.replace(',', '.'));
+        if (!isNaN(n)) { bonusVal = n; bonusNode = { type: 'const', value: n }; }
+      }
+      if (bonusNode) {
+        terms.push({ sign, node: bonusNode });
+        total += (sign === '-' ? -bonusVal : bonusVal);
+      }
+    }
+  }
+
+  const tree = { type: 'sum', terms };
+  const megaLabel = t.mv ? ' (Mega Vantagem)' : (t.md ? ' (Mega Desvantagem)' : '');
+  const formula = `Teste de ${def.name}${megaLabel}`;
+
+  const charName = p.name;
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName,
+    isNarrator: !!IS_NARRADOR,
+    formula,
+    tree,
+    total,
+    hidden: false,
+    rolling: true,
+    ts: Date.now()
+  };
+
+  spinDiceFab(true, sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  // Abre o painel de dados na aba Histórico para o resultado aparecer na hora.
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
 }
 
 // Narrador revela para os jogadores uma rolagem que estava marcada como oculta
