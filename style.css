@@ -474,6 +474,8 @@ button {
 
 /* Painel de iniciativa visível para os Jogadores */
 .init-card-jog { margin-bottom: 16px; }
+.init-card-title { cursor: pointer; user-select: none; }
+.init-card-title:hover { color: var(--accent2); }
 
 /* notas */
 .ntags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 7px; }
