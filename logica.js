@@ -2165,15 +2165,18 @@ function renderJogador() {
   const passivasCollapsed = !!jogSkillsCollapsed['passivas'];
   const origemObjJog = getOrigemPersonagem(p);
   const passivasHtml = passivasCollapsed ? '' : passivasList.map(pas => {
-    let tag = '';
-    if (pas.origemId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(origem · ${origemObjJog ? origemObjJog.name : ''})</span>`;
-    else if (pas.racialId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>`;
-    else if (pas.subclasseId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(subclasse · ${p.cls})</span>`;
+    let tag = '', tagCls = 'passiva-tag';
+    if (pas.origemId) { tag = `(origem · ${origemObjJog ? origemObjJog.name : ''})`; tagCls += ' passiva-tag-origem'; }
+    else if (pas.racialId) tag = `(racial · ${p.race})`;
+    else if (pas.subclasseId) tag = `(subclasse · ${p.cls})`;
     return `
     <div class="passiva-card">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div class="passiva-name"><i class="ti ti-sparkles"></i> ${pas.name}${tag}</div>
-        <button onclick="editPassiva(${p.id}, '${pas.id}')" title="Editar" style="background:none; border:none; color:var(--text3); cursor:pointer; padding:0; margin-left:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <div style="min-width:0; flex:1;">
+          <div class="passiva-name"><i class="ti ti-sparkles"></i> <span>${pas.name}</span></div>
+          ${tag ? `<div class="${tagCls}">${tag}</div>` : ''}
+        </div>
+        <button onclick="editPassiva(${p.id}, '${pas.id}')" title="Editar" style="background:none; border:none; color:var(--text3); cursor:pointer; padding:0; margin-left:8px; flex-shrink:0;">
           <i class="ti ti-edit" style="font-size:16px;"></i>
         </button>
       </div>
