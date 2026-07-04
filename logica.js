@@ -693,6 +693,8 @@ function ensureRacePassivas(p) {
   syncFormaDragaoLock(p);
   // Garante as passivas fixas da subclasse (ex: Multifunções do Campeão)
   ensureSubclassePassivas(p);
+  // Garante as passivas fixas da classe-base (ex: Instrumento Musical do Bardo)
+  ensureClassePassivas(p);
   // Garante as armas exclusivas de subclasse (ex: Quebra Queixo do Briguento)
   ensureSubclasseWeapons(p);
 }
@@ -1083,6 +1085,51 @@ function ensureSubclassePassivas(p) {
       p.passivas.push({ id: 'pas_subclasse_' + sp.id, subclasseId: sp.id, name: sp.name, desc: sp.desc });
     } else if (!atendeNivel && jaTem) {
       p.passivas = p.passivas.filter(pas => pas.subclasseId !== sp.id);
+    }
+  });
+}
+
+// ═══════════════════════════════════════
+// PASSIVAS DE CLASSE-BASE
+// ═══════════════════════════════════════
+// Diferente das passivas de subclasse (Campeão, Briguento…), estas são da
+// Classe toda (Guerreiro, Bardo…) — valem para qualquer subclasse dela.
+// Mesmo padrão de armazenamento das demais (id próprio + flag de origem).
+const CLASSES_PASSIVAS = {
+  'Bardo': [
+    { id: 'bardo_instrumento_musical', name: 'Instrumento Musical', desc: 'Possui a capacidade de utilizar Instrumentos Musicais — eles funcionam como Armas também, podendo receber os mesmos efeitos e aprimoramentos. Porém, para utilizar Habilidades de Bardo, é necessário estar equipado com um Instrumento Musical.' },
+  ],
+};
+
+// Retorna a lista de passivas fixas de classe-base de um personagem (vazio
+// se a classe-base não tiver passivas cadastradas no catálogo acima).
+function getClassePassivas(p) {
+  return CLASSES_PASSIVAS[p.classeBase] || [];
+}
+
+// Garante que as passivas fixas da classe-base do personagem estejam
+// presentes em p.passivas. Mesma lógica de ensureSubclassePassivas: não
+// duplica, não recoloca uma removida de propósito (p.classePassivasRemovidas)
+// e remove as de uma classe-base anterior ao trocar de classe.
+function ensureClassePassivas(p) {
+  if (!Array.isArray(p.passivas)) p.passivas = [];
+  if (!Array.isArray(p.classePassivasRemovidas)) p.classePassivasRemovidas = [];
+
+  Object.entries(CLASSES_PASSIVAS).forEach(([clsName, lista]) => {
+    if (clsName !== p.classeBase) {
+      const ids = lista.map(cp => cp.id);
+      p.passivas = p.passivas.filter(pas => !pas.classeId || !ids.includes(pas.classeId));
+    }
+  });
+
+  getClassePassivas(p).forEach(cp => {
+    const atendeNivel = !cp.minLevel || (p.level || 1) >= cp.minLevel;
+    const jaTem = p.passivas.some(pas => pas.classeId === cp.id);
+    const foiRemovida = p.classePassivasRemovidas.includes(cp.id);
+    if (atendeNivel && !jaTem && !foiRemovida) {
+      p.passivas.push({ id: 'pas_classe_' + cp.id, classeId: cp.id, name: cp.name, desc: cp.desc });
+    } else if (!atendeNivel && jaTem) {
+      p.passivas = p.passivas.filter(pas => pas.classeId !== cp.id);
     }
   });
 }
@@ -1872,6 +1919,7 @@ function renderNarrador() {
           if (pas.origemId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(origem · ${origemObj ? origemObj.name : ''})</span>`;
           else if (pas.racialId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>`;
           else if (pas.subclasseId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(subclasse · ${p.cls})</span>`;
+          else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div></div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
@@ -2338,6 +2386,7 @@ function renderJogador() {
     if (pas.origemId) { tag = `(origem · ${origemObjJog ? origemObjJog.name : ''})`; tagCls += ' passiva-tag-origem'; }
     else if (pas.racialId) tag = `(racial · ${p.race})`;
     else if (pas.subclasseId) tag = `(subclasse · ${p.cls})`;
+    else if (pas.classeId) tag = `(classe · ${p.classeBase})`;
     return `
     <div class="passiva-card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -3796,6 +3845,10 @@ function deletePassiva() {
     if (pas && pas.subclasseId) {
       if (!Array.isArray(p.subclassePassivasRemovidas)) p.subclassePassivasRemovidas = [];
       if (!p.subclassePassivasRemovidas.includes(pas.subclasseId)) p.subclassePassivasRemovidas.push(pas.subclasseId);
+    }
+    if (pas && pas.classeId) {
+      if (!Array.isArray(p.classePassivasRemovidas)) p.classePassivasRemovidas = [];
+      if (!p.classePassivasRemovidas.includes(pas.classeId)) p.classePassivasRemovidas.push(pas.classeId);
     }
     p.passivas = (p.passivas || []).filter(x => x.id !== modalPassivaId);
     saveState();
