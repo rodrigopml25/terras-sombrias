@@ -965,6 +965,9 @@ const SUBCLASSES_PASSIVAS = {
   'Briguento': [
     { id: 'briguento_durao', name: 'Durão', desc: 'Você tem acesso exclusivo à Arma: Quebra Queixo. Não pode usar outras Armas e nega todas as desvantagens e mega desvantagens sobre Furtividade.' },
   ],
+  'Ilusionista': [
+    { id: 'ilusionista_camuflagem_magica', name: 'Camuflagem Mágica', desc: 'Seu Teste de Furtividade pode ser trocado por um Teste de Arcano ou Místico.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
