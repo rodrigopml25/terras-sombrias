@@ -908,6 +908,9 @@ const SUBCLASSES_PASSIVAS = {
   'Campeão': [
     { id: 'campeao_multifuncoes', name: 'Multifunções', desc: 'Sabe usar TODAS as Armas.' },
   ],
+  'Combatente': [
+    { id: 'combatente_guerreiro_perfeito', name: 'Guerreiro Perfeito', desc: 'Pode usar uma arma pesada de corpo a corpo em cada mão (mesmo que ambas sejam de duas mãos). Pode lançar uma Habilidade usando as duas Armas juntas, assim terá +Dano da segunda Arma, porém, sua Maestria no lançamento será reduzida pela metade.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
