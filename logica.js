@@ -3196,10 +3196,38 @@ function sincronizarJogadoresNaIniciativa() {
 }
 
 // Narrador: card completo de Iniciativa (setup de NPCs + lista + controles).
+// Evita perder o que o Narrador está digitando no nome de um Inimigo/Aliado
+// sempre que a tela é redesenhada por causa de qualquer outra ação (rolar um
+// dado, ajustar vida de alguém, sincronizar com os Jogadores etc.) — o app
+// redesenha a tela inteira a cada ação, o que resetava o campo de texto no
+// meio da digitação. Aqui guardamos o valor/cursor atual antes de redesenhar
+// e devolvemos ao mesmo campo depois.
+function capturarFocoIniciativa(container) {
+  const ativo = document.activeElement;
+  if (!ativo || !container.contains(ativo) || !ativo.classList.contains('iname-input')) return null;
+  return {
+    id: ativo.dataset.initId,
+    value: ativo.value,
+    selStart: ativo.selectionStart,
+    selEnd: ativo.selectionEnd
+  };
+}
+function restaurarFocoIniciativa(container, foco) {
+  if (!foco) return;
+  const input = container.querySelector(`.iname-input[data-init-id="${foco.id}"]`);
+  if (!input) return;
+  input.value = foco.value;
+  input.focus();
+  try { input.setSelectionRange(foco.selStart, foco.selEnd); } catch (e) {}
+}
+
 function renderInit() {
   const el = document.getElementById('init-container');
   if (!el) return;
   sincronizarJogadoresNaIniciativa();
+  const foco = capturarFocoIniciativa(el);
+  const listaAntiga = el.querySelector('.init-list');
+  const scrollTop = listaAntiga ? listaAntiga.scrollTop : 0;
 
   if (!combatAtivo || !INITIATIVE.length) {
     el.innerHTML = `
@@ -3243,7 +3271,9 @@ function renderInit() {
         const tipoLabel  = e.tipo === 'inimigo' ? 'Inimigo' : 'Aliado';
         return `<div class="iitem ${cur}">
           <span class="inum">${e.roll ?? '—'}</span>
-          <input class="iname-input" type="text" value="${escHtml(e.name)}" onchange="renomearIniciativaNPC('${e.id}', this.value)">
+          <input class="iname-input" type="text" data-init-id="${e.id}" value="${escHtml(e.name)}"
+            onchange="renomearIniciativaNPC('${e.id}', this.value)"
+            onkeydown="if(event.key==='Enter') this.blur()">
           <span class="itype ${tipoClasse}">${tipoLabel}</span>
           <button class="init-roll-btn" onclick="rolarIniciativaNPC('${e.id}')" title="Rolar 1d20"><i class="ti ti-dice"></i></button>
           <button class="init-del-btn" onclick="removeIniciativaNPC('${e.id}')" title="Remover"><i class="ti ti-x"></i></button>
@@ -3259,6 +3289,9 @@ function renderInit() {
       <button class="btn" onclick="avancarTurno(1)">Próximo <i class="ti ti-chevron-right"></i></button>
     </div>
     <button class="btn btn-danger" style="width:100%;margin-top:8px" onclick="encerrarCombate()"><i class="ti ti-x"></i> Encerrar Combate</button>`;
+  restaurarFocoIniciativa(el, foco);
+  const listaNova = el.querySelector('.init-list');
+  if (listaNova) listaNova.scrollTop = scrollTop;
 }
 
 // Jogador: mostra a mesma ordem (somente leitura), com botão de "Rolar
