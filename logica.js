@@ -72,6 +72,7 @@ function countNotasAtivas(p) {
 // Cada teste: { id, name, attr }
 // attr: 'agi' | 'forca' | 'intel' | 'neutro'
 const TESTES_LISTA = [
+  { id: 'iniciativa',  name: 'Iniciativa',  attr: 'agi'    },
   { id: 'acrobacia',   name: 'Acrobacia',   attr: 'agi'    },
   { id: 'desviar',     name: 'Desviar',     attr: 'agi'    },
   { id: 'furtividade', name: 'Furtividade', attr: 'agi'    },
@@ -944,8 +945,11 @@ const NOTETAGS = ['Geral','Missão','Inimigos','Locais'];
 // ═══════════════════════════════════════
 let PLAYERS = [];
 let turnGlobal = 1;
-let INITIATIVE = [];
-let curI = 0;
+let INITIATIVE = [];       // [{ id, tipo:'jogador'|'aliado'|'inimigo', playerId?, name, roll }]
+let turnoAtualId = null;   // id da entrada de INITIATIVE cujo turno é agora
+let combatAtivo = false;   // true enquanto o Narrador mantém um combate em andamento
+let initSetupInimigos = 2; // contadores locais (só do Narrador) antes de iniciar o combate
+let initSetupAliados = 0;
 let notes = {geral:'', missão:'', inimigos:'', locais:''};
 let activeNote = 'geral';
 
@@ -988,7 +992,7 @@ let dataListenerRef = null;      // ref do listener .on('value') atual (p/ poder
 let dataListenerHandler = null;
 
 function snapshotState() {
-  return { PLAYERS, turnGlobal, INITIATIVE, curI, notes };
+  return { PLAYERS, turnGlobal, INITIATIVE, turnoAtualId, combatAtivo, notes };
 }
 
 function applyData(data) {
@@ -1035,8 +1039,12 @@ function applyData(data) {
     getTestePersonagem(p);
   });
   turnGlobal = data.turnGlobal || 1;
-  INITIATIVE = data.INITIATIVE || [];
-  curI = data.curI || 0;
+  // Migração: formato antigo de INITIATIVE não tinha "id"/"tipo" — descarta
+  // com segurança em vez de tentar converter (evita quebrar a tela).
+  const initRaw = Array.isArray(data.INITIATIVE) ? data.INITIATIVE : [];
+  INITIATIVE = initRaw.every(e => e && e.id && e.tipo) ? initRaw : [];
+  turnoAtualId = data.turnoAtualId ?? null;
+  combatAtivo = !!data.combatAtivo && INITIATIVE.length > 0;
   notes = data.notes || {geral:'', missão:'', inimigos:'', locais:''};
 }
 
@@ -1157,7 +1165,7 @@ function bindCampaign(campaignId) {
       applyData(data);
     } else {
       PLAYERS = JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
-      turnGlobal = 1; INITIATIVE = []; curI = 0;
+      turnGlobal = 1; INITIATIVE = []; turnoAtualId = null; combatAtivo = false;
       notes = {geral:'', missão:'', inimigos:'', locais:''};
       lastWrittenJSON = JSON.stringify(snapshotState());
       dataRef.set(snapshotState());
@@ -1194,7 +1202,7 @@ function trocarCampanha() {
   activeCampaignId = null;
   activeCampaignMeta = null;
   bindRollsSync(null);
-  PLAYERS = []; INITIATIVE = []; curI = 0;
+  PLAYERS = []; INITIATIVE = []; turnoAtualId = null; combatAtivo = false;
   notes = {geral:'', missão:'', inimigos:'', locais:''};
   turnGlobal = 1;
 
@@ -1344,8 +1352,11 @@ function nextTurnGlobal() {
 }
 
 function resetLuta() {
-  if (!confirm('Resetar todos os usos por luta e reiniciar os turnos?')) return;
+  if (!confirm('Resetar todos os usos por luta, reiniciar os turnos e encerrar o combate atual?')) return;
   turnGlobal = 1;
+  INITIATIVE = [];
+  turnoAtualId = null;
+  combatAtivo = false;
   PLAYERS.forEach(p => {
     p.acoesAtuais = p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
     p.skills.forEach(sk => {
@@ -3055,24 +3066,234 @@ function deleteInvItem() {
 }
 
 // ═══════════════════════════════════════
-// INICIATIVA & NOTAS (Narrador)
+// INICIATIVA (sincronizada entre Narrador e todos os Jogadores)
 // ═══════════════════════════════════════
-function rollInit() {
-  INITIATIVE = PLAYERS.map(p => ({name:p.name, roll:Math.floor(Math.random()*20)+1, type:'ally'}))
-    .concat([{name:'Inimigo A', roll:Math.floor(Math.random()*20)+1, type:'enemy'},{name:'Inimigo B', roll:Math.floor(Math.random()*20)+1, type:'enemy'}])
-    .sort((a,b) => b.roll - a.roll);
-  curI = 0; saveState(); renderInit();
+// INITIATIVE: [{ id, tipo:'jogador'|'aliado'|'inimigo', playerId?, name, roll }]
+// turnoAtualId: id da entrada de INITIATIVE cujo turno é agora (não um índice,
+// assim a marcação do turno atual não se perde quando a lista é reordenada).
+// combatAtivo: true enquanto o Narrador mantiver esse combate em andamento.
+
+// Retorna a ordem de exibição: quem já rolou primeiro (do maior pro menor),
+// e quem ainda não rolou depois, na ordem em que foi adicionado.
+function ordemIniciativa() {
+  return [...INITIATIVE].sort((a, b) => {
+    if (a.roll === null && b.roll === null) return 0;
+    if (a.roll === null) return 1;
+    if (b.roll === null) return -1;
+    return b.roll - a.roll;
+  });
 }
+
+// Ajusta os contadores de quantos Inimigos/Aliados (NPCs) entrarão no
+// próximo combate — só existe localmente no navegador do Narrador até
+// "Iniciar Combate" ser clicado.
+function stepInitSetup(campo, delta) {
+  if (campo === 'inimigos') initSetupInimigos = Math.max(0, Math.min(20, initSetupInimigos + delta));
+  else initSetupAliados = Math.max(0, Math.min(20, initSetupAliados + delta));
+  renderInit();
+}
+
+// Narrador inicia um novo combate: todos os Jogadores entram automaticamente
+// na ordem (aguardando rolar), mais os Inimigos/Aliados (NPCs) escolhidos.
+function iniciarCombate() {
+  const jogadores = PLAYERS.map(p => ({ id: 'init_pl_' + p.id, tipo: 'jogador', playerId: p.id, name: p.name, roll: null }));
+  const aliados = Array.from({ length: initSetupAliados }, (_, i) => ({ id: 'init_al_' + Date.now() + '_' + i, tipo: 'aliado', name: `Aliado ${i + 1}`, roll: null }));
+  const inimigos = Array.from({ length: initSetupInimigos }, (_, i) => ({ id: 'init_en_' + Date.now() + '_' + i, tipo: 'inimigo', name: `Inimigo ${i + 1}`, roll: null }));
+  INITIATIVE = [...jogadores, ...aliados, ...inimigos];
+  turnoAtualId = null;
+  combatAtivo = true;
+  saveState();
+  renderAll();
+}
+
+// Encerra o combate atual e limpa toda a ordem de iniciativa.
+function encerrarCombate() {
+  if (!confirm('Encerrar o combate atual e limpar a ordem de iniciativa?')) return;
+  INITIATIVE = [];
+  turnoAtualId = null;
+  combatAtivo = false;
+  saveState();
+  renderAll();
+}
+
+// Narrador adiciona mais um Inimigo/Aliado (NPC) no meio do combate.
+function addIniciativaNPC(tipo) {
+  const n = INITIATIVE.filter(e => e.tipo === tipo).length + 1;
+  const idBase = tipo === 'inimigo' ? 'init_en_' : 'init_al_';
+  INITIATIVE.push({ id: idBase + Date.now() + '_' + Math.random().toString(36).slice(2, 5), tipo, name: (tipo === 'inimigo' ? 'Inimigo ' : 'Aliado ') + n, roll: null });
+  saveState();
+  renderAll();
+}
+
+function removeIniciativaNPC(id) {
+  INITIATIVE = INITIATIVE.filter(e => e.id !== id);
+  if (turnoAtualId === id) turnoAtualId = null;
+  saveState();
+  renderAll();
+}
+
+function renomearIniciativaNPC(id, novoNome) {
+  const e = INITIATIVE.find(x => x.id === id);
+  if (!e) return;
+  e.name = (novoNome || '').trim() || e.name;
+  saveState();
+  renderAll();
+}
+
+// Narrador rola manualmente a iniciativa de um NPC (1d20 simples).
+function rolarIniciativaNPC(id) {
+  const e = INITIATIVE.find(x => x.id === id);
+  if (!e) return;
+  e.roll = 1 + Math.floor(Math.random() * 20);
+  saveState();
+  renderAll();
+}
+
+// Cada Jogador rola a própria Iniciativa (o Narrador também pode rolar por
+// qualquer um deles). Reaproveita o Teste de Iniciativa configurado na aba
+// de Testes: 1d20 + maestria de Agilidade, com Mega Vantagem/Desvantagem e
+// Bônus, e o resultado já entra na ordem do combate.
+function rolarIniciativaJogador(pid) {
+  const total = rolarTeste(pid, 'iniciativa');
+  if (total === null) return;
+  let entry = INITIATIVE.find(e => e.tipo === 'jogador' && e.playerId === pid);
+  if (!entry) {
+    if (!combatAtivo) return;
+    const p = PLAYERS.find(x => x.id === pid);
+    if (!p) return;
+    entry = { id: 'init_pl_' + pid, tipo: 'jogador', playerId: pid, name: p.name, roll: null };
+    INITIATIVE.push(entry);
+  }
+  entry.roll = total;
+  saveState();
+  renderAll();
+}
+
+// Avança/retrocede quem age agora, seguindo a ordem por maior iniciativa.
+function avancarTurno(dir) {
+  const ordem = ordemIniciativa();
+  if (!ordem.length) return;
+  let idx = ordem.findIndex(e => e.id === turnoAtualId);
+  if (idx === -1) idx = dir > 0 ? -1 : 0;
+  idx = (idx + dir + ordem.length) % ordem.length;
+  turnoAtualId = ordem[idx].id;
+  saveState();
+  renderAll();
+}
+function nextI() { avancarTurno(1); }
+function prevI() { avancarTurno(-1); }
+
+// Se um personagem novo for criado com um combate já em andamento, garante
+// que ele entre na ordem de iniciativa (aguardando rolar), em vez de ficar
+// de fora até alguém lembrar de adicioná-lo manualmente.
+function sincronizarJogadoresNaIniciativa() {
+  if (!combatAtivo) return;
+  PLAYERS.forEach(p => {
+    if (!INITIATIVE.some(e => e.tipo === 'jogador' && e.playerId === p.id)) {
+      INITIATIVE.push({ id: 'init_pl_' + p.id, tipo: 'jogador', playerId: p.id, name: p.name, roll: null });
+    }
+  });
+}
+
+// Narrador: card completo de Iniciativa (setup de NPCs + lista + controles).
 function renderInit() {
-  const el = document.getElementById('init-list');
-  if (!el || !INITIATIVE.length) return;
-  el.innerHTML = INITIATIVE.map((it,i) => `
-    <div class="iitem ${i===curI?'cur':''}">
-      <span class="inum">${it.roll}</span><span class="iname">${it.name}</span><span class="itype ${it.type==='enemy'?'it-en':'it-al'}">${it.type==='enemy'?'Inimigo':'Aliado'}</span>
-    </div>`).join('');
+  const el = document.getElementById('init-container');
+  if (!el) return;
+  sincronizarJogadoresNaIniciativa();
+
+  if (!combatAtivo || !INITIATIVE.length) {
+    el.innerHTML = `
+      <div class="init-setup">
+        <div class="init-setup-row">
+          <span class="itype it-en">Inimigos</span>
+          <div class="init-counter">
+            <button onclick="stepInitSetup('inimigos',-1)">−</button>
+            <span>${initSetupInimigos}</span>
+            <button onclick="stepInitSetup('inimigos',1)">+</button>
+          </div>
+        </div>
+        <div class="init-setup-row">
+          <span class="itype it-al">Aliados (NPC)</span>
+          <div class="init-counter">
+            <button onclick="stepInitSetup('aliados',-1)">−</button>
+            <span>${initSetupAliados}</span>
+            <button onclick="stepInitSetup('aliados',1)">+</button>
+          </div>
+        </div>
+        <div class="init-setup-hint">${PLAYERS.length} jogador(es) entrarão automaticamente na ordem.</div>
+        <button class="btn btn-success" style="width:100%" onclick="iniciarCombate()"><i class="ti ti-swords"></i> Iniciar Combate</button>
+      </div>`;
+    return;
+  }
+
+  const ordem = ordemIniciativa();
+  el.innerHTML = `
+    <div class="init-list">
+      ${ordem.map(e => {
+        const cur = e.id === turnoAtualId ? 'cur' : '';
+        if (e.tipo === 'jogador') {
+          return `<div class="iitem ${cur}">
+            <span class="inum">${e.roll ?? '—'}</span>
+            <span class="iname">${escHtml(e.name)}</span>
+            <span class="itype it-pl">Jogador</span>
+            <button class="init-roll-btn" onclick="rolarIniciativaJogador(${e.playerId})" title="Rolar por ele"><i class="ti ti-dice"></i></button>
+          </div>`;
+        }
+        const tipoClasse = e.tipo === 'inimigo' ? 'it-en' : 'it-al';
+        const tipoLabel  = e.tipo === 'inimigo' ? 'Inimigo' : 'Aliado';
+        return `<div class="iitem ${cur}">
+          <span class="inum">${e.roll ?? '—'}</span>
+          <input class="iname-input" type="text" value="${escHtml(e.name)}" onchange="renomearIniciativaNPC('${e.id}', this.value)">
+          <span class="itype ${tipoClasse}">${tipoLabel}</span>
+          <button class="init-roll-btn" onclick="rolarIniciativaNPC('${e.id}')" title="Rolar 1d20"><i class="ti ti-dice"></i></button>
+          <button class="init-del-btn" onclick="removeIniciativaNPC('${e.id}')" title="Remover"><i class="ti ti-x"></i></button>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="init-add-row">
+      <button class="btn" onclick="addIniciativaNPC('inimigo')"><i class="ti ti-plus"></i> Inimigo</button>
+      <button class="btn" onclick="addIniciativaNPC('aliado')"><i class="ti ti-plus"></i> Aliado</button>
+    </div>
+    <div class="init-btns">
+      <button class="btn" onclick="avancarTurno(-1)"><i class="ti ti-chevron-left"></i> Anterior</button>
+      <button class="btn" onclick="avancarTurno(1)">Próximo <i class="ti ti-chevron-right"></i></button>
+    </div>
+    <button class="btn btn-danger" style="width:100%;margin-top:8px" onclick="encerrarCombate()"><i class="ti ti-x"></i> Encerrar Combate</button>`;
 }
-function nextI() { curI = (curI+1) % Math.max(INITIATIVE.length,1); saveState(); renderInit(); }
-function prevI() { curI = (curI-1+Math.max(INITIATIVE.length,1)) % Math.max(INITIATIVE.length,1); saveState(); renderInit(); }
+
+// Jogador: mostra a mesma ordem (somente leitura), com botão de "Rolar
+// minha iniciativa" apenas na linha do personagem selecionado no momento.
+function renderIniciativaJogador() {
+  const el = document.getElementById('jog-iniciativa');
+  if (!el) return;
+  if (!combatAtivo || !INITIATIVE.length) { el.innerHTML = ''; return; }
+
+  const ordem = ordemIniciativa();
+  const pselEl = document.getElementById('psel');
+  const selectedPid = pselEl ? Number(pselEl.value) : null;
+
+  el.innerHTML = `
+    <div class="card init-card-jog">
+      <div class="card-title"><i class="ti ti-swords"></i> Ordem de Iniciativa</div>
+      <div class="init-list">
+        ${ordem.map(e => {
+          const isMe = e.tipo === 'jogador' && e.playerId === selectedPid;
+          const tipoClasse = e.tipo === 'jogador' ? 'it-pl' : (e.tipo === 'inimigo' ? 'it-en' : 'it-al');
+          const tipoLabel  = e.tipo === 'jogador' ? 'Jogador' : (e.tipo === 'inimigo' ? 'Inimigo' : 'Aliado');
+          const rollBtn = isMe
+            ? `<button class="init-roll-btn" onclick="rolarIniciativaJogador(${e.playerId})" title="Rolar minha iniciativa"><i class="ti ti-dice"></i></button>`
+            : '';
+          return `<div class="iitem ${e.id === turnoAtualId ? 'cur' : ''} ${isMe ? 'iitem-me' : ''}">
+            <span class="inum">${e.roll ?? '—'}</span>
+            <span class="iname">${escHtml(e.name)}</span>
+            <span class="itype ${tipoClasse}">${tipoLabel}</span>
+            ${rollBtn}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
 
 function renderNoteTags() {
   const ntags = document.getElementById('ntags');
@@ -3876,6 +4097,7 @@ function renderAll() {
   if (IS_JOGADOR) {
     renderPsel();
     renderJogador();
+    renderIniciativaJogador();
     if (jogActiveTab === 'anotacoes') renderJogNotas();
     checkLevelUpToasts();
   }
@@ -4823,8 +5045,9 @@ function finishRollEntry(key) {
 }
 
 // ═══════════════════════════════════════
-// ROLAGEM DE TESTES (Acrobacia, Furtividade, Aparar, etc.)
+// ROLAGEM DE TESTES (Acrobacia, Furtividade, Aparar, Iniciativa, etc.)
 // ═══════════════════════════════════════
+// Monta a árvore de rolagem de um Teste, sem publicá-la no feed de dados.
 // Rola 1d20 + maestria do atributo do teste. Se o teste tiver Mega Vantagem
 // (t.mv) ou Mega Desvantagem (t.md) configurada, rola 2 dados e mantém o
 // maior ou o menor resultado, respectivamente. Se houver um Bônus
@@ -4832,13 +5055,10 @@ function finishRollEntry(key) {
 // fixo (ex: "+3") ou uma fórmula de dados (ex: "-1d4", "1d6").
 // Exceção: o Teste de Emoção usa 1d100 no lugar do 1d20 e subtrai a
 // Insanidade atual do personagem (1d100 − Insanidade).
-function rolarTeste(pid, testeId) {
-  if (!currentUser) return;
-  const p = PLAYERS.find(x => x.id === pid);
-  if (!p) return;
+function construirRolagemTeste(p, testeId) {
   getTestePersonagem(p);
   const def = TESTES_LISTA.find(t => t.id === testeId);
-  if (!def) return;
+  if (!def) return null;
   const t = p.testes[testeId];
 
   const isEmocao = testeId === 'emocao';
@@ -4895,21 +5115,31 @@ function rolarTeste(pid, testeId) {
   const megaLabel = t.mv ? ' (Mega Vantagem)' : (t.md ? ' (Mega Desvantagem)' : '');
   const formula = `Teste de ${def.name}${megaLabel}`;
 
-  const charName = p.name;
+  return { def, sides, total, tree, formula };
+}
+
+// Rola um Teste e publica o resultado no feed de dados. Retorna o total
+// obtido (usado, por exemplo, pela Iniciativa para ordenar o combate).
+function rolarTeste(pid, testeId) {
+  if (!currentUser) return null;
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return null;
+  const r = construirRolagemTeste(p, testeId);
+  if (!r) return null;
 
   const entry = {
     playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
-    charName,
+    charName: p.name,
     isNarrator: !!IS_NARRADOR,
-    formula,
-    tree,
-    total,
+    formula: r.formula,
+    tree: r.tree,
+    total: r.total,
     hidden: false,
     rolling: true,
     ts: Date.now()
   };
 
-  spinDiceFab(true, sides);
+  spinDiceFab(true, r.sides);
   pushRollEntry(entry, key => {
     setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
@@ -4918,6 +5148,8 @@ function rolarTeste(pid, testeId) {
   // Abre o painel de dados na aba Histórico para o resultado aparecer na hora.
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  return r.total;
 }
 
 // ─── Modal de escolha de Teste — habilidade "Teste Mental" ─────────────────
