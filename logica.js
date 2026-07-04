@@ -964,6 +964,7 @@ let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
 let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidades agrupadas
 let jogTestesCollapsed = true;   // jogador: começa fechado
+let jogIniciativaCollapsed = false; // jogador: painel de Ordem de Iniciativa começa aberto
 let narTestesCollapsed = {};     // narrador: { [playerId]: true/false } — começa fechado
 let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true, expressoes: true }; // começa fechado
 let jogInvCollapsed = { armas: true, protecoes: true, itens: true }; // inventário começa fechado
@@ -3304,6 +3305,10 @@ function renderInit() {
 
 // Jogador: mostra a mesma ordem (somente leitura), com botão de "Rolar
 // minha iniciativa" apenas na linha do personagem selecionado no momento.
+function toggleJogIniciativa() {
+  jogIniciativaCollapsed = !jogIniciativaCollapsed;
+  renderIniciativaJogador();
+}
 function renderIniciativaJogador() {
   const el = document.getElementById('jog-iniciativa');
   if (!el) return;
@@ -3320,14 +3325,17 @@ function renderIniciativaJogador() {
 
   el.innerHTML = `
     <div class="card init-card-jog">
-      <div class="card-title"><i class="ti ti-swords"></i> Ordem de Iniciativa</div>
-      <div class="init-list">
+      <div class="card-title init-card-title" onclick="toggleJogIniciativa()">
+        <i class="ti ti-swords"></i> Ordem de Iniciativa
+        <i class="ti ${jogIniciativaCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron" style="margin-left:auto"></i>
+      </div>
+      ${jogIniciativaCollapsed ? '' : `<div class="init-list">
         ${ordem.map(e => {
           const isMe = e.tipo === 'jogador' && e.playerId === selectedPid;
           const tipoClasse = e.tipo === 'jogador' ? 'it-pl' : (e.tipo === 'inimigo' ? 'it-en' : 'it-al');
           const tipoLabel  = e.tipo === 'jogador' ? 'Jogador' : (e.tipo === 'inimigo' ? 'Inimigo' : 'Aliado');
           const rollBtn = isMe
-            ? `<button class="init-roll-btn" onclick="rolarIniciativaJogador(${e.playerId})" title="Rolar minha iniciativa"><i class="ti ti-dice"></i></button>`
+            ? `<button class="init-roll-btn" onclick="event.stopPropagation();rolarIniciativaJogador(${e.playerId})" title="Rolar minha iniciativa"><i class="ti ti-dice"></i></button>`
             : '';
           return `<div class="iitem ${e.id === turnoAtualId ? 'cur' : ''} ${isMe ? 'iitem-me' : ''}">
             <span class="inum">${e.roll ?? '—'}</span>
@@ -3336,8 +3344,10 @@ function renderIniciativaJogador() {
             ${rollBtn}
           </div>`;
         }).join('')}
-      </div>
+      </div>`}
     </div>`;
+
+  if (jogIniciativaCollapsed) return;
 
   const listaNova = el.querySelector('.init-list');
   if (listaNova) {
