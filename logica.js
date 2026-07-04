@@ -1157,7 +1157,7 @@ let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidade
 let jogTestesCollapsed = true;   // jogador: começa fechado
 let jogIniciativaCollapsed = false; // jogador: painel de Ordem de Iniciativa começa aberto
 let narTestesCollapsed = {};     // narrador: { [playerId]: true/false } — começa fechado
-let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true, expressoes: true }; // começa fechado
+let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true, expressoes: true, campos: true }; // começa fechado
 let jogInvCollapsed = { armas: true, protecoes: true, itens: true }; // inventário começa fechado
 let jogActiveTab = 'ficha'; // 'ficha' | 'anotacoes'
 let modalInvPid = null;
@@ -2542,7 +2542,6 @@ function renderJogador() {
         <span class="gt-collapse-info">${camposHarmonicosCollapsed ? `<span class="gt-ready-badge" style="background:rgba(232,168,56,0.15);color:var(--bardo);border-color:rgba(232,168,56,0.3)">${camposHarmonicosList.length} campos</span>` : ''}</span>
         <i class="ti ${camposHarmonicosCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron"></i>
       </div>
-      ${camposHarmonicosCollapsed ? '' : `<div class="campos-harmonicos-legend">Custo: gastar TODAS as 7 Notas Musicais · 2 Ações para lançar · sem tempo de recarga.</div>`}
       ${camposHarmonicosCollapsed ? '' : `<div class="skills-grid">${camposHarmonicosHtml}</div>`}
       ` : ''}
 
