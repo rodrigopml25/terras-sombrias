@@ -691,6 +691,8 @@ function ensureRacePassivas(p) {
   ensureRaceWeapons(p);
   // Fora da forma de Dragão, remove de novo o que é exclusivo da Metamorfose
   syncFormaDragaoLock(p);
+  // Garante as passivas fixas da subclasse (ex: Multifunções do Campeão)
+  ensureSubclassePassivas(p);
 }
 
 // Armas raciais fixas — injetadas automaticamente no inventário de personagens
@@ -894,6 +896,54 @@ function getBaseClass(subclasseName) {
     if (cls.subs.some(s => s.name === subclasseName)) return cls.name;
   }
   return null;
+}
+
+// ═══════════════════════════════════════
+// PASSIVAS DE SUBCLASSE
+// ═══════════════════════════════════════
+// Cada subclasse pode ter passivas fixas que todo personagem daquela
+// subclasse possui automaticamente — aparecem na aba Passivas/Talentos sem
+// precisar serem cadastradas manualmente. Segue o mesmo padrão de RACAS.
+const SUBCLASSES_PASSIVAS = {
+  'Campeão': [
+    { id: 'campeao_multifuncoes', name: 'Multifunções', desc: 'Sabe usar TODAS as Armas.' },
+  ],
+};
+
+// Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
+// a subclasse não tiver passivas cadastradas no catálogo acima).
+function getSubclassePassivas(p) {
+  return SUBCLASSES_PASSIVAS[p.cls] || [];
+}
+
+// Garante que as passivas fixas da subclasse do personagem estejam presentes
+// em p.passivas (como qualquer outra passiva — editável e excluível). Não
+// duplica as que já existem e não recoloca uma que o jogador excluiu de
+// propósito (rastreado em p.subclassePassivasRemovidas). Ao trocar de
+// subclasse, remove as passivas da subclasse anterior que não pertençam mais
+// à subclasse atual.
+function ensureSubclassePassivas(p) {
+  if (!Array.isArray(p.passivas)) p.passivas = [];
+  if (!Array.isArray(p.subclassePassivasRemovidas)) p.subclassePassivasRemovidas = [];
+
+  // Remove passivas de subclasses que não sejam a atual
+  Object.entries(SUBCLASSES_PASSIVAS).forEach(([subName, lista]) => {
+    if (subName !== p.cls) {
+      const ids = lista.map(sp => sp.id);
+      p.passivas = p.passivas.filter(pas => !pas.subclasseId || !ids.includes(pas.subclasseId));
+    }
+  });
+
+  getSubclassePassivas(p).forEach(sp => {
+    const atendeNivel = !sp.minLevel || (p.level || 1) >= sp.minLevel;
+    const jaTem = p.passivas.some(pas => pas.subclasseId === sp.id);
+    const foiRemovida = p.subclassePassivasRemovidas.includes(sp.id);
+    if (atendeNivel && !jaTem && !foiRemovida) {
+      p.passivas.push({ id: 'pas_subclasse_' + sp.id, subclasseId: sp.id, name: sp.name, desc: sp.desc });
+    } else if (!atendeNivel && jaTem) {
+      p.passivas = p.passivas.filter(pas => pas.subclasseId !== sp.id);
+    }
+  });
 }
 
 // Habilidades gerais — todo personagem possui. cor segue o atributo:
@@ -1670,6 +1720,7 @@ function renderNarrador() {
           let tag = '';
           if (pas.origemId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(origem · ${origemObj ? origemObj.name : ''})</span>`;
           else if (pas.racialId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>`;
+          else if (pas.subclasseId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(subclasse · ${p.cls})</span>`;
           return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div></div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
@@ -2117,6 +2168,7 @@ function renderJogador() {
     let tag = '';
     if (pas.origemId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(origem · ${origemObjJog ? origemObjJog.name : ''})</span>`;
     else if (pas.racialId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>`;
+    else if (pas.subclasseId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(subclasse · ${p.cls})</span>`;
     return `
     <div class="passiva-card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -3540,6 +3592,10 @@ function deletePassiva() {
     if (pas && pas.racialId) {
       if (!Array.isArray(p.racialPassivasRemovidas)) p.racialPassivasRemovidas = [];
       if (!p.racialPassivasRemovidas.includes(pas.racialId)) p.racialPassivasRemovidas.push(pas.racialId);
+    }
+    if (pas && pas.subclasseId) {
+      if (!Array.isArray(p.subclassePassivasRemovidas)) p.subclassePassivasRemovidas = [];
+      if (!p.subclassePassivasRemovidas.includes(pas.subclasseId)) p.subclassePassivasRemovidas.push(pas.subclasseId);
     }
     p.passivas = (p.passivas || []).filter(x => x.id !== modalPassivaId);
     saveState();
