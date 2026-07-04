@@ -892,36 +892,65 @@ function getExpressoesEtereas(p) {
 // ═══════════════════════════════════════
 // CAMPOS HARMÔNICOS — exclusivo do Bardo
 // ═══════════════════════════════════════
-// 4 Habilidades fixas de todo Bardo. Não possuem tempo de recarga — o único
-// custo é gastar TODAS as 7 Notas Musicais de uma vez — e precisam de 2
-// Ações para serem lançadas.
+// 4 Habilidades fixas de todo Bardo. Funcionam como qualquer outra
+// habilidade de 2 Ações (mesmo sistema de useSkill/isReady), mas em vez de
+// ter usos/recarga por turno-luta-sessão, o "combustível" são as 7 Notas
+// Musicais: só ficam prontas com as 7 notas ativas, e usá-las gasta todas
+// as notas de uma vez (tipo: 'notas', tratado à parte em isReady/useSkill).
+// color: 'bardo' não existe nos grupos padrão (green/red/blue/gray) — por
+// isso elas não aparecem misturadas nas Habilidades normais, e sim na
+// própria seção "Campos Harmônicos".
 const BARDO_CAMPOS_HARMONICOS = [
   {
-    id: 'campo_do_maior',
+    id: 'sk_campo_do_maior',
     name: 'Dó Maior',
+    color: 'bardo', cost: 2, tipo: 'notas',
     desc: 'Gaste todas as Notas Musicais e o próximo Turno, independente da Iniciativa, será um Turno dividido entre todos os Aliados! Uma Ação de Movimento e 2 Ações por Aliado — você não participa.',
   },
   {
-    id: 'campo_re_maior',
+    id: 'sk_campo_re_maior',
     name: 'Ré Maior',
+    color: 'bardo', cost: 2, tipo: 'notas',
     desc: 'Gaste todas as Notas Musicais e seus Aliados recebem +1 Ação no próximo turno, além de removerem algum tormento emocional.',
   },
   {
-    id: 'campo_mi_menor',
+    id: 'sk_campo_mi_menor',
     name: 'Mi Menor',
+    color: 'bardo', cost: 2, tipo: 'notas',
     desc: 'Gaste todas as Notas Musicais e um Alvo terá Mega Desvantagem em tudo até o final do seu próximo turno.',
   },
   {
-    id: 'campo_la_menor',
+    id: 'sk_campo_la_menor',
     name: 'Lá Menor',
+    color: 'bardo', cost: 2, tipo: 'notas',
     desc: 'Gaste todas as Notas Musicais e seus Aliados podem doar pontos de Vida, Armadura e Vantagens entre eles até o final deste Turno. Esse último dura até o próximo uso da Vantagem.',
   },
 ];
 
-// Retorna os 4 Campos Harmônicos de um personagem ([] se não for Bardo).
-function getCamposHarmonicos(p) {
-  return p.classeBase === 'Bardo' ? BARDO_CAMPOS_HARMONICOS : [];
+function makeCampoHarmonicoSkill(def) {
+  return {
+    id: def.id, name: def.name, desc: def.desc, color: def.color, cost: def.cost, tipo: def.tipo,
+    usosMax: 1, usosAtuais: 1, cdRestante: 0, turnosRecarga: 1,
+  };
 }
+
+// Garante que todo Bardo tenha os 4 Campos Harmônicos em p.skills, sem
+// duplicar. Segue o mesmo padrão (idempotente, sem remoção) de ensureGeneralSkills.
+function ensureCamposHarmonicos(p) {
+  if (!Array.isArray(p.skills)) p.skills = [];
+  if (p.classeBase !== 'Bardo') return;
+  BARDO_CAMPOS_HARMONICOS.forEach(def => {
+    const jaTem = p.skills.some(sk => sk.id === def.id);
+    if (!jaTem) p.skills.push(makeCampoHarmonicoSkill(def));
+  });
+}
+
+// Retorna os Campos Harmônicos já anexados ao personagem (a partir de p.skills,
+// já que agora são habilidades reais e não apenas texto de referência).
+function getCamposHarmonicos(p) {
+  return (p.skills || []).filter(sk => sk.tipo === 'notas');
+}
+
 
 // ═══════════════════════════════════════
 // CLASSES E SUBCLASSES
@@ -1168,6 +1197,7 @@ function applyData(data) {
     if (!Array.isArray(p.inventario)) p.inventario = [];
     ensureGeneralSkills(p);
     ensureRacePassivas(p);
+    ensureCamposHarmonicos(p);
     if (typeof p.armaduraMax !== 'number') p.armaduraMax = typeof p.armadura === 'number' ? p.armadura : 10;
     if (typeof p.armadura !== 'number') p.armadura = p.armaduraMax;
     if (p.armadura > p.armaduraMax) p.armadura = p.armaduraMax;
@@ -1422,13 +1452,18 @@ function tipoLabel(sk) {
   if (sk.tipo==='luta')     return sk.usosMax + 'x/luta';
   if (sk.tipo==='sessao')   return sk.usosMax + 'x/sessão';
   if (sk.tipo==='turno_N')  return sk.turnosRecarga + '⏳ turnos';
+  if (sk.tipo==='notas')    return '7 Notas';
   return '';
 }
-function isReady(sk) {
+// isReady recebe opcionalmente o personagem (p) — necessário para o tipo
+// 'notas' (Campos Harmônicos do Bardo), cuja disponibilidade depende das
+// 7 Notas Musicais estarem todas ativas, e não de usos/recarga.
+function isReady(sk, p) {
   if (sk.tipo==='infinite') return true;
   if (sk.tipo==='perturn')  return sk.usosAtuais > 0;
   if (sk.tipo==='luta' || sk.tipo==='sessao') return sk.usosAtuais > 0;
   if (sk.tipo==='turno_N')  return sk.cdRestante === 0 && sk.usosAtuais > 0;
+  if (sk.tipo==='notas')    return !!p && countNotasAtivas(p) === 7;
   return false;
 }
 
@@ -1459,7 +1494,7 @@ function useSkill(pid, skid) {
     return;
   }
 
-  if (!isReady(sk)) return;
+  if (!isReady(sk, p)) return;
 
   // Ações do turno: habilidades com custo (0/1/2 ações) descontam do saldo
   // atual do personagem. Sem saldo suficiente, a ativação é bloqueada.
@@ -1476,6 +1511,10 @@ function useSkill(pid, skid) {
     sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
     if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
     setFormaDragao(p, true);
+  } else if (sk.tipo === 'notas') {
+    // Campo Harmônico: gasta TODAS as 7 Notas Musicais ao ser lançado.
+    if (!p.notasBardo || typeof p.notasBardo !== 'object') p.notasBardo = {};
+    NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
   } else if (sk.tipo !== 'infinite') {
     sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
     if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
@@ -1805,7 +1844,7 @@ function renderNarrador() {
       const info = narGrupoInfo[cor];
       const mst = info.attr != null ? maestria(info.attr) : null;
       const chips = gruposNar[cor].map(sk => {
-        const ready = isReady(sk);
+        const ready = isReady(sk, p);
         let extra = '';
         if (sk.tipo === 'turno_N' && sk.cdRestante > 0) extra = `<span class="chip-cd">⏳${sk.cdRestante}</span>`;
         else if ((sk.tipo==='luta'||sk.tipo==='sessao') && sk.usosAtuais < sk.usosMax) extra = `<span class="chip-cd">${sk.usosAtuais}/${sk.usosMax}</span>`;
@@ -1969,12 +2008,21 @@ function renderNarrador() {
         ` : ''}
         ${getCamposHarmonicos(p).length ? `
         <div class="nar-passivas-title" style="margin-top:14px;color:var(--bardo)"><i class="ti ti-music"></i> Campos Harmônicos <span style="font-size:10px;color:var(--text3);font-weight:400">(7 Notas · 2 Ações · sem recarga)</span></div>
-        <div class="campos-harmonicos-grid">${getCamposHarmonicos(p).map(campo => `
-          <div class="campo-harmonico-card">
-            <div class="campo-harmonico-icone"><i class="ti ti-music"></i></div>
-            <div class="campo-harmonico-name">${campo.name}</div>
-            <div class="campo-harmonico-desc">${campo.desc}</div>
-          </div>`).join('')}</div>
+        <div class="skills-grid">${getCamposHarmonicos(p).map(sk => {
+          const ready = isReady(sk, p);
+          const state = ready ? 'ready' : 'exhausted';
+          const notasStatus = ready ? 'Pronta' : `${countNotasAtivas(p)}/7 notas`;
+          return `
+          <div class="skill-card sk-bardo ${state}" onclick="useSkill(${p.id},'${sk.id}')">
+            <div class="sk-name">${sk.name}</div>
+            <div class="sk-tags"><span class="sk-tag">2 ações</span><span class="sk-tag">${tipoLabel(sk)}</span></div>
+            <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">${sk.desc}</div>
+            <div class="sk-bottom">
+              <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar</button>
+              <span class="sk-cd">${notasStatus}</span>
+            </div>
+          </div>`;
+        }).join('')}</div>
         ` : ''}
       </div>` : ''}
       ${renderTestes(p, true)}
@@ -2235,10 +2283,10 @@ function renderJogador() {
     const collapsed = !!jogSkillsCollapsed[cor];
     const mst = attrGrupo[cor] != null ? maestria(attrGrupo[cor]) : null;
     const mstTag = mst != null ? `<span class="sk-tag sk-tag-mst">+${mst} maestria</span>` : '';
-    const readyCount = grupos[cor].filter(sk => isReady(sk)).length;
+    const readyCount = grupos[cor].filter(sk => isReady(sk, p)).length;
     const totalCount = grupos[cor].length;
     const cards = collapsed ? '' : grupos[cor].map(sk => {
-      const ready = isReady(sk);
+      const ready = isReady(sk, p);
       const state = sk.tipo==='infinite' ? 'ready' : ready ? 'ready' : sk.cdRestante>0 ? 'cooldown' : 'exhausted';
       let cdHtml = '', dotsHtml = '';
       if (sk.tipo === 'turno_N') cdHtml = sk.cdRestante > 0 ? `<span class="sk-cd">⏳ ${sk.cdRestante} turno${sk.cdRestante>1?'s':''}</span>` : `<span class="sk-cd">Pronta</span>`;
@@ -2319,12 +2367,22 @@ function renderJogador() {
 
   const camposHarmonicosList = getCamposHarmonicos(p);
   const camposHarmonicosCollapsed = !!jogSkillsCollapsed['campos'];
-  const camposHarmonicosHtml = camposHarmonicosCollapsed ? '' : camposHarmonicosList.map(campo => `
-    <div class="campo-harmonico-card">
-      <div class="campo-harmonico-icone"><i class="ti ti-music"></i></div>
-      <div class="campo-harmonico-name"><i class="ti ti-music"></i> ${campo.name}</div>
-      <div class="campo-harmonico-desc">${campo.desc}</div>
-    </div>`).join('');
+  const camposHarmonicosHtml = camposHarmonicosCollapsed ? '' : camposHarmonicosList.map(sk => {
+    const ready = isReady(sk, p);
+    const state = ready ? 'ready' : 'exhausted';
+    const notasStatus = ready ? 'Pronta' : `${countNotasAtivas(p)}/7 notas`;
+    return `<div class="skill-card sk-bardo ${state}" onclick="useSkill(${p.id},'${sk.id}')">
+      <div class="sk-name">${sk.name}</div>
+      <div class="sk-tags"><span class="sk-tag">2 ações</span><span class="sk-tag">${tipoLabel(sk)}</span></div>
+      <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
+          ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
+      </div>
+      <div class="sk-bottom">
+        <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar</button>
+        <span class="sk-cd">${notasStatus}</span>
+      </div>
+    </div>`;
+  }).join('');
 
   content.innerHTML = `
     <div class="jog-inner-grid">
@@ -2485,7 +2543,7 @@ function renderJogador() {
         <i class="ti ${camposHarmonicosCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron"></i>
       </div>
       ${camposHarmonicosCollapsed ? '' : `<div class="campos-harmonicos-legend">Custo: gastar TODAS as 7 Notas Musicais · 2 Ações para lançar · sem tempo de recarga.</div>`}
-      ${camposHarmonicosCollapsed ? '' : `<div class="campos-harmonicos-grid">${camposHarmonicosHtml}</div>`}
+      ${camposHarmonicosCollapsed ? '' : `<div class="skills-grid">${camposHarmonicosHtml}</div>`}
       ` : ''}
 
       ${renderTestes(p, false)}
@@ -4255,6 +4313,7 @@ function saveCharacter() {
         NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
       }
       ensureRacePassivas(p);
+      ensureCamposHarmonicos(p);
     }
   } else {
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
@@ -4276,6 +4335,7 @@ function saveCharacter() {
     }
     ensureGeneralSkills(novo);
     ensureRacePassivas(novo);
+    ensureCamposHarmonicos(novo);
     PLAYERS.push(novo);
     modalCharId = newId;
   }
