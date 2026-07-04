@@ -763,11 +763,15 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   padding: 12px;
 }
 .passiva-name {
-  font-size: 13px; font-weight: 600; margin-bottom: 6px;
+  font-size: 13px; font-weight: 600; margin-bottom: 2px;
   font-family: var(--font-display); letter-spacing: .02em;
   color: #b89aff; display: flex; align-items: center; gap: 6px;
+  min-width: 0;
 }
-.passiva-name i { font-size: 13px; }
+.passiva-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.passiva-name i { font-size: 13px; flex-shrink: 0; }
+.passiva-tag { font-size: 10px; color: var(--text3); font-weight: 400; margin-bottom: 6px; }
+.passiva-tag-origem { color: var(--accent2); }
 .passiva-desc {
   font-size: 11px; color: var(--text2); line-height: 1.5;
   white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;
