@@ -968,6 +968,9 @@ const SUBCLASSES_PASSIVAS = {
   'Ilusionista': [
     { id: 'ilusionista_camuflagem_magica', name: 'Camuflagem Mágica', desc: 'Seu Teste de Furtividade pode ser trocado por um Teste de Arcano ou Místico.' },
   ],
+  'Criador de Runa': [
+    { id: 'criador_runa_pra_que_magia', name: 'Pra Que Magia!?', desc: 'Pode comprar um pergaminho de uso único que contém um feitiço de sua escolha por 20 de Dinheiro. Os Dados de Lançamento e de Dano/Cura são iguais aos de uma Técnica. (Pode comprar até 3 pergaminhos por sessão)' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
