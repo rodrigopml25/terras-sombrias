@@ -1051,6 +1051,9 @@ const SUBCLASSES_PASSIVAS = {
   'Amaldiçoado': [
     { id: 'amaldicoado_maldicao', name: 'Maldição', desc: 'Possui 10 de Humanidade, podendo gastá-la para ativar os Assombrar de seus Feitiços. Quando chegar a 0, a maldição será liberta...' },
   ],
+  'Dançarino': [
+    { id: 'dancarino_dancarino_ecletico', name: 'Dançarino Eclético', desc: 'Possui 4 Campos Harmônicos, que precisam de 7 Notas Musicais para serem lançados. Aprenda uma Técnica que não envolva Arma de outra Classe. Ao subir de Nível, repita esse último efeito, porém, não pode repetir Classes.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
