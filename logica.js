@@ -974,6 +974,9 @@ const SUBCLASSES_PASSIVAS = {
   'Feiticeiro de Fogo': [
     { id: 'feiticeiro_fogo_poder_proibido', name: 'Poder Proibido', desc: 'As chamas são uma magia extremamente perigosa, pois se manifestam por meio de suas emoções e capacidades físicas. Assim, seu Teste de Emoção tem +1d20 de Vantagem, e seu Teste de Arcano ou Místico utiliza a Maestria de Força ao invés de Intelecto. Quando você estiver em um momento em que perde o controle racional, sua magia será liberta.' },
   ],
+  'Conjurador': [
+    { id: 'conjurador_transcendencia_intelectual', name: 'Transcendência Intelectual', desc: 'Aprenda um feitiço de outra Classe. Ao subir de Nível, repita esse efeito. No Nível 5, ao invés de um feitiço, aprenda um feitiço Lendário.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
