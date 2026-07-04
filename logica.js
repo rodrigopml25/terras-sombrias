@@ -911,6 +911,9 @@ const SUBCLASSES_PASSIVAS = {
   'Combatente': [
     { id: 'combatente_guerreiro_perfeito', name: 'Guerreiro Perfeito', desc: 'Pode usar uma arma pesada de corpo a corpo em cada mão (mesmo que ambas sejam de duas mãos). Pode lançar uma Habilidade usando as duas Armas juntas, assim terá +Dano da segunda Arma, porém, sua Maestria no lançamento será reduzida pela metade.' },
   ],
+  'Soldado Elementar': [
+    { id: 'soldado_elementar_anti_magia', name: 'Anti-Magia', desc: 'Escolha um Elemento (Ar, Fogo, Gelo ou Rocha): ele irá fazer seus Aparos, assim, poderá Aparar contra Feitiços e utilizar a maestria de Intelecto ao invés de Força para Aparar.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
