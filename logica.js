@@ -983,6 +983,9 @@ const SUBCLASSES_PASSIVAS = {
   'Receptáculo Demoníaco': [
     { id: 'receptaculo_demoniaco_selo_demoniaco', name: 'Selo Demoníaco', desc: 'Possui 10 de Humanidade, podendo gastá-la para ativar os Sacrilégios de seus Golpes. Quando chegar a 0, o demônio assumirá o controle.' },
   ],
+  'Amaldiçoado': [
+    { id: 'amaldicoado_maldicao', name: 'Maldição', desc: 'Possui 10 de Humanidade, podendo gastá-la para ativar os Assombrar de seus Feitiços. Quando chegar a 0, a maldição será liberta...' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
