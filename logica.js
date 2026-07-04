@@ -1098,6 +1098,9 @@ const SUBCLASSES_PASSIVAS = {
   'Roqueiro': [
     { id: 'roqueiro_rock_and_roll', name: 'AQUI É DO Rock and Roll', desc: 'Possui 4 Campos Harmônicos, que precisam de 7 Notas Musicais para serem lançados. Você possui Roda Punk no seu Grimório.' },
   ],
+  'Maestro Macabro': [
+    { id: 'maestro_macabro_maestro_demoniaco', name: 'Maestro Demoníaco', desc: 'Possui 4 Campos Harmônicos, que precisam de 7 Notas Musicais para serem lançados. Consegue escutar demônios e outras criaturas bizarras dentro das pessoas; por esse vínculo, sua Insanidade máxima é reduzida para 80, porém possui +20 pontos de Vida base.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
