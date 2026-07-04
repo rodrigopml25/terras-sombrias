@@ -890,6 +890,40 @@ function getExpressoesEtereas(p) {
 }
 
 // ═══════════════════════════════════════
+// CAMPOS HARMÔNICOS — exclusivo do Bardo
+// ═══════════════════════════════════════
+// 4 Habilidades fixas de todo Bardo. Não possuem tempo de recarga — o único
+// custo é gastar TODAS as 7 Notas Musicais de uma vez — e precisam de 2
+// Ações para serem lançadas.
+const BARDO_CAMPOS_HARMONICOS = [
+  {
+    id: 'campo_do_maior',
+    name: 'Dó Maior',
+    desc: 'Gaste todas as Notas Musicais e o próximo Turno, independente da Iniciativa, será um Turno dividido entre todos os Aliados! Uma Ação de Movimento e 2 Ações por Aliado — você não participa.',
+  },
+  {
+    id: 'campo_re_maior',
+    name: 'Ré Maior',
+    desc: 'Gaste todas as Notas Musicais e seus Aliados recebem +1 Ação no próximo turno, além de removerem algum tormento emocional.',
+  },
+  {
+    id: 'campo_mi_menor',
+    name: 'Mi Menor',
+    desc: 'Gaste todas as Notas Musicais e um Alvo terá Mega Desvantagem em tudo até o final do seu próximo turno.',
+  },
+  {
+    id: 'campo_la_menor',
+    name: 'Lá Menor',
+    desc: 'Gaste todas as Notas Musicais e seus Aliados podem doar pontos de Vida, Armadura e Vantagens entre eles até o final deste Turno. Esse último dura até o próximo uso da Vantagem.',
+  },
+];
+
+// Retorna os 4 Campos Harmônicos de um personagem ([] se não for Bardo).
+function getCamposHarmonicos(p) {
+  return p.classeBase === 'Bardo' ? BARDO_CAMPOS_HARMONICOS : [];
+}
+
+// ═══════════════════════════════════════
 // CLASSES E SUBCLASSES
 // ═══════════════════════════════════════
 // attr: atributo principal da subclasse ('agi' | 'forca' | 'intel')
@@ -1933,6 +1967,15 @@ function renderNarrador() {
           </div>`;
         }).join('')}</div>
         ` : ''}
+        ${getCamposHarmonicos(p).length ? `
+        <div class="nar-passivas-title" style="margin-top:14px;color:var(--bardo)"><i class="ti ti-music"></i> Campos Harmônicos <span style="font-size:10px;color:var(--text3);font-weight:400">(7 Notas · 2 Ações · sem recarga)</span></div>
+        <div class="campos-harmonicos-grid">${getCamposHarmonicos(p).map(campo => `
+          <div class="campo-harmonico-card">
+            <div class="campo-harmonico-icone"><i class="ti ti-music"></i></div>
+            <div class="campo-harmonico-name">${campo.name}</div>
+            <div class="campo-harmonico-desc">${campo.desc}</div>
+          </div>`).join('')}</div>
+        ` : ''}
       </div>` : ''}
       ${renderTestes(p, true)}
     </div>`;
@@ -2274,6 +2317,15 @@ function renderJogador() {
     </div>`;
   }).join('');
 
+  const camposHarmonicosList = getCamposHarmonicos(p);
+  const camposHarmonicosCollapsed = !!jogSkillsCollapsed['campos'];
+  const camposHarmonicosHtml = camposHarmonicosCollapsed ? '' : camposHarmonicosList.map(campo => `
+    <div class="campo-harmonico-card">
+      <div class="campo-harmonico-icone"><i class="ti ti-music"></i></div>
+      <div class="campo-harmonico-name"><i class="ti ti-music"></i> ${campo.name}</div>
+      <div class="campo-harmonico-desc">${campo.desc}</div>
+    </div>`).join('');
+
   content.innerHTML = `
     <div class="jog-inner-grid">
     <div class="j-sidebar">
@@ -2424,6 +2476,16 @@ function renderJogador() {
       </div>
       ${expressoesCollapsed ? '' : `<div class="expressoes-legend">Crítico (Acerto ou Erro) em Ação/Teste → role 1d6 e confira o índice abaixo.</div>`}
       ${expressoesCollapsed ? '' : `<div class="expressoes-grid">${expressoesHtml}</div>`}
+      ` : ''}
+
+      ${camposHarmonicosList.length ? `
+      <div class="group-title group-title-toggle" style="margin-top:24px" onclick="toggleJogSkillGroup('campos')">
+        <span class="gt-dot" style="background:var(--bardo)"></span>Campos Harmônicos
+        <span class="gt-collapse-info">${camposHarmonicosCollapsed ? `<span class="gt-ready-badge" style="background:rgba(232,168,56,0.15);color:var(--bardo);border-color:rgba(232,168,56,0.3)">${camposHarmonicosList.length} campos</span>` : ''}</span>
+        <i class="ti ${camposHarmonicosCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron"></i>
+      </div>
+      ${camposHarmonicosCollapsed ? '' : `<div class="campos-harmonicos-legend">Custo: gastar TODAS as 7 Notas Musicais · 2 Ações para lançar · sem tempo de recarga.</div>`}
+      ${camposHarmonicosCollapsed ? '' : `<div class="campos-harmonicos-grid">${camposHarmonicosHtml}</div>`}
       ` : ''}
 
       ${renderTestes(p, false)}
