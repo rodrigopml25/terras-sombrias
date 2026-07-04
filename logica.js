@@ -971,6 +971,9 @@ const SUBCLASSES_PASSIVAS = {
   'Criador de Runa': [
     { id: 'criador_runa_pra_que_magia', name: 'Pra Que Magia!?', desc: 'Pode comprar um pergaminho de uso único que contém um feitiço de sua escolha por 20 de Dinheiro. Os Dados de Lançamento e de Dano/Cura são iguais aos de uma Técnica. (Pode comprar até 3 pergaminhos por sessão)' },
   ],
+  'Feiticeiro de Fogo': [
+    { id: 'feiticeiro_fogo_poder_proibido', name: 'Poder Proibido', desc: 'As chamas são uma magia extremamente perigosa, pois se manifestam por meio de suas emoções e capacidades físicas. Assim, seu Teste de Emoção tem +1d20 de Vantagem, e seu Teste de Arcano ou Místico utiliza a Maestria de Força ao invés de Intelecto. Quando você estiver em um momento em que perde o controle racional, sua magia será liberta.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
