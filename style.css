@@ -425,13 +425,55 @@ button {
 }
 .iitem.cur { background: #1a2e1a; border-color: #2a4a2a; }
 .iitem.cur .iname { color: var(--green); }
+.iitem-me { border-color: var(--accent-bd); }
 .inum { font-weight: 600; min-width: 22px; color: var(--text3); font-family: var(--font-display); }
-.iname { flex: 1; color: var(--text); }
-.itype { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
+.iname { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iname-input {
+  flex: 1; min-width: 0;
+  background: transparent; border: 1px solid transparent;
+  color: var(--text); font-size: 12px; font-family: var(--font-body);
+  padding: 2px 4px; border-radius: 4px;
+}
+.iname-input:hover, .iname-input:focus { background: var(--bg2); border-color: var(--border2); outline: none; }
+.itype { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 500; flex-shrink: 0; }
 .it-al { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-bd); }
 .it-en { background: var(--red-bg); color: #f08080; border: 1px solid var(--red-bd); }
+.it-pl { background: rgba(109,179,63,0.15); color: var(--green); border: 1px solid var(--green-bd); }
 .init-btns { display: flex; gap: 5px; margin-top: 7px; }
 .init-btns button { flex: 1; }
+
+.init-roll-btn, .init-del-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; flex-shrink: 0;
+  border-radius: 5px; border: 1px solid var(--border2);
+  background: var(--surface); color: var(--text2);
+  cursor: pointer; font-size: 11px; transition: all .15s;
+}
+.init-roll-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.init-del-btn:hover  { background: var(--red-bg); border-color: var(--red-bd); color: #f08080; }
+
+.init-add-row { display: flex; gap: 6px; margin-top: 8px; }
+.init-add-row .btn { flex: 1; font-size: 11px; padding: 6px 8px; }
+
+/* Configuração de combate (antes de "Iniciar Combate") */
+.init-setup { display: flex; flex-direction: column; gap: 10px; }
+.init-setup-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+}
+.init-counter { display: flex; align-items: center; gap: 8px; }
+.init-counter button {
+  width: 24px; height: 24px; border-radius: 6px;
+  border: 1px solid var(--border2); background: var(--surface); color: var(--text);
+  cursor: pointer; font-size: 14px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.init-counter button:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.init-counter span { min-width: 18px; text-align: center; font-weight: 700; font-size: 13px; }
+.init-setup-hint { font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+/* Painel de iniciativa visível para os Jogadores */
+.init-card-jog { margin-bottom: 16px; }
 
 /* notas */
 .ntags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 7px; }
