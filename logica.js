@@ -977,6 +977,9 @@ const SUBCLASSES_PASSIVAS = {
   'Conjurador': [
     { id: 'conjurador_transcendencia_intelectual', name: 'Transcendência Intelectual', desc: 'Aprenda um feitiço de outra Classe. Ao subir de Nível, repita esse efeito. No Nível 5, ao invés de um feitiço, aprenda um feitiço Lendário.' },
   ],
+  'Alquimista': [
+    { id: 'alquimista_sistema_nervoso_elevado', name: 'Sistema Nervoso Elevado', desc: 'Possui 10 de Humanidade, podendo gastá-la para ativar os Êxtases de suas Técnicas. Quando chegar a 0, seu corpo cederá aos efeitos colaterais das poções.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
