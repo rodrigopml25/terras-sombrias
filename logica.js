@@ -914,6 +914,9 @@ const SUBCLASSES_PASSIVAS = {
   'Soldado Elementar': [
     { id: 'soldado_elementar_anti_magia', name: 'Anti-Magia', desc: 'Escolha um Elemento (Ar, Fogo, Gelo ou Rocha): ele irá fazer seus Aparos, assim, poderá Aparar contra Feitiços e utilizar a maestria de Intelecto ao invés de Força para Aparar.' },
   ],
+  'Mercenário': [
+    { id: 'mercenario_falsificador', name: 'Falsificador', desc: 'Você tem 50 de Dinheiro Falso. Ao gastá-lo em algo (exemplo: Recursos, comprar itens, etc), lance 1d100: se tirar 40 ou mais, não perceberão que são Falsas. Após um Descanso, restaura até 50 de Dinheiro Falso.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
