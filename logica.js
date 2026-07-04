@@ -697,6 +697,8 @@ function ensureRacePassivas(p) {
   ensureClassePassivas(p);
   // Garante as armas exclusivas de subclasse (ex: Quebra Queixo do Briguento)
   ensureSubclasseWeapons(p);
+  // Garante as habilidades exclusivas de subclasse (ex: Roda Punk do Roqueiro)
+  ensureSubclasseSkills(p);
 }
 
 // Armas raciais fixas — injetadas automaticamente no inventário de personagens
@@ -770,6 +772,45 @@ function ensureSubclasseWeapons(p) {
     const foiRemovida = p.subclasseWeaponsRemovidas.includes(def.id);
     if (!jaTem && !foiRemovida) {
       p.inventario.push({ ...def, subclasseId: def.id, id: 'inv_subclasse_' + def.id });
+    }
+  });
+}
+
+// Habilidades exclusivas de subclasse — mesmo padrão de RACAS_SKILLS, mas
+// injetadas conforme a subclasse (p.cls) em vez da raça.
+const SUBCLASSES_SKILLS = {
+  'Roqueiro': [
+    { id: 'sk_subclasse_roqueiro_roda_punk', name: 'Roda Punk', color: 'red', cost: 1, tipo: 'sessao', usosMax: 3, desc: 'Entre em estado bruto e receba, nesse turno, +1 Golpe para cada Oponente na Luta, além de Movimento ilimitado. Porém, não pode repetir Golpes no mesmo Alvo. Para cada Golpe falho, o oponente contra-ataca causando 1d4 de Dano na Vida.' },
+  ],
+};
+
+// Injeta as habilidades fixas da subclasse do personagem em p.skills, sem
+// duplicar e sem recolocar as removidas manualmente (rastreado em
+// p.subclasseSkillsRemovidas). Ao trocar de subclasse, remove as habilidades
+// da subclasse anterior que não pertençam mais à subclasse atual.
+function ensureSubclasseSkills(p) {
+  if (!Array.isArray(p.skills)) p.skills = [];
+  if (!Array.isArray(p.subclasseSkillsRemovidas)) p.subclasseSkillsRemovidas = [];
+
+  // Remove habilidades de subclasses que não sejam a atual
+  Object.entries(SUBCLASSES_SKILLS).forEach(([subName, lista]) => {
+    if (subName !== p.cls) {
+      const ids = lista.map(def => def.id);
+      p.skills = p.skills.filter(sk => !ids.includes(sk.id));
+    }
+  });
+
+  const defs = SUBCLASSES_SKILLS[p.cls] || [];
+  defs.forEach(def => {
+    const jaTem = p.skills.some(sk => sk.id === def.id);
+    const foiRemovida = p.subclasseSkillsRemovidas.includes(def.id);
+    if (!jaTem && !foiRemovida) {
+      p.skills.push({
+        id: def.id, name: def.name, desc: def.desc,
+        color: def.color, cost: def.cost, tipo: def.tipo,
+        usosMax: def.usosMax, usosAtuais: def.usosMax,
+        cdRestante: 0, turnosRecarga: 1,
+      });
     }
   });
 }
@@ -1053,6 +1094,9 @@ const SUBCLASSES_PASSIVAS = {
   ],
   'Dançarino': [
     { id: 'dancarino_dancarino_ecletico', name: 'Dançarino Eclético', desc: 'Possui 4 Campos Harmônicos, que precisam de 7 Notas Musicais para serem lançados. Aprenda uma Técnica que não envolva Arma de outra Classe. Ao subir de Nível, repita esse último efeito, porém, não pode repetir Classes.' },
+  ],
+  'Roqueiro': [
+    { id: 'roqueiro_rock_and_roll', name: 'AQUI É DO Rock and Roll', desc: 'Possui 4 Campos Harmônicos, que precisam de 7 Notas Musicais para serem lançados. Você possui Roda Punk no seu Grimório.' },
   ],
 };
 
