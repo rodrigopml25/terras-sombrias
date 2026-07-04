@@ -72,7 +72,7 @@ function countNotasAtivas(p) {
 // Cada teste: { id, name, attr }
 // attr: 'agi' | 'forca' | 'intel' | 'neutro'
 const TESTES_LISTA = [
-  { id: 'iniciativa',  name: 'Iniciativa',  attr: 'agi'    },
+  { id: 'iniciativa',  name: 'Iniciativa',  attr: 'neutro' },
   { id: 'acrobacia',   name: 'Acrobacia',   attr: 'agi'    },
   { id: 'desviar',     name: 'Desviar',     attr: 'agi'    },
   { id: 'furtividade', name: 'Furtividade', attr: 'agi'    },
@@ -1871,7 +1871,7 @@ function renderTestes(p, readonly) {
     { label: 'Agilidade',  cor: 'green',  attr: 'agi',    ids: ['acrobacia','desviar','furtividade','percepcao'] },
     { label: 'Força',      cor: 'red',    attr: 'forca',  ids: ['aparar','arremessar','empurrar','resistir']      },
     { label: 'Intelecto',  cor: 'blue',   attr: 'intel',  ids: ['arcano','mistico','geografia','historia']        },
-    { label: 'Neutros',    cor: 'gray',   attr: 'neutro', ids: ['emocao']                                        },
+    { label: 'Neutros',    cor: 'gray',   attr: 'neutro', ids: ['iniciativa','emocao']                           },
   ];
 
   const corMap = { green: 'var(--green)', red: 'var(--red)', blue: 'var(--blue)', gray: 'var(--gray)' };
@@ -5063,6 +5063,7 @@ function construirRolagemTeste(p, testeId) {
 
   const isEmocao = testeId === 'emocao';
   const sides = isEmocao ? 100 : 20;
+  // Testes "Neutros" (Iniciativa, Emoção) não recebem bônus de maestria.
   const mst = def.attr !== 'neutro' ? maestria(p[def.attr] || 0) : 0;
 
   // Mega Vantagem / Mega Desvantagem: rola 2 dados e mantém o melhor ou o pior.
