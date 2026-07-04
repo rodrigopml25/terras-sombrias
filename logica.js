@@ -693,6 +693,8 @@ function ensureRacePassivas(p) {
   syncFormaDragaoLock(p);
   // Garante as passivas fixas da subclasse (ex: Multifunções do Campeão)
   ensureSubclassePassivas(p);
+  // Garante as armas exclusivas de subclasse (ex: Quebra Queixo do Briguento)
+  ensureSubclasseWeapons(p);
 }
 
 // Armas raciais fixas — injetadas automaticamente no inventário de personagens
@@ -723,6 +725,49 @@ function ensureRaceWeapons(p) {
     const foiRemovida = p.racialWeaponsRemovidas.includes(def.id);
     if (!jaTem && !foiRemovida) {
       p.inventario.push({ ...def, racialId: def.id, id: 'inv_racial_' + def.id });
+    }
+  });
+}
+
+// Armas exclusivas de subclasse — mesmo padrão de RACAS_WEAPONS, mas
+// injetadas conforme a subclasse (p.cls) em vez da raça.
+const SUBCLASSES_WEAPONS = {
+  'Briguento': [
+    {
+      id: 'subclasse_briguento_quebra_queixo',
+      name: 'Quebra Queixo',
+      tipo: 'arma',
+      peso: 'pesada',
+      dano: '1d10',
+      alcance: 'curto',
+      efeito: 'Escolha um golpe que não usa Arma. Pode lançá-lo uma vez por Luta. Possui -1d4 de Desvantagem em Aparar.',
+      aprimoramentos: [],
+    },
+  ],
+};
+
+// Injeta as armas fixas da subclasse do personagem no inventário, sem
+// duplicar e sem recolocar armas removidas manualmente (rastreado em
+// p.subclasseWeaponsRemovidas). Ao trocar de subclasse, remove as armas da
+// subclasse anterior que não pertençam mais à subclasse atual.
+function ensureSubclasseWeapons(p) {
+  if (!Array.isArray(p.inventario)) p.inventario = [];
+  if (!Array.isArray(p.subclasseWeaponsRemovidas)) p.subclasseWeaponsRemovidas = [];
+
+  // Remove armas de subclasses que não sejam a atual
+  Object.entries(SUBCLASSES_WEAPONS).forEach(([subName, lista]) => {
+    if (subName !== p.cls) {
+      const ids = lista.map(w => w.id);
+      p.inventario = p.inventario.filter(it => !it.subclasseId || !ids.includes(it.subclasseId));
+    }
+  });
+
+  const defs = SUBCLASSES_WEAPONS[p.cls] || [];
+  defs.forEach(def => {
+    const jaTem = p.inventario.some(it => it.subclasseId === def.id);
+    const foiRemovida = p.subclasseWeaponsRemovidas.includes(def.id);
+    if (!jaTem && !foiRemovida) {
+      p.inventario.push({ ...def, subclasseId: def.id, id: 'inv_subclasse_' + def.id });
     }
   });
 }
@@ -916,6 +961,9 @@ const SUBCLASSES_PASSIVAS = {
   ],
   'Mercenário': [
     { id: 'mercenario_falsificador', name: 'Falsificador', desc: 'Você tem 50 de Dinheiro Falso. Ao gastá-lo em algo (exemplo: Recursos, comprar itens, etc), lance 1d100: se tirar 40 ou mais, não perceberão que são Falsas. Após um Descanso, restaura até 50 de Dinheiro Falso.' },
+  ],
+  'Briguento': [
+    { id: 'briguento_durao', name: 'Durão', desc: 'Você tem acesso exclusivo à Arma: Quebra Queixo. Não pode usar outras Armas e nega todas as desvantagens e mega desvantagens sobre Furtividade.' },
   ],
 };
 
