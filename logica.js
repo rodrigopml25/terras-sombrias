@@ -950,6 +950,8 @@ let turnoAtualId = null;   // id da entrada de INITIATIVE cujo turno é agora
 let combatAtivo = false;   // true enquanto o Narrador mantém um combate em andamento
 let initSetupInimigos = 2; // contadores locais (só do Narrador) antes de iniciar o combate
 let initSetupAliados = 0;
+let ultimoTurnoRenderNarrador = undefined; // detecta troca de turno p/ rolar a lista até quem está na vez
+let ultimoTurnoRenderJogador = undefined;
 let notes = {geral:'', missão:'', inimigos:'', locais:''};
 let activeNote = 'geral';
 
@@ -3228,6 +3230,8 @@ function renderInit() {
   const foco = capturarFocoIniciativa(el);
   const listaAntiga = el.querySelector('.init-list');
   const scrollTop = listaAntiga ? listaAntiga.scrollTop : 0;
+  const turnoMudou = turnoAtualId !== ultimoTurnoRenderNarrador;
+  ultimoTurnoRenderNarrador = turnoAtualId;
 
   if (!combatAtivo || !INITIATIVE.length) {
     el.innerHTML = `
@@ -3291,7 +3295,11 @@ function renderInit() {
     <button class="btn btn-danger" style="width:100%;margin-top:8px" onclick="encerrarCombate()"><i class="ti ti-x"></i> Encerrar Combate</button>`;
   restaurarFocoIniciativa(el, foco);
   const listaNova = el.querySelector('.init-list');
-  if (listaNova) listaNova.scrollTop = scrollTop;
+  if (listaNova) {
+    const curEl = turnoMudou ? listaNova.querySelector('.iitem.cur') : null;
+    if (curEl) curEl.scrollIntoView({ block: 'nearest' });
+    else listaNova.scrollTop = scrollTop;
+  }
 }
 
 // Jogador: mostra a mesma ordem (somente leitura), com botão de "Rolar
@@ -3299,7 +3307,12 @@ function renderInit() {
 function renderIniciativaJogador() {
   const el = document.getElementById('jog-iniciativa');
   if (!el) return;
-  if (!combatAtivo || !INITIATIVE.length) { el.innerHTML = ''; return; }
+  if (!combatAtivo || !INITIATIVE.length) { el.innerHTML = ''; ultimoTurnoRenderJogador = undefined; return; }
+
+  const turnoMudou = turnoAtualId !== ultimoTurnoRenderJogador;
+  ultimoTurnoRenderJogador = turnoAtualId;
+  const listaAntiga = el.querySelector('.init-list');
+  const scrollTop = listaAntiga ? listaAntiga.scrollTop : 0;
 
   const ordem = ordemIniciativa();
   const pselEl = document.getElementById('psel');
@@ -3325,6 +3338,13 @@ function renderIniciativaJogador() {
         }).join('')}
       </div>
     </div>`;
+
+  const listaNova = el.querySelector('.init-list');
+  if (listaNova) {
+    const curEl = turnoMudou ? listaNova.querySelector('.iitem.cur') : null;
+    if (curEl) curEl.scrollIntoView({ block: 'nearest' });
+    else listaNova.scrollTop = scrollTop;
+  }
 }
 
 
