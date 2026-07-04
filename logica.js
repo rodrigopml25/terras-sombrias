@@ -980,6 +980,9 @@ const SUBCLASSES_PASSIVAS = {
   'Alquimista': [
     { id: 'alquimista_sistema_nervoso_elevado', name: 'Sistema Nervoso Elevado', desc: 'Possui 10 de Humanidade, podendo gastá-la para ativar os Êxtases de suas Técnicas. Quando chegar a 0, seu corpo cederá aos efeitos colaterais das poções.' },
   ],
+  'Receptáculo Demoníaco': [
+    { id: 'receptaculo_demoniaco_selo_demoniaco', name: 'Selo Demoníaco', desc: 'Possui 10 de Humanidade, podendo gastá-la para ativar os Sacrilégios de seus Golpes. Quando chegar a 0, o demônio assumirá o controle.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
