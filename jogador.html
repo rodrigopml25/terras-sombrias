@@ -111,6 +111,17 @@
       </div>
     </div>
 
+    <div class="modal-overlay" id="modal-banco-overlay">
+      <div class="modal" style="max-width:560px">
+        <h3>Habilidades de <span id="banco-subclasse-nome"></span></h3>
+        <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Escolha quais Habilidades da sua subclasse você quer adicionar à ficha.</p>
+        <div id="banco-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
+        <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
+          <button class="btn" onclick="closeBancoModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="modal-passiva-overlay">
       <div class="modal">
         <h3 id="modal-passiva-title">Nova Passiva / Talento</h3>
