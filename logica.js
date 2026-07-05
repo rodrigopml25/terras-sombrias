@@ -1073,8 +1073,40 @@ const DEUSES_CLERIGO = {
   },
   // Eluna, Deusa Noturna da Lua; Luz; Rita, Deusa da Barganha; e Sombras:
   // kits ainda não definidos — adicionar quando as descrições chegarem.
-  'Eluna, Deusa Noturna da Lua': { bencaos: [], intervencoes: [], milagres: [], milagresSupremos: [] },
-  'Luz': { bencaos: [], intervencoes: [], milagres: [], milagresSupremos: [] },
+  'Eluna, Deusa Noturna da Lua': {
+    bencaos: [
+      { id: 'eluna_clarao_da_noite', name: 'Clarão da Noite', desc: 'Eluna concede o brilho da lua para sua Arma por 1 Turno: ela te guiará contra seus adversários, dando +2 de Vantagem, e se você estiver Cego, a Arma te guiará e você não sofrerá as consequências. Se for Noite, a Vantagem se torna +4.' },
+      { id: 'eluna_feixe_lunar', name: 'Feixe Lunar', desc: 'Eluna concentra um feixe da lua num Alvo: se for Aliado, cura apenas 1d6; se for Inimigo, causa apenas 1d6 de Dano. Se for Noite, o feixe ganha +1d6 de Cura/Dano.' },
+      { id: 'eluna_reflexao_do_anoitecer', name: 'Reflexão do Anoitecer', desc: 'Por meio de algum reflexo, Eluna revela algo para te ajudar em relação ao momento. Se for Noite, você poderá perguntar diretamente a ela.' },
+    ],
+    intervencoes: [
+      { id: 'eluna_conexao_com_a_natureza', name: 'Conexão com a Natureza', desc: 'Eluna te conecta à natureza do lugar, permitindo se comunicar com animais e plantas por uma Cena/Luta. Se for Noite, você pode até adentrar as memórias de um animal/planta.' },
+      { id: 'eluna_ancestralidade', name: 'Ancestralidade', desc: 'Eluna te concede uma breve memória de um Elfo Noturno: neste turno, você poderá usar uma Habilidade que não é da sua Classe. Se for Noite, a Habilidade possuirá Mega Vantagem.' },
+    ],
+    milagres: [
+      { id: 'eluna_lua_cheia', name: 'Lua Cheia', desc: 'Eluna invoca uma Lua Cheia no lugar até o final da Cena/Luta, retirando toda a escuridão natural e mágica. No início do seu turno, lance 2 Feixes Lunares em qualquer Alvo. Se já for Noite, lance 1d6 Feixes Lunares.' },
+    ],
+    milagresSupremos: [
+      { id: 'eluna_conhecimento_divino', name: 'Conhecimento Divino', desc: 'Só pode ser usado 1 vez por Personagem. Eluna concede todo o conhecimento dos Elfos Noturnos possível: você tem acesso a todas as Habilidades de Classe até o final da Cena/Luta. Depois, aprenda 2 Habilidades de outra Classe.' },
+    ],
+  },
+  'Luz': {
+    bencaos: [
+      { id: 'luz_breve_iluminacao', name: 'Breve Iluminação', desc: 'A Luz te concede uma energia benevolente neste turno: ao tocar em um Alvo, remova um efeito negativo que esteja o atormentando.' },
+      { id: 'luz_essencia_da_luz', name: 'Essência da Luz', desc: 'Escolha 1 Alvo e cure apenas 1d4 de sua Vida.' },
+      { id: 'luz_sacramento', name: 'Sacramento', desc: 'A Luz te concede uma visão por um turno que transcende a matéria: você poderá ver se alguém está mentindo e se está invisível.' },
+    ],
+    intervencoes: [
+      { id: 'luz_purificacao_divina', name: 'Purificação Divina', desc: 'Nesta luta, a Luz aprimora sua Essência da Luz: ela concede +1 de Cura, e lance uma Essência da Luz em algum Alvo.' },
+      { id: 'luz_toque_da_luz', name: 'Toque da Luz', desc: 'Escolha quantos Alvos quiser, e a Luz lança Essência da Luz em todos eles.' },
+    ],
+    milagres: [
+      { id: 'luz_verdade_divina', name: 'Verdade Divina', desc: 'A Luz invoca uma entidade da luz chamada Yrel, que dura 3 turnos seus: toda mentira e invisibilidade se torna perceptível para você. No início do seu turno, ela remove um efeito negativo de sua escolha e lança 4 Essências da Luz em quaisquer Alvos que você quiser.' },
+    ],
+    milagresSupremos: [
+      { id: 'luz_ressurreicao', name: 'Ressurreição', desc: 'Só pode ser usada 1 vez por Personagem. A Luz te concede o poder sobre a vida: ressuscite um Alvo com toda a sua Vida recuperada.' },
+    ],
+  },
   'Rita, Deusa da Barganha': { bencaos: [], intervencoes: [], milagres: [], milagresSupremos: [] },
   'Sombras': { bencaos: [], intervencoes: [], milagres: [], milagresSupremos: [] },
 };
