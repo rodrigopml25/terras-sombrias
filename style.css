@@ -994,6 +994,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 
   .passivas-grid,
   .expressoes-grid,
+  .divindades-grid,
   .inv-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 
   .modal-overlay { padding: 12px; }
@@ -1006,6 +1007,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   .skills-grid,
   .passivas-grid,
   .expressoes-grid,
+  .divindades-grid,
   .inv-grid { grid-template-columns: 1fr; }
   .header-logo { font-size: 13px; }
   .turn-pill { font-size: 12px; padding: 4px 9px; }
@@ -1716,6 +1718,53 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 }
 .expressao-name i { font-size: 13px; }
 .expressao-desc {
+  font-size: 11px; color: var(--text2); line-height: 1.5;
+  white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;
+}
+
+/* ═══════════════════════════════════════════
+   BÊNÇÃOS / INTERVENÇÕES / MILAGRES — CLÉRIGO
+═══════════════════════════════════════════ */
+:root {
+  --divino:    #d9b34a;  /* dourado — identidade divina/devocional */
+  --divino-bg: #1e1a0a;
+  --divino-bd: #3d330a;
+  --divino-dim:#7a6520;
+}
+
+.divindades-legend {
+  font-size: 11px; color: var(--text3); margin-bottom: 10px;
+}
+
+.divindades-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-bottom: 4px; }
+
+.divindade-card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--divino-bd);
+  background: var(--divino-bg);
+  padding: 12px 12px 12px 46px;
+}
+.divindade-indice {
+  position: absolute;
+  top: 10px; left: 10px;
+  width: 28px; height: 20px;
+  border-radius: 6px;
+  border: 1px solid var(--divino-dim);
+  background: rgba(217,179,74,0.12);
+  color: var(--divino);
+  font-family: var(--font-display);
+  font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; line-height: 1.1;
+}
+.divindade-name {
+  font-size: 13px; font-weight: 600; margin-bottom: 6px;
+  font-family: var(--font-display); letter-spacing: .02em;
+  color: var(--divino); display: flex; align-items: center; gap: 6px;
+}
+.divindade-name i { font-size: 13px; }
+.divindade-desc {
   font-size: 11px; color: var(--text2); line-height: 1.5;
   white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;
 }
