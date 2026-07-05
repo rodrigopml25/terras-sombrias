@@ -881,7 +881,18 @@ function ensureClasseSkills(p) {
 // Ainda vazio para todas as subclasses — preencher conforme as descrições das
 // 10 habilidades de cada uma forem chegando.
 const BANCO_HABILIDADES_SUBCLASSE = {
-  'Campeão': [],
+  'Campeão': [
+    { indice: 1, id: 'campeao_adaptacao', name: 'Adaptação', color: 'green', cost: 0, tipo: 'luta', usosMax: 1, desc: 'Receba o próximo ataque do oponente como Crítico. Contudo, Habilidades do oponente do mesmo tipo contra você terão Mega Desvantagem pelo resto da Luta.' },
+    { indice: 2, id: 'campeao_analise_rapida', name: 'Análise Rápida', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 5, usosMax: 1, desc: 'Faça um Teste de Percepção sobre a situação atual: seu teste tem +1d4 de Vantagem e não pode tirar Erro Crítico.' },
+    { indice: 3, id: 'campeao_conclamar', name: 'Conclamar', color: 'green', cost: 2, tipo: 'turno_N', turnosRecarga: 2, usosMax: 1, desc: 'Use o seu Berrante para chamar a atenção de todos ao seu redor. Se estiver em uma Luta, escolha: chamar a atenção de um Alvo, ou reduzir em 2 turnos a recarga de Grito de Guerra ou Motivar.' },
+    { indice: 4, id: 'campeao_dose_dupla', name: 'Dose Dupla', color: 'green', cost: 0, tipo: 'turno_N', turnosRecarga: 4, usosMax: 1, desc: 'Sua próxima Ação neste turno é feita em conjunto com um Aliado, custando uma Ação do próximo turno dele.' },
+    { indice: 5, id: 'campeao_duelo', name: 'Duelo', color: 'green', cost: 1, tipo: 'luta', usosMax: 1, desc: 'Escolha um Alvo: você terá +1d6 de Vantagem contra ele e -1d6 de Desvantagem contra outros Alvos. As condições só acabam quando alguém perder ou desistir da luta.' },
+    { indice: 6, id: 'campeao_folego_extra', name: 'Fôlego Extra', color: 'green', cost: 0, tipo: 'luta', usosMax: 1, desc: 'Receba 1 Ação a mais.' },
+    { indice: 7, id: 'campeao_gambiarra_de_alto_nivel', name: 'Gambiarra de Alto Nível', color: 'green', cost: 1, tipo: 'sessao', usosMax: 1, desc: 'Recarregue os "usos" de uma Arma ou as munições de uma Arma.' },
+    { indice: 8, id: 'campeao_grito_de_guerra', name: 'Grito de Guerra', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 5, usosMax: 1, desc: 'Dê um grito que concede Mega Vantagem para seus Aliados até o próximo turno; eles não podem Desviar.' },
+    { indice: 9, id: 'campeao_honra', name: 'Honra', color: 'green', cost: 1, tipo: 'sessao', usosMax: 1, desc: '"Pelo que você luta?" Ao responder essa pergunta, escolha: restaurar 2d20 de Vida; sua próxima Técnica ou Golpe tem Mega Vantagem; ou retire TODOS os efeitos Negativos que você possui.' },
+    { indice: 10, id: 'campeao_motivar', name: 'Motivar', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, desc: 'Faça um discurso para seus Aliados e conceda +1d12 de Vantagem na próxima Ação ou Teste deles.' },
+  ],
   'Combatente': [],
   'Soldado Elementar': [],
   'Mercenário': [],
