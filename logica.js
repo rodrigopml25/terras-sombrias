@@ -1271,6 +1271,15 @@ const SUBCLASSES_PASSIVAS = {
   'Maestro Macabro': [
     { id: 'maestro_macabro_maestro_demoniaco', name: 'Maestro Demoníaco', desc: 'Possui 4 Campos Harmônicos, que precisam de 7 Notas Musicais para serem lançados. Consegue escutar demônios e outras criaturas bizarras dentro das pessoas; por esse vínculo, sua Insanidade máxima é reduzida para 80, porém possui +20 pontos de Vida base.' },
   ],
+  'Exorcista': [
+    { id: 'exorcista_abencoado', name: 'Abençoado', desc: 'Toda vez que receber uma Intervenção, Milagre ou Milagre Supremo, receberá também uma Bênção.' },
+  ],
+  'Paladino': [
+    { id: 'paladino_poder_de_um_fiel', name: 'Poder de um Fiel', desc: 'Alguns Golpes de Paladino possuem Fidelidade. Uma vez por sessão, em um Golpe com Fidelidade, poderá transformar o resultado em um Milagre Supremo.' },
+  ],
+  'Acólito': [
+    { id: 'acolito_dom_da_sabedoria', name: 'Dom da Sabedoria', desc: 'Seu Teste de Devoção tem Mega Vantagem.' },
+  ],
 };
 
 // Retorna a lista de passivas fixas de subclasse de um personagem (vazio se
