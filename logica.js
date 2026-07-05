@@ -1044,6 +1044,63 @@ function getCamposHarmonicos(p) {
   return (p.skills || []).filter(sk => sk.tipo === 'notas');
 }
 
+// ═══════════════════════════════════════
+// DIVINDADES — exclusivo do Clérigo
+// ═══════════════════════════════════════
+// Cada Clérigo escolhe (na criação do personagem) uma entre 5 divindades.
+// Cada divindade concede um "kit" fixo de dádivas: 3 Bênçãos, 2 Intervenções,
+// 1 Milagre e 1 Milagre Supremo. São só referência (igual às Expressões
+// Etéreas do Etéreo) — sem custo de Ação nem tempo de recarga; o narrador
+// decide quando concedê-las, tipicamente a partir do resultado do Teste de
+// Devoção.
+const DEUSES_CLERIGO = {
+  'Argus, O Primeiro Ascendente Vil': {
+    bencaos: [
+      { id: 'argus_diabrete_vil', name: 'Diabrete Vil', desc: 'Argus evoca um Diabrete Vil neste combate: ele concede +1 de Dano para você em suas Ações. Possui apenas 5 de Vida, 8 de Passos, causa apenas 1d4 de Dano e tem uma única Ação (divide o turno com você).' },
+      { id: 'argus_raio_vil_cosmico', name: 'Raio Vil Cósmico', desc: 'Seus olhos brilham e lançam um raio com poder vil cósmico em um Alvo a até 5 Casas, causando apenas 1d2 de Dano na Armadura. Tem +1 de Dano para cada demônio de Argus.' },
+      { id: 'argus_vileza_protetora', name: 'Vileza Protetora', desc: 'Argus concede uma vileza cósmica por 1 Turno, que repele outros aspectos mágicos e remove algum efeito negativo.' },
+    ],
+    intervencoes: [
+      { id: 'argus_arremesso_cosmico', name: 'Arremesso Cósmico', desc: 'Invoque a foice de Argus rapidamente e arremesse-a num Alvo a até 10 Casas; o dano é um sacrifício de um demônio de Argus, convertido para apenas 1d6 (pode sacrificar quantos demônios de Argus quiser para aumentar o dano).' },
+      { id: 'argus_meteoro_vil', name: 'Meteoro Vil', desc: 'Argus lança um meteoro vil num Alvo, causando apenas 1d10 de Dano (+1 de Dano para cada demônio de Argus). Depois, o meteoro se transforma num Infernal Vil que dura até o final da Luta: concede +2 de Dano para você em suas Ações, possui 15 de Vida, 4 de Passos, causa apenas 1d6 de Dano e tem uma única Ação (divide o turno com você).' },
+    ],
+    milagres: [
+      { id: 'argus_portal_vil', name: 'Portal Vil', desc: 'Argus cria um portal vil no tabuleiro, intangível para mortais — ninguém pode entrar — que dura 3 Turnos seus. No início do turno, invoca 2 Diabretes Vis ou 1 Infernal.' },
+    ],
+    milagresSupremos: [
+      { id: 'argus_escolhido_de_argus', name: 'Escolhido de Argus', desc: 'Só pode ser usado uma vez por Personagem. Argus concede a sua Foice para você nesta Luta/Cena. Depois, receba uma Foice Constelação exclusiva sua.' },
+    ],
+  },
+  // Eluna, Deusa Noturna da Lua; Luz; Rita, Deusa da Barganha; e Sombras:
+  // kits ainda não definidos — adicionar quando as descrições chegarem.
+  'Eluna, Deusa Noturna da Lua': { bencaos: [], intervencoes: [], milagres: [], milagresSupremos: [] },
+  'Luz': { bencaos: [], intervencoes: [], milagres: [], milagresSupremos: [] },
+  'Rita, Deusa da Barganha': { bencaos: [], intervencoes: [], milagres: [], milagresSupremos: [] },
+  'Sombras': { bencaos: [], intervencoes: [], milagres: [], milagresSupremos: [] },
+};
+
+// Lista de nomes de divindades disponíveis para escolha na criação do personagem.
+const DEUSES_LISTA = Object.keys(DEUSES_CLERIGO);
+
+// Retorna o kit completo da divindade escolhida pelo personagem (ou null).
+function getDivindade(p) {
+  return DEUSES_CLERIGO[p.deus] || null;
+}
+
+// Retorna a lista "achatada" de Bênçãos/Intervenções/Milagres/Milagre Supremo
+// do personagem, cada item com uma tag indicando o tipo (usado na exibição).
+function getDivindadeItens(p) {
+  const d = getDivindade(p);
+  if (!d) return [];
+  const marcar = (lista, tier, sigla) => (lista || []).map(item => ({ ...item, tier, sigla }));
+  return [
+    ...marcar(d.bencaos,          'Bênção',          'BÊN'),
+    ...marcar(d.intervencoes,     'Intervenção',     'INT'),
+    ...marcar(d.milagres,         'Milagre',         'MIL'),
+    ...marcar(d.milagresSupremos, 'Milagre Supremo',  'M.S'),
+  ];
+}
+
 
 // ═══════════════════════════════════════
 // CLASSES E SUBCLASSES
@@ -1304,7 +1361,7 @@ let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidade
 let jogTestesCollapsed = true;   // jogador: começa fechado
 let jogIniciativaCollapsed = false; // jogador: painel de Ordem de Iniciativa começa aberto
 let narTestesCollapsed = {};     // narrador: { [playerId]: true/false } — começa fechado
-let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true, expressoes: true, campos: true }; // começa fechado
+let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true, expressoes: true, campos: true, divindade: true }; // começa fechado
 let jogInvCollapsed = { armas: true, protecoes: true, itens: true }; // inventário começa fechado
 let jogActiveTab = 'ficha'; // 'ficha' | 'anotacoes'
 let modalInvPid = null;
@@ -2201,6 +2258,15 @@ function renderNarrador() {
           </div>`;
         }).join('')}</div>
         ` : ''}
+        ${getDivindadeItens(p).length ? `
+        <div class="nar-passivas-title" style="margin-top:14px;color:var(--divino)"><i class="ti ti-sun"></i> ${p.deus} <span style="font-size:10px;color:var(--text3);font-weight:400">(referência · sem recarga nem ações)</span></div>
+        <div class="divindades-grid">${getDivindadeItens(p).map(item => `
+          <div class="divindade-card">
+            <div class="divindade-indice">${item.sigla}</div>
+            <div class="divindade-name"><i class="ti ti-sun"></i> ${item.name}</div>
+            <div class="divindade-desc">${item.desc}</div>
+          </div>`).join('')}</div>
+        ` : ''}
       </div>` : ''}
       ${renderTestes(p, true)}
     </div>`;
@@ -2563,6 +2629,15 @@ function renderJogador() {
     </div>`;
   }).join('');
 
+  const divindadeItensList = getDivindadeItens(p);
+  const divindadeCollapsed = !!jogSkillsCollapsed['divindade'];
+  const divindadeHtml = divindadeCollapsed ? '' : divindadeItensList.map(item => `
+    <div class="divindade-card">
+      <div class="divindade-indice">${item.sigla}</div>
+      <div class="divindade-name"><i class="ti ti-sun"></i> ${item.name}</div>
+      <div class="divindade-desc">${item.desc}</div>
+    </div>`).join('');
+
   content.innerHTML = `
     <div class="jog-inner-grid">
     <div class="j-sidebar">
@@ -2731,6 +2806,15 @@ function renderJogador() {
         <i class="ti ${camposHarmonicosCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron"></i>
       </div>
       ${camposHarmonicosCollapsed ? '' : `<div class="skills-grid">${camposHarmonicosHtml}</div>`}
+      ` : ''}
+
+      ${divindadeItensList.length ? `
+      <div class="group-title group-title-toggle" style="margin-top:24px" onclick="toggleJogSkillGroup('divindade')">
+        <span class="gt-dot" style="background:var(--divino)"></span>${p.deus}
+        <span class="gt-collapse-info">${divindadeCollapsed ? `<span class="gt-ready-badge" style="background:rgba(217,179,74,0.15);color:var(--divino);border-color:rgba(217,179,74,0.3)">${divindadeItensList.length} dádivas</span>` : ''}</span>
+        <i class="ti ${divindadeCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron"></i>
+      </div>
+      ${divindadeCollapsed ? '' : `<div class="divindades-grid">${divindadeHtml}</div>`}
       ` : ''}
 
       ${renderTestes(p, false)}
@@ -4052,6 +4136,7 @@ function buildClassSelector() {
   if (subWrap) subWrap.innerHTML = '';
   const note = document.getElementById('c-bruxo-note');
   if (note) note.style.display = 'none';
+  updateDeusSelector(null, null);
 }
 
 function selectClasse(clsName, keepSub) {
@@ -4066,6 +4151,7 @@ function selectClasse(clsName, keepSub) {
   if (note) note.style.display = (clsName === 'Bruxo') ? 'block' : 'none';
   const bardoNote = document.getElementById('c-bardo-note');
   if (bardoNote) bardoNote.style.display = (clsName === 'Bardo') ? 'block' : 'none';
+  updateDeusSelector(clsName, null);
   const ATTR_LABEL = { agi: 'AGI', forca: 'FOR', intel: 'INT' };
   const ATTR_COLOR = { agi: 'var(--green)', forca: 'var(--red)', intel: 'var(--blue)' };
   subWrap.innerHTML = cls.subs.map(sub =>
@@ -4079,6 +4165,36 @@ function selectClasse(clsName, keepSub) {
   if (!keepSub) {
     document.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
   }
+}
+
+// Mostra/monta o seletor de Divindade (só relevante para Clérigo). Reaproveita
+// o mesmo padrão visual do seletor de Origem.
+function updateDeusSelector(clsName, selectedDeus) {
+  const container = document.getElementById('c-deus-container');
+  if (!container) return;
+  if (clsName !== 'Clérigo') {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  container.style.display = 'block';
+  container.innerHTML = `
+    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px;">Divindade</label>
+    <div class="cls-btn-group" id="c-deus-btns" style="flex-wrap:wrap;gap:6px">
+      ${DEUSES_LISTA.map(nome =>
+        `<button type="button" class="cls-btn ${nome === selectedDeus ? 'active' : ''}" data-deus="${nome}" onclick="selectDeus('${nome}')">${nome}</button>`
+      ).join('')}
+    </div>
+    <input type="hidden" id="c-deus" value="${selectedDeus || ''}">
+  `;
+}
+
+function selectDeus(nome) {
+  const hiddenEl = document.getElementById('c-deus');
+  if (hiddenEl) hiddenEl.value = nome;
+  document.querySelectorAll('#c-deus-btns .cls-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.deus === nome)
+  );
 }
 
 function selectSubclasse(subName) {
@@ -4422,6 +4538,7 @@ function editCharacter(id) {
   // Para fichas antigas (texto livre), tenta derivar a base pelo nome da subclasse.
   const clsBase = p.classeBase || getBaseClass(p.cls) || null;
   setClasseSubclasse(clsBase, p.cls);
+  updateDeusSelector(clsBase, p.deus || null);
   document.getElementById('c-hp').value = p.hpMax;
   document.getElementById('c-ins').value = p.ins;
   document.getElementById('c-agi').value = p.agi;
@@ -4467,6 +4584,10 @@ function saveCharacter() {
   const origemEl = document.getElementById('c-origem');
   const origemId = origemEl ? (origemEl.value || null) : null;
 
+  // Divindade (exclusivo de Clérigo)
+  const deusEl = document.getElementById('c-deus');
+  const deus = (classeBase === 'Clérigo' && deusEl) ? (deusEl.value || null) : null;
+
   // Validação de point-buy
   const editLevel = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : 1;
   const totalPontos = getPointBuyTotal(editLevel);
@@ -4491,6 +4612,7 @@ function saveCharacter() {
       p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
       p.passos = passos; p.dinheiro = dinheiro;
       p.origemId = origemId;
+      p.deus = deus;
       p.pontosPendentes = 0;
       // Humanidade: vira Bruxo agora (ou ainda não tinha o campo) → inicia
       // cheia (10/10). Se já era Bruxo, mantém o valor atual sem resetar.
@@ -4514,7 +4636,7 @@ function saveCharacter() {
       armadura: 0, armaduraMax: 0,
       elmo: 0, elmoMax: 0,
       acoesMax: ACOES_POR_TURNO_PADRAO, acoesAtuais: ACOES_POR_TURNO_PADRAO,
-      passos, ins, dinheiro, origemId, skills: [], passivas: [], inventario: [],
+      passos, ins, dinheiro, origemId, deus, skills: [], passivas: [], inventario: [],
       jogNotas: Object.fromEntries(JOG_NOTA_TAGS.map(t => [t.toLowerCase(), ''])),
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
