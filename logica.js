@@ -4180,9 +4180,12 @@ function closeModal() {
 // MODAL — BANCO DE HABILIDADES DE SUBCLASSE
 // ═══════════════════════════════════════
 let bancoPid = null;
+let bancoTabAtiva = null;
 
 function openBancoModal(pid) {
   bancoPid = pid;
+  const p = PLAYERS.find(x => x.id === pid);
+  bancoTabAtiva = p ? p.cls : null; // abre já na aba da própria subclasse
   renderBancoModal(pid);
   document.getElementById('modal-banco-overlay').classList.add('open');
 }
@@ -4192,32 +4195,55 @@ function closeBancoModal() {
   if (overlay) overlay.classList.remove('open');
 }
 
-// Repinta a lista do catálogo (chamado ao abrir e após adicionar algo, pra
-// atualizar o estado "já adicionada" de cada item sem fechar o modal).
+// Troca a aba (subclasse) ativa dentro do modal, sem fechar/reabrir.
+function trocarAbaBanco(subNome) {
+  bancoTabAtiva = subNome;
+  renderBancoModal(bancoPid);
+}
+
+// Repinta a lista do catálogo (chamado ao abrir, ao trocar de aba, e após
+// adicionar algo, pra atualizar o estado "já adicionada" de cada item sem
+// fechar o modal). Divide as Habilidades em uma aba por subclasse, já que
+// uma lista corrida com todas juntas fica grande demais.
 function renderBancoModal(pid) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
-  const itens = getBancoHabilidades(p);
+  const todosItens = getBancoHabilidades(p);
   const COLOR_LABEL = { green: 'Técnica', red: 'Golpe', blue: 'Feitiço', gray: 'Neutra' };
   const clsBase = p.classeBase || getBaseClass(p.cls) || '';
 
   document.getElementById('banco-subclasse-nome').textContent = clsBase;
 
+  const tabsEl = document.getElementById('banco-tabs');
   const lista = document.getElementById('banco-lista');
-  if (!itens.length) {
+
+  if (!todosItens.length) {
+    tabsEl.innerHTML = '';
     lista.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:10px 0">Nenhuma Habilidade cadastrada ainda para ${clsBase || 'esta classe'}.</div>`;
     return;
   }
 
+  // Subclasses na ordem em que aparecem no catálogo (mesma ordem de CLASSES)
+  const subsPresentes = [];
+  todosItens.forEach(item => {
+    if (!subsPresentes.includes(item.subclasseOrigem)) subsPresentes.push(item.subclasseOrigem);
+  });
+  if (!bancoTabAtiva || !subsPresentes.includes(bancoTabAtiva)) bancoTabAtiva = subsPresentes[0];
+
+  tabsEl.innerHTML = subsPresentes.map(sub => {
+    const ativa = sub === bancoTabAtiva;
+    const propria = sub === p.cls;
+    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaBanco('${sub}')">${propria ? '★ ' : ''}${sub}</button>`;
+  }).join('');
+
+  const itens = todosItens.filter(item => item.subclasseOrigem === bancoTabAtiva);
+
   lista.innerHTML = itens.map(item => {
     const jaTem = (p.skills || []).some(sk => sk.bancoId === item.id);
-    const ehPropria = item.subclasseOrigem === p.cls;
-    const origemTag = `<span class="sk-tag" style="${ehPropria ? 'font-weight:700' : ''}">${ehPropria ? '★ ' : ''}${item.subclasseOrigem}</span>`;
     return `
     <div class="skill-card sk-${item.color}" style="margin:0">
       <div class="sk-name">${item.name}</div>
       <div class="sk-tags">
-        ${origemTag}
         <span class="sk-tag">${COLOR_LABEL[item.color] || ''}</span>
         <span class="sk-tag">${item.cost} ${item.cost === 1 ? 'ação' : 'ações'}</span>
         <span class="sk-tag">${tipoLabel(item)}</span>
