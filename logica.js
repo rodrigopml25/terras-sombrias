@@ -44,6 +44,14 @@ function getHumanidade(p) {
   return (typeof p.humanidade === 'number') ? p.humanidade : HUMANIDADE_MAX;
 }
 
+// Clérigos possuem o Atributo Secundário exclusivo "Pecado": começa em 0 e
+// sobe conforme as decisões do personagem durante o jogo (o detalhe de como
+// se ganha Pecado virá junto das Bênçãos/Intervenções/Milagres). É usado na
+// fórmula do Teste de Devoção: 1d100 − (20 × Pecado).
+function getPecado(p) {
+  return (typeof p.pecado === 'number') ? p.pecado : 0;
+}
+
 // ── Notas musicais — exclusivo de Bardo ──────────────────────────────────────
 // Cada Bardo possui 7 notas (Dó, Ré, Mi, Fá, Sol, Lá, Si) não acumuláveis:
 // cada nota é um slot independente (ativa/inativa). Não existe estoque —
@@ -86,6 +94,7 @@ const TESTES_LISTA = [
   { id: 'geografia',   name: 'Geografia',   attr: 'intel'  },
   { id: 'historia',    name: 'História',    attr: 'intel'  },
   { id: 'emocao',      name: 'Emoção',      attr: 'neutro' },
+  { id: 'devocao',     name: 'Devoção',     attr: 'neutro' }, // exclusivo de Clérigo
 ];
 
 // Retorna o objeto de testes de um personagem, com fallback seguro.
@@ -699,6 +708,8 @@ function ensureRacePassivas(p) {
   ensureSubclasseWeapons(p);
   // Garante as habilidades exclusivas de subclasse (ex: Roda Punk do Roqueiro)
   ensureSubclasseSkills(p);
+  // Garante as habilidades fixas de classe-base (ex: Teste de Devoção do Clérigo)
+  ensureClasseSkills(p);
 }
 
 // Armas raciais fixas — injetadas automaticamente no inventário de personagens
@@ -810,6 +821,45 @@ function ensureSubclasseSkills(p) {
         color: def.color, cost: def.cost, tipo: def.tipo,
         usosMax: def.usosMax, usosAtuais: def.usosMax,
         cdRestante: 0, turnosRecarga: 1,
+      });
+    }
+  });
+}
+
+// Habilidades gerais de classe-base — mesmo padrão de SUBCLASSES_SKILLS, mas
+// injetadas conforme a classe-base (p.classeBase) em vez da subclasse, para
+// habilidades que valem pra qualquer subclasse daquela classe.
+const CLASSES_SKILLS = {
+  'Clérigo': [
+    { id: 'sk_classe_clerigo_teste_devocao', name: 'Teste de Devoção', color: 'gray', cost: 1, tipo: 'turno_N', usosMax: 1, turnosRecarga: 1, desc: 'Faça uma oração para sua divindade: role 1d100 − (20 × Pecado). Dependendo do valor obtido, recebe: 1 → Nada; 2~65 → 1 Bênção; 66~90 → 1 Intervenção OU 2 Bênçãos; 91~99 → 1 Milagre OU 2 Intervenções; 100 → 1 Milagre Supremo ou um Milagre.' },
+  ],
+};
+
+// Injeta as habilidades fixas da classe-base do personagem em p.skills, sem
+// duplicar e sem recolocar as removidas manualmente (rastreado em
+// p.classeSkillsRemovidas). Ao trocar de classe-base, remove as habilidades
+// da classe-base anterior que não pertençam mais à atual.
+function ensureClasseSkills(p) {
+  if (!Array.isArray(p.skills)) p.skills = [];
+  if (!Array.isArray(p.classeSkillsRemovidas)) p.classeSkillsRemovidas = [];
+
+  Object.entries(CLASSES_SKILLS).forEach(([clsName, lista]) => {
+    if (clsName !== p.classeBase) {
+      const ids = lista.map(def => def.id);
+      p.skills = p.skills.filter(sk => !ids.includes(sk.id));
+    }
+  });
+
+  const defs = CLASSES_SKILLS[p.classeBase] || [];
+  defs.forEach(def => {
+    const jaTem = p.skills.some(sk => sk.id === def.id);
+    const foiRemovida = p.classeSkillsRemovidas.includes(def.id);
+    if (!jaTem && !foiRemovida) {
+      p.skills.push({
+        id: def.id, name: def.name, desc: def.desc,
+        color: def.color, cost: def.cost, tipo: def.tipo,
+        usosMax: def.usosMax, usosAtuais: def.usosMax,
+        cdRestante: 0, turnosRecarga: def.turnosRecarga || 1,
       });
     }
   });
@@ -1576,6 +1626,7 @@ const SKILL_TESTE_LINK = {
   'sk_geral_arremesso':   'arremessar',
   'sk_geral_empurrar':    'empurrar',
   'sk_geral_furtividade': 'furtividade',
+  'sk_classe_clerigo_teste_devocao': 'devocao',
 };
 
 function useSkill(pid, skid) {
@@ -1733,6 +1784,24 @@ function setHumanidade(id, val) {
   const v = parseInt(val);
   if (isNaN(v)) { renderAll(); return; }
   p.humanidade = Math.max(0, Math.min(HUMANIDADE_MAX, v));
+  saveState(); renderAll();
+}
+
+// Pecado — exclusivo de Clérigo. Sem teto fixo (sobe conforme o jogo evolui),
+// só não pode ficar negativo.
+function adjPecado(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  p.pecado = Math.max(0, getPecado(p) + d);
+  saveState(); renderAll();
+}
+
+function setPecado(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  p.pecado = Math.max(0, v);
   saveState(); renderAll();
 }
 
@@ -1919,6 +1988,7 @@ function renderNarrador() {
     const elmPct = p.elmoMax > 0 ? Math.round(p.elmo / p.elmoMax * 100) : 0;
     const isBruxo = p.classeBase === 'Bruxo';
     const isBardo = p.classeBase === 'Bardo';
+    const isClerigo = p.classeBase === 'Clérigo';
     const humanPct = Math.round(getHumanidade(p) / HUMANIDADE_MAX * 100);
     const bm = p.hp === 0;
 
@@ -1982,7 +2052,7 @@ function renderNarrador() {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}${pendBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
@@ -2042,6 +2112,15 @@ function renderNarrador() {
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             ${NOTAS_MUSICAIS.map(n => { const ativa = getNotasBardo(p)[n]; return `<button class="nota-btn nota-btn-sm ${ativa?'nota-ativa':''}" onclick="toggleNota(${p.id},'${n}')">${n}</button>`; }).join('')}
             <button class="btn" style="font-size:10px;padding:3px 7px;margin-left:4px" onclick="resetNotasBardo(${p.id})" title="Usar todas as notas"><i class="ti ti-music"></i></button>
+          </div>
+        </div>` : ''}
+        ${isClerigo ? `
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">😈 Pecado</span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjPecado(${p.id},-1)">−1</button>
+            <input type="number" class="nar-ctrl-input" value="${getPecado(p)}" onchange="setPecado(${p.id}, this.value)">
+            <button onclick="adjPecado(${p.id},+1)">+1</button>
           </div>
         </div>` : ''}
         <div class="nar-ctrl-group">
@@ -2192,7 +2271,7 @@ function renderTestes(p, readonly) {
     { label: 'Agilidade',  cor: 'green',  attr: 'agi',    ids: ['acrobacia','desviar','furtividade','percepcao'] },
     { label: 'Força',      cor: 'red',    attr: 'forca',  ids: ['aparar','arremessar','empurrar','resistir']      },
     { label: 'Intelecto',  cor: 'blue',   attr: 'intel',  ids: ['arcano','mistico','geografia','historia']        },
-    { label: 'Neutros',    cor: 'gray',   attr: 'neutro', ids: ['iniciativa','emocao']                           },
+    { label: 'Neutros',    cor: 'gray',   attr: 'neutro', ids: p.classeBase === 'Clérigo' ? ['iniciativa','emocao','devocao'] : ['iniciativa','emocao'] },
   ];
 
   const corMap = { green: 'var(--green)', red: 'var(--red)', blue: 'var(--blue)', gray: 'var(--gray)' };
@@ -2226,7 +2305,7 @@ function renderTestes(p, readonly) {
 
       // Jogador: editável
       return `<div class="teste-row">
-        <button class="teste-roll-btn" onclick="rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name} (${tid === 'emocao' ? '1d100 − insanidade' : '1d20' + (mst ? '+' + mst + ' maestria' : '')})"><i class="ti ti-dice"></i></button>
+        <button class="teste-roll-btn" onclick="rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name} (${tid === 'emocao' ? '1d100 − insanidade' : tid === 'devocao' ? '1d100 − (20×pecado)' : '1d20' + (mst ? '+' + mst + ' maestria' : '')})"><i class="ti ti-dice"></i></button>
         <span class="teste-nome">${def.name}</span>
         <div class="teste-ctrl">
           <button class="teste-mv-btn ${hasMV ? 'ativo' : ''}" onclick="setTesteMV(${p.id},'${tid}',${!hasMV})" title="Mega Vantagem">MV</button>
@@ -2367,6 +2446,7 @@ function renderJogador() {
   const temSeq = p.ins >= 25;
   const isBruxo = p.classeBase === 'Bruxo';
   const isBardo = p.classeBase === 'Bardo';
+  const isClerigo = p.classeBase === 'Clérigo';
   const humanPct = Math.round(getHumanidade(p) / HUMANIDADE_MAX * 100);
 
   const grupos = { green:[], red:[], blue:[], gray:[] };
@@ -2560,6 +2640,15 @@ function renderJogador() {
           }).join('')}
         </div>
         <button class="btn" style="width:100%;margin-top:10px;font-size:11px;justify-content:center" onclick="resetNotasBardo(${p.id})"><i class="ti ti-music"></i> Usar todas</button>
+      </div>` : ''}
+      ${isClerigo ? `
+      <div class="stat-block">
+        <div class="stat-row"><span class="stat-lbl"><i class="ti ti-flame" style="color:var(--red)"></i> Pecado</span><span class="stat-val" style="color:var(--red)">${getPecado(p)}</span></div>
+        <div class="arm-ctrl arm-ctrl-3">
+          <button onclick="adjPecado(${p.id},-1)">−1</button>
+          <input type="number" class="stat-input" value="${getPecado(p)}" onchange="setPecado(${p.id}, this.value)">
+          <button onclick="adjPecado(${p.id},+1)">+1</button>
+        </div>
       </div>` : ''}
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-shield" style="color:var(--amber)"></i> Armadura</span><span class="stat-val" style="color:var(--amber)">${p.armadura}/${p.armaduraMax}</span></div>
@@ -5486,8 +5575,9 @@ function construirRolagemTeste(p, testeId) {
   const t = p.testes[testeId];
 
   const isEmocao = testeId === 'emocao';
-  const sides = isEmocao ? 100 : 20;
-  // Testes "Neutros" (Iniciativa, Emoção) não recebem bônus de maestria.
+  const isDevocao = testeId === 'devocao';
+  const sides = (isEmocao || isDevocao) ? 100 : 20;
+  // Testes "Neutros" (Iniciativa, Emoção, Devoção) não recebem bônus de maestria.
   const mst = def.attr !== 'neutro' ? maestria(p[def.attr] || 0) : 0;
 
   // Mega Vantagem / Mega Desvantagem: rola 2 dados e mantém o melhor ou o pior.
@@ -5512,6 +5602,13 @@ function construirRolagemTeste(p, testeId) {
   if (isEmocao && p.ins) {
     terms.push({ sign: '-', node: { type: 'labeled_const', value: p.ins, label: 'insanidade' } });
     total -= p.ins;
+  }
+
+  // Teste de Devoção (exclusivo de Clérigo): subtrai 20 para cada ponto de Pecado
+  if (isDevocao && getPecado(p) > 0) {
+    const penal = 20 * getPecado(p);
+    terms.push({ sign: '-', node: { type: 'labeled_const', value: penal, label: `pecado x${getPecado(p)}` } });
+    total -= penal;
   }
 
   // Bônus/penalidade configurado no teste (número fixo ou fórmula de dados)
