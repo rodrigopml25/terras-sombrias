@@ -1383,7 +1383,8 @@ const SUBCLASSES_PASSIVAS = {
     { id: 'briguento_maestria_pesada', name: 'Maestria Pesada', desc: 'Sabe usar Armadura Pesada e Armas Pesadas. Escolha um Teste de Força e receberá Mega Vantagem.' },
   ],
   'Ilusionista': [
-    { id: 'ilusionista_camuflagem_magica', name: 'Camuflagem Mágica', desc: 'Seu Teste de Furtividade pode ser trocado por um Teste de Arcano ou Místico.' },
+    { id: 'ilusionista_enganacao_ilusoria', name: 'Enganação Ilusória', desc: 'Você possui uma Ação falsa por turno. Utilize sua magia para enganar alguém: ganhe +Nível/2 (arredonda pra cima) como Vantagem e Dano/Cura na sua próxima Ação verdadeira no turno. Tome cuidado: o adversário pode fazer um Teste de Arcano ou Místico para descobrir a Ação falsa, e assim você não ganha os benefícios.' },
+    { id: 'ilusionista_copias_magicas', name: 'Cópias Mágicas', desc: 'Ao iniciar uma Luta/Cena, invoque uma ilusão que é sua cópia. Ela divide o turno com você, possuindo apenas uma Ação falsa, 10 de Passos, suas Maestrias e 3×Nível como Vida.' },
     { id: 'ilusionista_maestria_leve', name: 'Maestria Leve', desc: 'Sabe usar Armadura Leve e Armas Leves. Escolha um Teste de Intelecto e receberá Mega Vantagem.' },
   ],
   'Criador de Runa': [
@@ -1452,13 +1453,12 @@ function ensureSubclassePassivas(p) {
   if (!Array.isArray(p.passivas)) p.passivas = [];
   if (!Array.isArray(p.subclassePassivasRemovidas)) p.subclassePassivasRemovidas = [];
 
-  // Remove passivas de subclasses que não sejam a atual
-  Object.entries(SUBCLASSES_PASSIVAS).forEach(([subName, lista]) => {
-    if (subName !== p.cls) {
-      const ids = lista.map(sp => sp.id);
-      p.passivas = p.passivas.filter(pas => !pas.subclasseId || !ids.includes(pas.subclasseId));
-    }
-  });
+  // Remove qualquer passiva de subclasse que não esteja mais no catálogo
+  // atual da subclasse do personagem — seja por troca de subclasse, seja
+  // porque a passiva foi removida/substituída no catálogo (mesmo permanecendo
+  // na mesma subclasse).
+  const idsAtuais = getSubclassePassivas(p).map(sp => sp.id);
+  p.passivas = p.passivas.filter(pas => !pas.subclasseId || idsAtuais.includes(pas.subclasseId));
 
   getSubclassePassivas(p).forEach(sp => {
     const atendeNivel = !sp.minLevel || (p.level || 1) >= sp.minLevel;
