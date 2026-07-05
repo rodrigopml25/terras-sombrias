@@ -217,6 +217,7 @@ button {
 .mstat-elm { background: var(--teal-bg); color: var(--teal); border: 1px solid var(--teal-bd); }
 .mstat-acoes { background: var(--accent-bg); color: var(--accent2); border: 1px solid var(--accent-bd); }
 .mstat-human { background: var(--accent-bg); color: var(--accent2); border: 1px solid var(--accent-bd); }
+.mstat-pecado { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bd); }
 .mstat-passos { background: var(--gray-bg); color: var(--gray); border: 1px solid var(--gray-bd); }
 .mstat-money { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
 .mstat-bm { background: var(--red-bg); color: #f08080; border: 1px solid var(--red-bd); font-weight: 700; }
