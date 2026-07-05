@@ -1809,6 +1809,37 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 }
 .jog-tab i { font-size: 14px; }
 
+/* Abas do modal "Banco de Habilidades" — uma por subclasse */
+.banco-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px;
+  margin-bottom: 12px;
+}
+.banco-tab {
+  padding: 6px 12px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.banco-tab:hover { color: var(--text2); background: var(--surface); }
+.banco-tab.active {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
 /* ═══════════════════════════════════════════
    ANOTAÇÕES DO JOGADOR
 ═══════════════════════════════════════════ */
