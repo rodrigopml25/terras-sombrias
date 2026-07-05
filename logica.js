@@ -1071,8 +1071,7 @@ const DEUSES_CLERIGO = {
       { id: 'argus_escolhido_de_argus', name: 'Escolhido de Argus', desc: 'Só pode ser usado uma vez por Personagem. Argus concede a sua Foice para você nesta Luta/Cena. Depois, receba uma Foice Constelação exclusiva sua.' },
     ],
   },
-  // Eluna, Deusa Noturna da Lua; Luz; Rita, Deusa da Barganha; e Sombras:
-  // kits ainda não definidos — adicionar quando as descrições chegarem.
+  // As 5 divindades do Clérigo estão completas: Argus, Eluna, Luz, Rita e Sombras.
   'Eluna, Deusa Noturna da Lua': {
     bencaos: [
       { id: 'eluna_clarao_da_noite', name: 'Clarão da Noite', desc: 'Eluna concede o brilho da lua para sua Arma por 1 Turno: ela te guiará contra seus adversários, dando +2 de Vantagem, e se você estiver Cego, a Arma te guiará e você não sofrerá as consequências. Se for Noite, a Vantagem se torna +4.' },
@@ -1107,8 +1106,40 @@ const DEUSES_CLERIGO = {
       { id: 'luz_ressurreicao', name: 'Ressurreição', desc: 'Só pode ser usada 1 vez por Personagem. A Luz te concede o poder sobre a vida: ressuscite um Alvo com toda a sua Vida recuperada.' },
     ],
   },
-  'Rita, Deusa da Barganha': { bencaos: [], intervencoes: [], milagres: [], milagresSupremos: [] },
-  'Sombras': { bencaos: [], intervencoes: [], milagres: [], milagresSupremos: [] },
+  'Rita, Deusa da Barganha': {
+    bencaos: [
+      { id: 'rita_barganha_do_acerto', name: 'Barganha do Acerto', desc: 'Rita te propõe: recebe +1d2, +1d4 ou +1d6 de Vantagem na sua próxima Habilidade, porém, receberá o mesmo dado como Desvantagem em Dano/Cura da sua próxima Habilidade.' },
+      { id: 'rita_barganha_da_intensidade', name: 'Barganha da Intensidade', desc: 'Rita te propõe: sua próxima Habilidade possui +1d2, +1d4 ou +1d6 de Dano/Cura, porém, receberá o mesmo dado como Desvantagem no lançamento da sua próxima Habilidade.' },
+      { id: 'rita_verdadeiro_carater', name: 'Verdadeiro Caráter', desc: 'Escolha um Alvo e Rita te dirá como realmente é a condição monetária daquele sujeito. Em luta, Rita te dirá se o Alvo tem algum equipamento ou item escondido.' },
+    ],
+    intervencoes: [
+      { id: 'rita_fonte_de_riqueza', name: 'Fonte de Riqueza', desc: 'Rita abençoou alguma negociação sua passada: seu próximo Recurso custará metade (arredonda pra cima), porém, custará 2 Ações para lançá-lo.' },
+      { id: 'rita_investimento', name: 'Investimento', desc: 'Conceda uma Ação sua para Rita, e ela irá guardá-la: a cada 3 Ações guardadas, ela produz mais uma Ação guardada a mais, ou receba todas as Ações guardadas.' },
+    ],
+    milagres: [
+      { id: 'rita_nova_regra', name: 'Nova Regra', desc: 'Rita distorce as leis da física do momento: você propõe uma regra que deverá ocorrer até o final da Cena/Luta, e Rita apresentará a consequência da regra. Após a decisão entre você e ela, a regra é aplicada e anunciada a todos.' },
+    ],
+    milagresSupremos: [
+      { id: 'rita_contrato_sagrado', name: 'Contrato Sagrado', desc: 'Só pode ser usado 1 vez por Personagem. Rita leva todos que você desejar para seu santuário em sua presença, e iniciarão uma barganha sagrada, onde todos devem cumprir! Se não, conhecerão a ira de Rita!!!' },
+    ],
+  },
+  'Sombras': {
+    bencaos: [
+      { id: 'sombras_abraco_das_sombras', name: 'Abraço das Sombras', desc: 'As Sombras te cobrem e te deixam Invisível por um turno. Se já estiver Invisível ou Furtivo, lance 2 Essências Sombrias em um ou dois Alvos.' },
+      { id: 'sombras_essencia_sombria', name: 'Essência Sombria', desc: 'Escolha um Alvo e cause apenas 1d4 de Dano na vida dele. O acerto é garantido!' },
+      { id: 'sombras_observador_macabro', name: 'Observador Macabro', desc: 'As Sombras invocam um olho sombrio intangível que persegue um Alvo: você terá +2 de Vantagem sobre ele. No seu turno, poderá sacrificar o olho e lançar Essência Sombria no Alvo.' },
+    ],
+    intervencoes: [
+      { id: 'sombras_conhecimento_proibido', name: 'Conhecimento Proibido', desc: 'As Sombras te contam quem é o mais insano da Cena/Luta. Caso queira, amaldiçoe-o: para cada 10 de Insanidade que ele tiver, você recebe +1 de Dano de Essência Sombria (acumula infinitamente).' },
+      { id: 'sombras_encantamento_sombrio', name: 'Encantamento Sombrio', desc: 'As Sombras encantam uma Habilidade sua nesta luta: ao causar Dano com ela, lance também uma Essência Sombria num Alvo de sua escolha (pode acumular infinitamente).' },
+    ],
+    milagres: [
+      { id: 'sombras_visao_divina', name: 'Visão Divina', desc: 'As Sombras invocam uma entidade do caos chamada Xa Vatar, que dura 3 turnos seus. Ela observa todos os Alvos que você desejar: você terá +6 de Vantagem sobre eles. No início do seu turno, lance 1d4 de Essência Sombria e distribua o dano entre todos os Alvos selecionados.' },
+    ],
+    milagresSupremos: [
+      { id: 'sombras_toque_das_sombras', name: 'Toque das Sombras', desc: 'Só pode ser usado 1 vez por Personagem. As Sombras te concedem o poder supremo dos deuses antigos: escolha um Alvo e cause apenas 10d20 de Dano na vida dele. O acerto é garantido!' },
+    ],
+  },
 };
 
 // Lista de nomes de divindades disponíveis para escolha na criação do personagem.
