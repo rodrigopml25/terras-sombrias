@@ -866,6 +866,74 @@ function ensureClasseSkills(p) {
 }
 
 // ═══════════════════════════════════════
+// BANCO DE HABILIDADES DE SUBCLASSE
+// ═══════════════════════════════════════
+// Diferente de SUBCLASSES_SKILLS (habilidades fixas, injetadas automaticamente),
+// este é um catálogo de até 10 Habilidades específicas por subclasse das quais
+// o JOGADOR escolhe quais adicionar à própria ficha (via botão "Escolher da
+// Subclasse", que abre um catálogo de seleção).
+//
+// Cada entrada tem um campo "indice" — um número interno reservado para uma
+// mecânica futura. Ele NUNCA é exibido na interface (nem pro jogador, nem pro
+// narrador): não aparece nos cards de habilidade, no modal de edição, nem em
+// tooltips. Ele só viaja junto no objeto salvo (sk.indice) para uso posterior.
+//
+// Ainda vazio para todas as subclasses — preencher conforme as descrições das
+// 10 habilidades de cada uma forem chegando.
+const BANCO_HABILIDADES_SUBCLASSE = {
+  'Campeão': [],
+  'Combatente': [],
+  'Soldado Elementar': [],
+  'Mercenário': [],
+  'Briguento': [],
+  'Ilusionista': [],
+  'Criador de Runa': [],
+  'Feiticeiro de Fogo': [],
+  'Conjurador': [],
+  'Alquimista': [],
+  'Receptáculo Demoníaco': [],
+  'Amaldiçoado': [],
+  'Dançarino': [],
+  'Roqueiro': [],
+  'Maestro Macabro': [],
+  'Exorcista': [],
+  'Paladino': [],
+  'Acólito': [],
+};
+
+// Retorna o catálogo de Habilidades da subclasse do personagem (vazio se
+// ainda não cadastrado, ou se a subclasse não tiver banco).
+function getBancoHabilidades(p) {
+  return BANCO_HABILIDADES_SUBCLASSE[p.cls] || [];
+}
+
+// Adiciona ao personagem uma cópia de uma Habilidade do banco da sua
+// subclasse (identificada por bancoId). Não duplica: se já foi adicionada,
+// não faz nada. O campo "indice" viaja junto, mas nunca é mostrado na UI.
+function adicionarHabilidadeDoBanco(pid, bancoId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = getBancoHabilidades(p).find(h => h.id === bancoId);
+  if (!item) return;
+  if (!Array.isArray(p.skills)) p.skills = [];
+  const jaTem = p.skills.some(sk => sk.bancoId === item.id);
+  if (jaTem) return;
+  p.skills.push({
+    id: 'sk_banco_' + item.id,
+    bancoId: item.id,
+    indice: item.indice,
+    name: item.name, desc: item.desc,
+    color: item.color, cost: item.cost, tipo: item.tipo,
+    usosMax: item.tipo === 'infinite' ? 99 : item.usosMax,
+    usosAtuais: item.tipo === 'infinite' ? 99 : item.usosMax,
+    cdRestante: 0, turnosRecarga: item.turnosRecarga || 2,
+  });
+  saveState();
+  renderAll();
+  if (typeof renderBancoModal === 'function') renderBancoModal(pid);
+}
+
+// ═══════════════════════════════════════
 // FORMA DE DRAGÃO — Metamorfose
 // ═══════════════════════════════════════
 // Habilidades raciais do Dragão que só existem enquanto ele estiver na
@@ -2869,7 +2937,10 @@ function renderJogador() {
         <span class="leg-item" style="color:var(--text3)">⏳ = turnos restantes &nbsp;·&nbsp; ● = usos gastos</span>
       </div>
       ${skillsHtml}
-      <button class="add-skill-btn" onclick="openModal(${p.id})"><i class="ti ti-plus"></i> Adicionar habilidade</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="add-skill-btn" onclick="openModal(${p.id})"><i class="ti ti-plus"></i> Adicionar habilidade</button>
+        ${p.cls ? `<button class="add-skill-btn" onclick="openBancoModal(${p.id})"><i class="ti ti-book"></i> Escolher da Subclasse</button>` : ''}
+      </div>
 
       <div class="group-title group-title-toggle" style="margin-top:24px" onclick="toggleJogSkillGroup('passivas')">
         <span class="gt-dot" style="background:var(--accent2)"></span>Passivas — Talentos
@@ -4057,6 +4128,56 @@ function deleteSkill() {
 function closeModal() {
   const overlay = document.getElementById('modal-overlay');
   if(overlay) overlay.classList.remove('open');
+}
+
+// ═══════════════════════════════════════
+// MODAL — BANCO DE HABILIDADES DE SUBCLASSE
+// ═══════════════════════════════════════
+let bancoPid = null;
+
+function openBancoModal(pid) {
+  bancoPid = pid;
+  renderBancoModal(pid);
+  document.getElementById('modal-banco-overlay').classList.add('open');
+}
+
+function closeBancoModal() {
+  const overlay = document.getElementById('modal-banco-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// Repinta a lista do catálogo (chamado ao abrir e após adicionar algo, pra
+// atualizar o estado "já adicionada" de cada item sem fechar o modal).
+function renderBancoModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const itens = getBancoHabilidades(p);
+  const COLOR_LABEL = { green: 'Técnica', red: 'Golpe', blue: 'Feitiço', gray: 'Neutra' };
+
+  document.getElementById('banco-subclasse-nome').textContent = p.cls || '';
+
+  const lista = document.getElementById('banco-lista');
+  if (!itens.length) {
+    lista.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:10px 0">Nenhuma Habilidade cadastrada ainda para ${p.cls || 'esta subclasse'}.</div>`;
+    return;
+  }
+
+  lista.innerHTML = itens.map(item => {
+    const jaTem = (p.skills || []).some(sk => sk.bancoId === item.id);
+    return `
+    <div class="skill-card sk-${item.color}" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div class="sk-tags">
+        <span class="sk-tag">${COLOR_LABEL[item.color] || ''}</span>
+        <span class="sk-tag">${item.cost} ${item.cost === 1 ? 'ação' : 'ações'}</span>
+        <span class="sk-tag">${tipoLabel(item)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      <button class="btn ${jaTem ? '' : 'btn-primary'}" style="width:100%;justify-content:center" ${jaTem ? 'disabled' : ''} onclick="adicionarHabilidadeDoBanco(${p.id}, '${item.id}')">
+        ${jaTem ? '✓ Já adicionada' : 'Adicionar à ficha'}
+      </button>
+    </div>`;
+  }).join('');
 }
 
 function selColor(c, el) {
