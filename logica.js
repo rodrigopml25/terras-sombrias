@@ -1228,57 +1228,75 @@ function getBaseClass(subclasseName) {
 const SUBCLASSES_PASSIVAS = {
   'Campeão': [
     { id: 'campeao_multifuncoes', name: 'Multifunções', desc: 'Sabe usar TODAS as Armas.' },
+    { id: 'campeao_maestria_mediana', name: 'Maestria Mediana', desc: 'Sabe usar Armadura Média e Armas Médias. Escolha um Teste de Agilidade e receberá Mega Vantagem.' },
   ],
   'Combatente': [
     { id: 'combatente_guerreiro_perfeito', name: 'Guerreiro Perfeito', desc: 'Pode usar uma arma pesada de corpo a corpo em cada mão (mesmo que ambas sejam de duas mãos). Pode lançar uma Habilidade usando as duas Armas juntas, assim terá +Dano da segunda Arma, porém, sua Maestria no lançamento será reduzida pela metade.' },
+    { id: 'combatente_maestria_pesada', name: 'Maestria Pesada', desc: 'Sabe usar Armadura Pesada e Armas Pesadas. Escolha um Teste de Força e receberá Mega Vantagem.' },
   ],
   'Soldado Elementar': [
     { id: 'soldado_elementar_anti_magia', name: 'Anti-Magia', desc: 'Escolha um Elemento (Ar, Fogo, Gelo ou Rocha): ele irá fazer seus Aparos, assim, poderá Aparar contra Feitiços e utilizar a maestria de Intelecto ao invés de Força para Aparar.' },
+    { id: 'soldado_elementar_maestria_leve', name: 'Maestria Leve', desc: 'Sabe usar Armadura Leve e Armas Leves. Escolha um Teste de Intelecto e receberá Mega Vantagem.' },
   ],
   'Mercenário': [
     { id: 'mercenario_falsificador', name: 'Falsificador', desc: 'Você tem 50 de Dinheiro Falso. Ao gastá-lo em algo (exemplo: Recursos, comprar itens, etc), lance 1d100: se tirar 40 ou mais, não perceberão que são Falsas. Após um Descanso, restaura até 50 de Dinheiro Falso.' },
+    { id: 'mercenario_maestria_mediana', name: 'Maestria Mediana', desc: 'Sabe usar Armadura Média e Armas Médias. Escolha um Teste de Agilidade e receberá Mega Vantagem.' },
   ],
   'Briguento': [
     { id: 'briguento_durao', name: 'Durão', desc: 'Você tem acesso exclusivo à Arma: Quebra Queixo. Não pode usar outras Armas e nega todas as desvantagens e mega desvantagens sobre Furtividade.' },
+    { id: 'briguento_maestria_pesada', name: 'Maestria Pesada', desc: 'Sabe usar Armadura Pesada e Armas Pesadas. Escolha um Teste de Força e receberá Mega Vantagem.' },
   ],
   'Ilusionista': [
     { id: 'ilusionista_camuflagem_magica', name: 'Camuflagem Mágica', desc: 'Seu Teste de Furtividade pode ser trocado por um Teste de Arcano ou Místico.' },
+    { id: 'ilusionista_maestria_leve', name: 'Maestria Leve', desc: 'Sabe usar Armadura Leve e Armas Leves. Escolha um Teste de Intelecto e receberá Mega Vantagem.' },
   ],
   'Criador de Runa': [
     { id: 'criador_runa_pra_que_magia', name: 'Pra Que Magia!?', desc: 'Pode comprar um pergaminho de uso único que contém um feitiço de sua escolha por 20 de Dinheiro. Os Dados de Lançamento e de Dano/Cura são iguais aos de uma Técnica. (Pode comprar até 3 pergaminhos por sessão)' },
+    { id: 'criador_runa_maestria_mediana', name: 'Maestria Mediana', desc: 'Sabe usar Armadura Média e Armas Médias. Escolha um Teste de Agilidade e receberá Mega Vantagem.' },
   ],
   'Feiticeiro de Fogo': [
     { id: 'feiticeiro_fogo_poder_proibido', name: 'Poder Proibido', desc: 'As chamas são uma magia extremamente perigosa, pois se manifestam por meio de suas emoções e capacidades físicas. Assim, seu Teste de Emoção tem +1d20 de Vantagem, e seu Teste de Arcano ou Místico utiliza a Maestria de Força ao invés de Intelecto. Quando você estiver em um momento em que perde o controle racional, sua magia será liberta.' },
+    { id: 'feiticeiro_fogo_maestria_pesada', name: 'Maestria Pesada', desc: 'Sabe usar Armadura Pesada e Armas Pesadas. Escolha um Teste de Força e receberá Mega Vantagem.' },
   ],
   'Conjurador': [
     { id: 'conjurador_transcendencia_intelectual', name: 'Transcendência Intelectual', desc: 'Aprenda um feitiço de outra Classe. Ao subir de Nível, repita esse efeito. No Nível 5, ao invés de um feitiço, aprenda um feitiço Lendário.' },
+    { id: 'conjurador_maestria_leve', name: 'Maestria Leve', desc: 'Sabe usar Armadura Leve e Armas Leves. Escolha um Teste de Intelecto e receberá Mega Vantagem.' },
   ],
   'Alquimista': [
     { id: 'alquimista_sistema_nervoso_elevado', name: 'Sistema Nervoso Elevado', desc: 'Possui 10 de Humanidade, podendo gastá-la para ativar os Êxtases de suas Técnicas. Quando chegar a 0, seu corpo cederá aos efeitos colaterais das poções.' },
+    { id: 'alquimista_maestria_mediana', name: 'Maestria Mediana', desc: 'Sabe usar Armadura Média e Armas Médias. Escolha um Teste de Agilidade e receberá Mega Vantagem.' },
   ],
   'Receptáculo Demoníaco': [
     { id: 'receptaculo_demoniaco_selo_demoniaco', name: 'Selo Demoníaco', desc: 'Possui 10 de Humanidade, podendo gastá-la para ativar os Sacrilégios de seus Golpes. Quando chegar a 0, o demônio assumirá o controle.' },
+    { id: 'receptaculo_demoniaco_maestria_pesada', name: 'Maestria Pesada', desc: 'Sabe usar Armadura Pesada e Armas Pesadas. Escolha um Teste de Força e receberá Mega Vantagem.' },
   ],
   'Amaldiçoado': [
     { id: 'amaldicoado_maldicao', name: 'Maldição', desc: 'Possui 10 de Humanidade, podendo gastá-la para ativar os Assombrar de seus Feitiços. Quando chegar a 0, a maldição será liberta...' },
+    { id: 'amaldicoado_maestria_leve', name: 'Maestria Leve', desc: 'Sabe usar Armadura Leve e Armas Leves. Escolha um Teste de Intelecto e receberá Mega Vantagem.' },
   ],
   'Dançarino': [
     { id: 'dancarino_dancarino_ecletico', name: 'Dançarino Eclético', desc: 'Possui 4 Campos Harmônicos, que precisam de 7 Notas Musicais para serem lançados. Aprenda uma Técnica que não envolva Arma de outra Classe. Ao subir de Nível, repita esse último efeito, porém, não pode repetir Classes.' },
+    { id: 'dancarino_maestria_mediana', name: 'Maestria Mediana', desc: 'Sabe usar Armadura Média e Armas Médias. Escolha um Teste de Agilidade e receberá Mega Vantagem.' },
   ],
   'Roqueiro': [
     { id: 'roqueiro_rock_and_roll', name: 'AQUI É DO Rock and Roll', desc: 'Possui 4 Campos Harmônicos, que precisam de 7 Notas Musicais para serem lançados. Você possui Roda Punk no seu Grimório.' },
+    { id: 'roqueiro_maestria_pesada', name: 'Maestria Pesada', desc: 'Sabe usar Armadura Pesada e Armas Pesadas. Escolha um Teste de Força e receberá Mega Vantagem.' },
   ],
   'Maestro Macabro': [
     { id: 'maestro_macabro_maestro_demoniaco', name: 'Maestro Demoníaco', desc: 'Possui 4 Campos Harmônicos, que precisam de 7 Notas Musicais para serem lançados. Consegue escutar demônios e outras criaturas bizarras dentro das pessoas; por esse vínculo, sua Insanidade máxima é reduzida para 80, porém possui +20 pontos de Vida base.' },
+    { id: 'maestro_macabro_maestria_leve', name: 'Maestria Leve', desc: 'Sabe usar Armadura Leve e Armas Leves. Escolha um Teste de Intelecto e receberá Mega Vantagem.' },
   ],
   'Exorcista': [
     { id: 'exorcista_abencoado', name: 'Abençoado', desc: 'Toda vez que receber uma Intervenção, Milagre ou Milagre Supremo, receberá também uma Bênção.' },
+    { id: 'exorcista_maestria_mediana', name: 'Maestria Mediana', desc: 'Sabe usar Armadura Média e Armas Médias. Escolha um Teste de Agilidade e receberá Mega Vantagem.' },
   ],
   'Paladino': [
     { id: 'paladino_poder_de_um_fiel', name: 'Poder de um Fiel', desc: 'Alguns Golpes de Paladino possuem Fidelidade. Uma vez por sessão, em um Golpe com Fidelidade, poderá transformar o resultado em um Milagre Supremo.' },
+    { id: 'paladino_maestria_pesada', name: 'Maestria Pesada', desc: 'Sabe usar Armadura Pesada e Armas Pesadas. Escolha um Teste de Força e receberá Mega Vantagem.' },
   ],
   'Acólito': [
     { id: 'acolito_dom_da_sabedoria', name: 'Dom da Sabedoria', desc: 'Seu Teste de Devoção tem Mega Vantagem.' },
+    { id: 'acolito_maestria_leve', name: 'Maestria Leve', desc: 'Sabe usar Armadura Leve e Armas Leves. Escolha um Teste de Intelecto e receberá Mega Vantagem.' },
   ],
 };
 
