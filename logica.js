@@ -923,10 +923,23 @@ const BANCO_HABILIDADES_SUBCLASSE = {
   'Acólito': [],
 };
 
-// Retorna o catálogo de Habilidades da subclasse do personagem (vazio se
-// ainda não cadastrado, ou se a subclasse não tiver banco).
+// Retorna o catálogo de Habilidades disponível para o personagem: TODAS as
+// Habilidades de TODAS as subclasses da mesma Classe-base (ex: um Campeão
+// também tem acesso às do Combatente e do Soldado Elementar, por serem todas
+// subclasses de Guerreiro) — não só as da própria subclasse. Cada item vem
+// com "subclasseOrigem" anexado, usado só para exibir de qual subclasse ele
+// vem no catálogo (não é salvo na ficha).
 function getBancoHabilidades(p) {
-  return BANCO_HABILIDADES_SUBCLASSE[p.cls] || [];
+  const clsBase = p.classeBase || getBaseClass(p.cls);
+  const cls = CLASSES.find(c => c.name === clsBase);
+  if (!cls) return BANCO_HABILIDADES_SUBCLASSE[p.cls] || [];
+  const itens = [];
+  cls.subs.forEach(sub => {
+    (BANCO_HABILIDADES_SUBCLASSE[sub.name] || []).forEach(item => {
+      itens.push({ ...item, subclasseOrigem: sub.name });
+    });
+  });
+  return itens;
 }
 
 // Adiciona ao personagem uma cópia de uma Habilidade do banco da sua
@@ -4175,21 +4188,25 @@ function renderBancoModal(pid) {
   if (!p) return;
   const itens = getBancoHabilidades(p);
   const COLOR_LABEL = { green: 'Técnica', red: 'Golpe', blue: 'Feitiço', gray: 'Neutra' };
+  const clsBase = p.classeBase || getBaseClass(p.cls) || '';
 
-  document.getElementById('banco-subclasse-nome').textContent = p.cls || '';
+  document.getElementById('banco-subclasse-nome').textContent = clsBase;
 
   const lista = document.getElementById('banco-lista');
   if (!itens.length) {
-    lista.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:10px 0">Nenhuma Habilidade cadastrada ainda para ${p.cls || 'esta subclasse'}.</div>`;
+    lista.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:10px 0">Nenhuma Habilidade cadastrada ainda para ${clsBase || 'esta classe'}.</div>`;
     return;
   }
 
   lista.innerHTML = itens.map(item => {
     const jaTem = (p.skills || []).some(sk => sk.bancoId === item.id);
+    const ehPropria = item.subclasseOrigem === p.cls;
+    const origemTag = `<span class="sk-tag" style="${ehPropria ? 'font-weight:700' : ''}">${ehPropria ? '★ ' : ''}${item.subclasseOrigem}</span>`;
     return `
     <div class="skill-card sk-${item.color}" style="margin:0">
       <div class="sk-name">${item.name}</div>
       <div class="sk-tags">
+        ${origemTag}
         <span class="sk-tag">${COLOR_LABEL[item.color] || ''}</span>
         <span class="sk-tag">${item.cost} ${item.cost === 1 ? 'ação' : 'ações'}</span>
         <span class="sk-tag">${tipoLabel(item)}</span>
