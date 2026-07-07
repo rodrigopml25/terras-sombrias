@@ -44,6 +44,67 @@ function getHumanidade(p) {
   return (typeof p.humanidade === 'number') ? p.humanidade : HUMANIDADE_MAX;
 }
 
+// ═══════════════════════════════════════
+// EFEITOS SECUNDÁRIOS — exclusivo do Bruxo
+// ═══════════════════════════════════════
+// Algumas Habilidades do banco de Bruxo têm um Efeito Secundário que custa
+// Humanidade para ativar: Êxtase (Alquimista), Sacrilégio (Receptáculo
+// Demoníaco) e Assombrar (Amaldiçoado). Cada um só fica disponível se o
+// personagem tiver a passiva correspondente da própria subclasse — que é
+// concedida automaticamente a quem É daquela subclasse, mas pode ter sido
+// removida manualmente da ficha (nesse caso, o Efeito Secundário some da
+// Habilidade até a passiva ser restaurada).
+const EFEITOS_SECUNDARIOS_BRUXO = {
+  extase:     { nome: 'Êxtase',     passivaId: 'alquimista_sistema_nervoso_elevado' },
+  sacrilegio: { nome: 'Sacrilégio', passivaId: 'receptaculo_demoniaco_selo_demoniaco' },
+  assombrar:  { nome: 'Assombrar',  passivaId: 'amaldicoado_maldicao' },
+};
+
+// Alguns Efeitos Secundários (em especial alguns Êxtases) liberam um efeito
+// extra fixo e compartilhado entre várias Habilidades — em vez de repetir o
+// texto em cada uma, cada entrada do banco só marca `libera: 'adrenalina'` e
+// a descrição correta é buscada aqui.
+const EFEITOS_LIBERADOS = {
+  adrenalina: { nome: 'Adrenalina', desc: 'Faça um ataque com sua Arma tendo Mega Vantagem, causando 1d4 de Dano, ou cure 1d4 da sua Vida.' },
+};
+
+// Verifica se o personagem ainda possui, na ficha, uma passiva de subclasse
+// específica (por subclasseId) — pode ter sido excluída manualmente.
+function temPassivaSubclasse(p, subclasseId) {
+  return (p.passivas || []).some(pas => pas.subclasseId === subclasseId);
+}
+
+// Verifica se o personagem pode ativar um tipo de Efeito Secundário
+// ('extase' | 'sacrilegio' | 'assombrar'), checando a passiva vinculada.
+function podeUsarEfeitoSecundario(p, tipoEfeito) {
+  const info = EFEITOS_SECUNDARIOS_BRUXO[tipoEfeito];
+  return !!info && temPassivaSubclasse(p, info.passivaId);
+}
+
+// Monta o HTML do bloco de Efeito Secundário de uma Habilidade (card real ou
+// do catálogo), OU string vazia se a Habilidade não tiver um, ou se o
+// personagem não tiver a passiva necessária para usá-lo. Se o Efeito
+// Secundário liberar um Efeito Liberado (ex: Adrenalina), esse vem aninhado
+// dentro do mesmo bloco.
+function renderEfeitoSecundarioHtml(p, item) {
+  const ef = item.efeitoSecundario;
+  if (!ef || !podeUsarEfeitoSecundario(p, ef.tipo)) return '';
+  const info = EFEITOS_SECUNDARIOS_BRUXO[ef.tipo];
+  const custoTxt = ef.custoHumanidade ? `${ef.custoHumanidade} de Humanidade` : 'Humanidade';
+  const liberado = ef.libera && EFEITOS_LIBERADOS[ef.libera];
+  const liberadoHtml = liberado ? `
+      <div class="efeito-liberado-box">
+        <div class="efeito-secundario-titulo">⚡ Libera: ${liberado.nome}</div>
+        <div class="efeito-secundario-desc">${liberado.desc}</div>
+      </div>` : '';
+  return `
+    <div class="efeito-secundario-box">
+      <div class="efeito-secundario-titulo">🩸 ${info.nome} <span class="efeito-secundario-custo">(${custoTxt})</span></div>
+      <div class="efeito-secundario-desc">${ef.desc}</div>
+      ${liberadoHtml}
+    </div>`;
+}
+
 // Clérigos possuem o Atributo Secundário exclusivo "Pecado": começa em 0 e
 // sobe conforme as decisões do personagem durante o jogo (o detalhe de como
 // se ganha Pecado virá junto das Bênçãos/Intervenções/Milagres). É usado na
@@ -989,7 +1050,27 @@ const BANCO_HABILIDADES_SUBCLASSE = {
     { indice: 9, id: 'conjurador_misseis_magicos', name: 'Mísseis Mágicos', color: 'blue', cost: 1, tipo: 'turno_N', turnosRecarga: 1, usosMax: 1, desc: 'Lance 2 projéteis que causam 1d6 de Dano em um ou 2 Alvos entre 3 e 6 Casas de você. Se for em 2 Alvos diferentes, cause +3 de Dano em cada projétil; e para cada conjuração, cause +2 de Dano em cada projétil.' },
     { indice: 10, id: 'conjurador_restricao_de_dominio', name: 'Restrição de Domínio', color: 'blue', cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, desc: 'Conjure uma área mágica de 5x5 Casas em torno de você, com você no centro, que te acompanha: nela, sua magia prevalece — todos os outros têm -1d6 de Desvantagem ao tentarem lançar Habilidades mágicas. Quem conseguir lançar alguma Habilidade mágica, sem ser você, recebe 1d8 de Dano na Vida. Dura até o início do seu próximo turno; nesse momento, pode estender gastando +1 Ação. (Pode estender e acumular infinitamente.)' },
   ],
-  'Alquimista': [],
+  'Alquimista': [
+    { indice: 1, id: 'alquimista_adaptacao_quimica', name: 'Adaptação Química', color: 'green', cost: 1, tipo: 'sessao', usosMax: 3, desc: 'Tome uma poção que te ajuda com: poder enxergar no escuro natural e mágico até o final da luta; retirar todos os efeitos negativos; curar 1d12 de Vida; ou receber Mega Vantagem no seu próximo Teste.',
+      efeitoSecundario: { tipo: 'extase', custoHumanidade: 3, libera: 'adrenalina', desc: 'Perca 3 de Humanidade: poderá lançar Adrenalina neste turno, e a poção se adapta à situação, fazendo algo específico a mais (combine com o narrador qual é a ideia dessa adaptação — só é possível ter uma adaptação por vez).' } },
+    { indice: 2, id: 'alquimista_amostra_rapida', name: 'Amostra Rápida', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, desc: 'Tome uma poção que concede +1d4 de Vantagem em tudo neste turno, ou +1 Ação de Movimento neste turno.',
+      efeitoSecundario: { tipo: 'extase', custoHumanidade: 2, libera: 'adrenalina', desc: 'Perca 2 de Humanidade: poderá lançar Adrenalina neste turno, e a poção concede as 2 opções ao mesmo tempo.' } },
+    { indice: 3, id: 'alquimista_ar_contaminado', name: 'Ar Contaminado', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 5, usosMax: 1, desc: 'Lance uma poção com um gás tóxico: ao quebrar, libera o gás, ocupando 5x5 Casas, causando 1d10 de Dano por turno e Cegueira. A cada turno, reduz 2 do 1d10 de Dano, desaparecendo ao chegar a 0.',
+      efeitoSecundario: { tipo: 'extase', custoHumanidade: 2, libera: 'adrenalina', desc: 'Perca 2 de Humanidade: poderá lançar Adrenalina neste turno, e você não recebe dano do gás nem fica cego por ele.' } },
+    { indice: 4, id: 'alquimista_efeitos_colaterais', name: 'Efeitos Colaterais', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 4, usosMax: 1, desc: 'Crie uma poção e a arremesse: ao acertar algum lugar, cria uma fumaça de 3x3 Casas que remove a Invisibilidade, concede Invisibilidade até o início do próximo turno, causa 1d6 de Dano, ou cura 1d6 de Vida.',
+      efeitoSecundario: { tipo: 'extase', custoHumanidade: 2, libera: 'adrenalina', desc: 'Perca 2 de Humanidade: poderá lançar Adrenalina neste turno, e a fumaça também remove metade dos Passos até o início do próximo turno, ou concede o dobro de Passos até o início do próximo turno.' } },
+    { indice: 5, id: 'alquimista_fusao_pecadora', name: 'Fusão Pecadora', color: 'green', cost: 2, tipo: 'turno_N', turnosRecarga: 5, usosMax: 1, desc: 'Escolha uma Técnica que envolva poção (mesmo em recarga) e um Êxtase de outra Técnica que envolva poção, e lance-a. Ao invés de gastar os pontos de Humanidade, perca 2 de Passos por cada ponto (recupera no final deste turno; não pode ter se deslocado).',
+      efeitoSecundario: { tipo: 'extase', custoHumanidade: 2, libera: 'adrenalina', desc: 'Perca 2 de Humanidade: poderá lançar Adrenalina neste turno, e pode escolher outro Êxtase, que não vai custar Passos (combine com o narrador qual é a ideia da junção).' } },
+    { indice: 6, id: 'alquimista_mistureba', name: 'Mistureba', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, desc: 'Prepare uma poção e recarregue-a; porém, jogue também 1d2 para ver a qualidade dela. Se tirar 1, a poção não faz o efeito base — pode apenas ativar o Êxtase dela (a Técnica só volta ao normal depois do uso do Êxtase ou de um Descanso Longo). Se tirar 2, a poção funciona normalmente.',
+      efeitoSecundario: { tipo: 'extase', custoHumanidade: 1, libera: 'adrenalina', desc: 'Perca 1 de Humanidade: poderá lançar Adrenalina neste turno, e essa poção recarregada não consome Humanidade.' } },
+    { indice: 7, id: 'alquimista_nao_e_uma_boa_ideia', name: 'Não É Uma Boa Ideia', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 1, usosMax: 1, desc: 'Tome uma poção suspeita: surgem 3 orbes, só para você, em lugares aleatórios da cena. Ao passar sobre uma, receba aleatoriamente: Adrenalina neste turno; 1d6 de Dano na Vida; 1d8 de Cura; Cegueira até o final do turno; +1 Ação neste turno; +1 Ação de Movimento; ou não poder se mover neste turno.',
+      efeitoSecundario: { tipo: 'extase', custoHumanidade: 3, libera: 'adrenalina', desc: 'Perca 3 de Humanidade: poderá lançar Adrenalina neste turno, e escolher os 3 efeitos (em vez de sortear).' } },
+    { indice: 8, id: 'alquimista_overdose', name: 'Overdose', color: 'green', cost: 0, tipo: 'sessao', usosMax: 1, desc: 'Libere seu sistema nervoso para absorver tudo: até o início do seu próximo turno, suas Técnicas têm o Êxtase ativado. Ao fazer uma Técnica, faça um Teste de Resistência para não entrar em coma, ou gaste 1 de Humanidade para se manter lúcido (se falhar no teste, pode gastar 2 de Humanidade).' },
+    { indice: 9, id: 'alquimista_pocao_misteriosa', name: 'Poção Misteriosa', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 2, usosMax: 1, desc: 'Crie e tome uma poção, e receba a partir do resultado de 1d4: 1 — seu próximo Êxtase é grátis (não precisa ser desta Técnica); 2 — sua próxima Ação tem +4 de Dano/Cura (não precisa ser na Adrenalina); 3 — receba uma Adrenalina neste turno; ou 4 — receba +1 Ação de Movimento neste turno.',
+      efeitoSecundario: { tipo: 'extase', custoHumanidade: 1, libera: 'adrenalina', desc: 'Perca 1 de Humanidade: poderá lançar Adrenalina neste turno, e ao invés de rolar o 1d4, escolha uma opção. Gaste +1 de Humanidade para ter +1 opção (até conseguir as 4 opções).' } },
+    { indice: 10, id: 'alquimista_socorro_frenetico', name: 'Socorro Frenético', color: 'green', cost: 2, tipo: 'sessao', usosMax: 2, desc: 'Com um kit médico e uma poção, cure 1d10 de Vida do Alvo, corpo a corpo. Caso ele esteja à beira da morte, em vez de curá-lo, levante-o instantaneamente com metade da Vida, e ele receberá suas Ações normais.',
+      efeitoSecundario: { tipo: 'extase', custoHumanidade: 1, libera: 'adrenalina', desc: 'Perca 1 de Humanidade: poderá lançar Adrenalina neste turno, e o Alvo também terá Adrenalina em seu próximo turno.' } },
+  ],
   'Receptáculo Demoníaco': [],
   'Amaldiçoado': [],
   'Dançarino': [],
@@ -1039,6 +1120,7 @@ function adicionarHabilidadeDoBanco(pid, bancoId) {
     usosMax: item.tipo === 'infinite' ? 99 : item.usosMax,
     usosAtuais: item.tipo === 'infinite' ? 99 : item.usosMax,
     cdRestante: 0, turnosRecarga: item.turnosRecarga || 2,
+    efeitoSecundario: item.efeitoSecundario || null,
   });
   saveState();
   renderAll();
@@ -2825,6 +2907,7 @@ function renderJogador() {
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
             ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
         </div>
+        ${renderEfeitoSecundarioHtml(p, sk)}
         <div class="sk-bottom">
           <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>
             Usar
@@ -4315,6 +4398,7 @@ function renderBancoModal(pid) {
         <span class="sk-tag">${tipoLabel(item)}</span>
       </div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      ${renderEfeitoSecundarioHtml(p, item)}
       <button class="btn ${jaTem ? '' : 'btn-primary'}" style="width:100%;justify-content:center" ${jaTem ? 'disabled' : ''} onclick="adicionarHabilidadeDoBanco(${p.id}, '${item.id}')">
         ${jaTem ? '✓ Já adicionada' : 'Adicionar à ficha'}
       </button>
