@@ -748,19 +748,35 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 
 .sk-cd { font-size: 11px; font-weight: 600; margin-left: auto; }
 
-/* Efeito Secundário — Êxtase/Sacrilégio/Assombrar (Bruxo), custam Humanidade */
+/* Efeito Secundário — Êxtase/Sacrilégio/Assombrar (Bruxo), custam Humanidade.
+   Minimizado por padrão (classe .collapsed); clique no cabeçalho expande. */
 .efeito-secundario-box {
   border: 1px solid rgba(155,125,224,0.45);
   background: rgba(124,92,191,0.16);
   border-radius: var(--radius);
-  padding: 10px 12px;
+  padding: 8px 12px;
   margin-bottom: 12px;
 }
+.efeito-secundario-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+}
+.efeito-secundario-box:not(.collapsed) .efeito-secundario-header { margin-bottom: 8px; }
+.efeito-secundario-chevron {
+  font-size: 14px;
+  color: #b89aff;
+  flex-shrink: 0;
+  transition: transform .15s;
+}
+.efeito-secundario-box.collapsed .efeito-secundario-chevron { transform: rotate(-90deg); }
+.efeito-secundario-box.collapsed .efeito-secundario-body { display: none; }
 .efeito-secundario-titulo {
   font-size: 11px;
   font-weight: 700;
   color: #b89aff;
-  margin-bottom: 4px;
 }
 .efeito-secundario-custo { font-weight: 400; color: #9b7de0; opacity: .8; }
 .efeito-secundario-desc {
