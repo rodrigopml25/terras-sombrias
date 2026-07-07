@@ -81,11 +81,31 @@ function podeUsarEfeitoSecundario(p, tipoEfeito) {
   return !!info && temPassivaSubclasse(p, info.passivaId);
 }
 
+// Expande/recolhe a caixa de Efeito Secundário dentro do card de habilidade.
+function toggleEfeitoSecundario(boxId) {
+  const el = document.getElementById(boxId);
+  if (el) el.classList.toggle('collapsed');
+}
+
+// Versão em texto puro (sem HTML) do Efeito Secundário de uma Habilidade,
+// para uso em tooltips nativos (title="..."), como no chip do Narrador.
+function getEfeitoSecundarioTextoPlano(p, item) {
+  const ef = item.efeitoSecundario;
+  if (!ef || !podeUsarEfeitoSecundario(p, ef.tipo)) return '';
+  const info = EFEITOS_SECUNDARIOS_BRUXO[ef.tipo];
+  const custoTxt = ef.custoHumanidade ? `${ef.custoHumanidade} de Humanidade` : 'Humanidade';
+  let txt = `\n\n${info.nome} (${custoTxt}): ${ef.desc}`;
+  const liberado = ef.libera && EFEITOS_LIBERADOS[ef.libera];
+  if (liberado) txt += `\nLibera: ${liberado.nome} — ${liberado.desc}`;
+  return txt;
+}
+
 // Monta o HTML do bloco de Efeito Secundário de uma Habilidade (card real ou
 // do catálogo), OU string vazia se a Habilidade não tiver um, ou se o
 // personagem não tiver a passiva necessária para usá-lo. Se o Efeito
 // Secundário liberar um Efeito Liberado (ex: Adrenalina), esse vem aninhado
-// dentro do mesmo bloco.
+// dentro do mesmo bloco. Aparece minimizado por padrão — clique no
+// cabeçalho pra expandir e ver a descrição completa.
 function renderEfeitoSecundarioHtml(p, item) {
   const ef = item.efeitoSecundario;
   if (!ef || !podeUsarEfeitoSecundario(p, ef.tipo)) return '';
@@ -97,11 +117,17 @@ function renderEfeitoSecundarioHtml(p, item) {
         <div class="efeito-secundario-titulo">⚡ Libera: ${liberado.nome}</div>
         <div class="efeito-secundario-desc">${liberado.desc}</div>
       </div>` : '';
+  const boxId = 'ef-' + p.id + '-' + item.id;
   return `
-    <div class="efeito-secundario-box">
-      <div class="efeito-secundario-titulo">🩸 ${info.nome} <span class="efeito-secundario-custo">(${custoTxt})</span></div>
-      <div class="efeito-secundario-desc">${ef.desc}</div>
-      ${liberadoHtml}
+    <div class="efeito-secundario-box collapsed" id="${boxId}">
+      <div class="efeito-secundario-header" onclick="event.stopPropagation(); toggleEfeitoSecundario('${boxId}')">
+        <span class="efeito-secundario-titulo">🩸 ${info.nome} <span class="efeito-secundario-custo">(${custoTxt})</span></span>
+        <i class="ti ti-chevron-down efeito-secundario-chevron"></i>
+      </div>
+      <div class="efeito-secundario-body">
+        <div class="efeito-secundario-desc">${ef.desc}</div>
+        ${liberadoHtml}
+      </div>
     </div>`;
 }
 
@@ -2426,8 +2452,10 @@ function renderNarrador() {
         else if ((sk.tipo==='luta'||sk.tipo==='sessao') && sk.usosAtuais < sk.usosMax) extra = `<span class="chip-cd">${sk.usosAtuais}/${sk.usosMax}</span>`;
         const descTooltip = sk.desc ? `Efeito: ${sk.desc}\n\n` : '';
         const statusTooltip = ready ? 'Pronta para uso' : `Indisponível (${tipoLabel(sk)})`;
-        return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${descTooltip}${statusTooltip}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${extra}
+        const efeitoSecTxt = getEfeitoSecundarioTextoPlano(p, sk);
+        const efeitoSecBadge = efeitoSecTxt ? `<span class="chip-badge" style="background:rgba(124,92,191,0.25);color:#b89aff;border-color:rgba(155,125,224,0.45)">🩸</span>` : '';
+        return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${descTooltip}${statusTooltip}${efeitoSecTxt}">
+          <span class="chip-dot"></span><span class="chip-name">${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
