@@ -747,6 +747,34 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .sk-bardo .sdot.spent { background: var(--bardo); }
 
 .sk-cd { font-size: 11px; font-weight: 600; margin-left: auto; }
+
+/* Efeito Secundário — Êxtase/Sacrilégio/Assombrar (Bruxo), custam Humanidade */
+.efeito-secundario-box {
+  border: 1px solid rgba(155,125,224,0.45);
+  background: rgba(124,92,191,0.16);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.efeito-secundario-titulo {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b89aff;
+  margin-bottom: 4px;
+}
+.efeito-secundario-custo { font-weight: 400; color: #9b7de0; opacity: .8; }
+.efeito-secundario-desc {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.efeito-liberado-box {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(155,125,224,0.35);
+}
+
 .sk-green .sk-cd { color: var(--green); }
 .sk-red   .sk-cd { color: #f08080; }
 .sk-blue  .sk-cd { color: var(--blue); }
