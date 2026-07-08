@@ -1139,7 +1139,18 @@ const BANCO_HABILIDADES_SUBCLASSE = {
     { indice: 10, id: 'amaldicoado_toque_corruptivel', name: 'Toque Corruptível', color: 'blue', cost: 1, tipo: 'turno_N', turnosRecarga: 4, usosMax: 1, desc: 'Toque em um Alvo vivo e receba 1d4 de memórias de seu interesse. Se quiser, troque cada memória (quantas quiser) por 1d8 de Dano nele (funciona só uma vez por Alvo). Mas se já lançou este feitiço neste Alvo, causa 1d8 de Dano.',
       efeitoSecundario: { tipo: 'assombrar', custoHumanidade: 2, desc: 'Perca 2 de Humanidade e recarregue este feitiço, e tenha o valor máximo do 1d4, continuando com as memórias. Se já lançou este feitiço no Alvo, cause +1d6 de Dano na Vida.' } },
   ],
-  'Dançarino': [],
+  'Dançarino': [
+    { indice: 1, id: 'dancarino_afinando_instrumento', name: 'Afinando Instrumento', color: 'green', cost: 0, tipo: 'turno_N', turnosRecarga: 2, usosMax: 1, concedeNota: 'Si', desc: 'Escolha um Instrumento Musical: sua próxima Ação neste turno com ele consumirá uma Ação a menos; produzirá 2 Notas Musicais na próxima Ação com ele; ou possuirá +1d6 de Vantagem na próxima Ação com ele. (Sequência de qualquer Nota: tem todas as opções.)' },
+    { indice: 2, id: 'dancarino_alarme_musical', name: 'Alarme Musical', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 5, usosMax: 1, concedeNota: 'Sol', desc: 'Faça uma armadilha furtiva: lance um Teste de Furtividade — para não caírem na armadilha, precisam fazer um Teste de Percepção. A armadilha é feita de linhas de instrumentos musicais: ao passar por cima, ficam presos até o início do seu próximo turno. Ao produzir o som, você recebe uma Nota Musical de sua escolha.' },
+    { indice: 3, id: 'dancarino_breakdance', name: 'Breakdance', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 2, usosMax: 1, concedeNota: 'Fá', desc: 'Dê uma rasteira com estilo em uma Casa ao seu redor, causando 1d6 de Dano e derrubando quem for atingido — ele perde a próxima Ação de Movimento. (Sequência de Mi: faça um Teste de Acrobacia; se tiver sucesso, mova-se 4 Casas e repita esta Técnica.)' },
+    { indice: 4, id: 'dancarino_dance_pra_mim', name: 'Dance pra Mim', color: 'green', cost: 0, tipo: 'sessao', usosMax: 3, desc: 'Durante uma manobra, como uma Acrobacia ou Desviar, receba +1d8 de Vantagem e se mova 2 Casas. (Pode ser usado fora do seu turno.)' },
+    { indice: 5, id: 'dancarino_ela_e_ela', name: 'Ela e Ela', color: 'green', cost: 1, tipo: 'sessao', usosMax: 2, concedeNota: 'qualquer', desc: 'Você canta uma mentira de uma pessoa para outra. Escolha 2 Alvos, que devem se enfrentar até o seu próximo turno. Se os 2 forem do mesmo lado, devem realizar um Teste de Percepção para evitar o confronto.' },
+    { indice: 6, id: 'dancarino_eu_si_divirto', name: 'Eu Si Divirto', color: 'green', cost: 2, tipo: 'turno_N', turnosRecarga: 4, usosMax: 1, concedeNota: 'Mi', desc: 'Escolha 2 Aliados e dance uma música junto com eles: cada um deverá fazer um Teste de Acrobacia — para cada um que tiver acerto, você recebe uma Nota Musical. Se todos acertarem, lance um Campo Harmônico aleatório.' },
+    { indice: 7, id: 'dancarino_o_que_pode_fazer_um_nego', name: 'O Que Pode Fazer Um Nego', color: 'green', cost: 0, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, concedeNota: 'Ré', desc: 'Troque a mão pelos pés: troque uma Ação por uma Ação de Movimento, ou troque a Ação de Movimento por uma Ação. (Sequência de qualquer Nota: ganhe uma Ação de Movimento.)' },
+    { indice: 8, id: 'dancarino_pista_de_danca', name: 'Pista de Dança', color: 'green', cost: 1, tipo: 'sessao', usosMax: 1, desc: 'Inicie uma música contagiante até o final do seu próximo turno: seus Campos Harmônicos não custam Ações, e todos realizam um Teste de Acrobacia contra o seu, gastando uma Ação para isso. Caso alguém falhe, receba uma Nota Musical de sua escolha, e ele terá que gastar mais uma Ação para fazer o Teste de Acrobacia novamente (só para de testar ao vencer você). Se você lançar um Campo Harmônico, a música se estende por mais um turno.' },
+    { indice: 9, id: 'dancarino_preparar_outfit', name: 'Preparar Outfit', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, concedeNota: 'Dó', desc: 'Gaste alguns tecidos e imite a roupa de alguém (não é a Armadura): poderão fazer um Teste de Reflexo para notar que é uma cópia. Ou restaure 1d6 de Armadura de um Alvo.' },
+    { indice: 10, id: 'dancarino_ritmo_devagar', name: 'Ritmo Devagar', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, concedeNota: 'Lá', desc: 'Dance parado: gaste os seus Passos e receba-os como +Vantagem ou +Dano/Cura na sua próxima Ação.' },
+  ],
   'Roqueiro': [],
   'Maestro Macabro': [],
   'Exorcista': [],
@@ -1187,6 +1198,7 @@ function adicionarHabilidadeDoBanco(pid, bancoId) {
     usosAtuais: item.tipo === 'infinite' ? 99 : item.usosMax,
     cdRestante: 0, turnosRecarga: item.turnosRecarga || 2,
     efeitoSecundario: item.efeitoSecundario || null,
+    concedeNota: item.concedeNota || null,
   });
   saveState();
   renderAll();
@@ -2143,6 +2155,14 @@ function useSkill(pid, skid) {
     if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
   }
 
+  // Habilidades do Dançarino concedem uma Nota Musical fixa ao serem usadas
+  // (ex: Breakdance ganha Fá). Quando a nota é livre ("qualquer"), não ativa
+  // sozinho — o jogador escolhe manualmente nos botões de Notas da ficha.
+  if (sk.concedeNota && sk.concedeNota !== 'qualquer' && NOTAS_MUSICAIS.includes(sk.concedeNota)) {
+    if (!p.notasBardo || typeof p.notasBardo !== 'object') p.notasBardo = {};
+    p.notasBardo[sk.concedeNota] = true;
+  }
+
   if (custo > 0) {
     p.acoesAtuais = Math.max(0, (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) - custo);
   }
@@ -2971,6 +2991,7 @@ function renderJogador() {
           <span class="sk-tag">${sk.cost===0?'0 ações':sk.cost===1?'1 ação':'2 ações'}</span>
           <span class="sk-tag">${tipoLabel(sk)}</span>
           ${mstTag}
+          ${sk.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${sk.concedeNota === 'qualquer' ? 'escolha uma nota' : sk.concedeNota}</span>` : ''}
         </div>
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
             ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
@@ -4464,6 +4485,7 @@ function renderBancoModal(pid) {
         <span class="sk-tag">${COLOR_LABEL[item.color] || ''}</span>
         <span class="sk-tag">${item.cost} ${item.cost === 1 ? 'ação' : 'ações'}</span>
         <span class="sk-tag">${tipoLabel(item)}</span>
+        ${item.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${item.concedeNota === 'qualquer' ? 'escolha uma nota' : item.concedeNota}</span>` : ''}
       </div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
       ${renderEfeitoSecundarioHtml(p, item)}
