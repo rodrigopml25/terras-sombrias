@@ -1270,7 +1270,18 @@ function contarBancoEscolhas(p) {
   return { propria, outras, total: propria + outras };
 }
 
-// Adiciona ao personagem uma cópia de uma Habilidade do banco da sua
+// Quantas escolhas do Banco de Habilidades o personagem ainda pode fazer no
+// Nível atual (0 se já escolheu tudo que tinha direito, ou se a Classe não
+// tem Banco cadastrado). Usado para avisar o jogador — mesmo padrão do aviso
+// de pontos de atributo pendentes (p.pontosPendentes).
+function getHabilidadesPendentes(p) {
+  if (!getBancoHabilidades(p).length) return 0;
+  const { maxTotal } = getBancoLimites(p);
+  const { total } = contarBancoEscolhas(p);
+  return Math.max(0, maxTotal - total);
+}
+
+
 // subclasse (identificada por bancoId). Não duplica: se já foi adicionada,
 // não faz nada. Respeita o limite de escolhas do Nível atual do personagem
 // (ver getBancoLimites): Habilidades de outra subclasse só podem ser
@@ -2804,11 +2815,13 @@ function renderNarrador() {
 
     const origemSubLabel = origemObj ? ` · <span style="color:var(--accent2);font-size:11px">⛏ ${origemObj.name}</span>` : '';
     const pendBadge = (p.pontosPendentes > 0) ? ` <span title="Personagem subiu de nível e tem pontos de atributo não distribuídos" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">⬆ ${p.pontosPendentes} pts</span>` : '';
+    const habPendentes = getHabilidadesPendentes(p);
+    const pendHabBadge = (habPendentes > 0) ? ` <span title="Personagem subiu de nível e tem Habilidades do Banco não escolhidas" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">📖 ${habPendentes} hab.</span>` : '';
     const formaDragaoBadge = (p.race === 'Dragão' && p.formaDragao) ? ` <span title="Em forma de Dragão: Sopro, Iniciar Voo, Impacto de Pouso e Garras Dracônicas disponíveis" style="display:inline-flex;align-items:center;gap:3px;background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐉 Forma de Dragão</span>` : '';
     return `<div class="prow ${bm ? 'beira-morte' : ''}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}${pendBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}${pendBadge}${pendHabBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -3365,6 +3378,14 @@ function renderJogador() {
           <div style="flex:1">
             <div style="font-size:12px;font-weight:700;color:var(--accent2)">Você subiu de nível!</div>
             <div style="font-size:11px;color:var(--text2)">${p.pontosPendentes} pontos de atributo para distribuir · toque para editar</div>
+          </div>
+        </div>` : ''}
+        ${getHabilidadesPendentes(p) > 0 ? `
+        <div onclick="openBancoModal(${p.id})" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(124,92,191,0.15);border:1px solid rgba(124,92,191,0.45);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">📖</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--accent2)">Novas Habilidades disponíveis!</div>
+            <div style="font-size:11px;color:var(--text2)">${getHabilidadesPendentes(p)} escolha${getHabilidadesPendentes(p) === 1 ? '' : 's'} do Banco de Habilidades · toque para escolher</div>
           </div>
         </div>` : ''}
         <div class="xp-bar-wrap">
@@ -5563,13 +5584,16 @@ function showLevelUpToast(p) {
     wrap.className = 'toast-wrap';
     document.body.appendChild(wrap);
   }
+  const habPendentes = getHabilidadesPendentes(p);
+  const subLinhas = [`Nível ${p.level} alcançado`, `${p.pontosPendentes || 0} pontos de atributo para distribuir`];
+  if (habPendentes > 0) subLinhas.push(`${habPendentes} Habilidade${habPendentes === 1 ? '' : 's'} nova${habPendentes === 1 ? '' : 's'} do Banco disponível${habPendentes === 1 ? '' : 'is'}`);
   const el = document.createElement('div');
   el.className = 'toast-levelup';
   el.innerHTML = `
     <div class="toast-icon">⬆</div>
     <div class="toast-body">
       <div class="toast-title">${p.name} subiu de nível!</div>
-      <div class="toast-sub">Nível ${p.level} alcançado · ${p.pontosPendentes || 0} pontos de atributo para distribuir</div>
+      <div class="toast-sub">${subLinhas.join(' · ')}</div>
     </div>`;
   wrap.appendChild(el);
   setTimeout(() => el.remove(), 4700);
