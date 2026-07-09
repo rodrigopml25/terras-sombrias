@@ -105,6 +105,17 @@
         </div>
 
         <div class="modal-step" data-step="4">
+          <!-- Seletor de Nível (só na criação — ao editar, o nível já é fixo e se muda por outro fluxo) -->
+          <div id="c-creation-level-container" style="margin-bottom:14px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px;">Nível inicial</label>
+            <div class="cls-btn-group" style="flex-wrap:wrap;gap:6px">
+              <button type="button" class="cls-btn creation-level-btn active" data-lvl="1" onclick="selectCreationLevel(1)">Nv 1</button>
+              <button type="button" class="cls-btn creation-level-btn" data-lvl="2" onclick="selectCreationLevel(2)">Nv 2</button>
+              <button type="button" class="cls-btn creation-level-btn" data-lvl="3" onclick="selectCreationLevel(3)">Nv 3</button>
+              <button type="button" class="cls-btn creation-level-btn" data-lvl="4" onclick="selectCreationLevel(4)">Nv 4</button>
+              <button type="button" class="cls-btn creation-level-btn" data-lvl="5" onclick="selectCreationLevel(5)">Nv 5</button>
+            </div>
+          </div>
           <!-- Contador de pontos -->
           <div id="c-points-bar" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:6px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
