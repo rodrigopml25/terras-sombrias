@@ -1241,18 +1241,47 @@ function getBancoHabilidades(p) {
   return itens;
 }
 
+// ─── Limites de escolha do Banco de Habilidades por Nível ──────────────────
+// Nível 1: 2 escolhas, ambas obrigatoriamente da própria subclasse.
+// Níveis 2 a 5: a cada Nível ganho, +1 escolha da própria subclasse e +1
+// escolha "livre" (de qualquer subclasse da mesma Classe-base — inclusive a
+// própria). Resultado acumulado: Nv1=2, Nv2=4, Nv3=6, Nv4=8, Nv5=10 — o
+// máximo de 10 corresponde ao total de Habilidades cadastradas por subclasse
+// em BANCO_HABILIDADES_SUBCLASSE.
+function getBancoLimites(p) {
+  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  const maxOutras = Math.max(0, nivel - 1); // escolhas "livres" (outra subclasse)
+  const maxTotal = nivel * 2;               // total acumulado de escolhas do banco
+  return { nivel, maxOutras, maxTotal };
+}
+
+// Conta quantas Habilidades do banco o personagem já escolheu, separando
+// entre as da própria subclasse e as de outras subclasses da mesma Classe.
+function contarBancoEscolhas(p) {
+  const catalogo = getBancoHabilidades(p);
+  let propria = 0, outras = 0;
+  (p.skills || []).forEach(sk => {
+    if (!sk.bancoId) return;
+    const item = catalogo.find(it => it.id === sk.bancoId);
+    const origem = item ? item.subclasseOrigem : null;
+    if (origem === p.cls) propria++;
+    else outras++;
+  });
+  return { propria, outras, total: propria + outras };
+}
+
 // Adiciona ao personagem uma cópia de uma Habilidade do banco da sua
 // subclasse (identificada por bancoId). Não duplica: se já foi adicionada,
-// não faz nada. O campo "indice" viaja junto, mas nunca é mostrado na UI.
-function adicionarHabilidadeDoBanco(pid, bancoId) {
-  const p = PLAYERS.find(x => x.id === pid);
-  if (!p) return;
-  const item = getBancoHabilidades(p).find(h => h.id === bancoId);
-  if (!item) return;
-  if (!Array.isArray(p.skills)) p.skills = [];
-  const jaTem = p.skills.some(sk => sk.bancoId === item.id);
-  if (jaTem) return;
-  p.skills.push({
+// não faz nada. Respeita o limite de escolhas do Nível atual do personagem
+// (ver getBancoLimites): Habilidades de outra subclasse só podem ser
+// escolhidas dentro da cota "livre" liberada a partir do Nível 2. O campo
+// "indice" viaja junto, mas nunca é mostrado na UI.
+// Monta o objeto de Habilidade (ficha) a partir de uma entrada do catálogo
+// do Banco de Habilidades. Extraído para ser reaproveitado tanto por
+// adicionarHabilidadeDoBanco (personagem já existente) quanto pelo passo de
+// Habilidades do wizard de criação (personagem ainda não existe).
+function construirSkillDoBanco(item) {
+  return {
     id: 'sk_banco_' + item.id,
     bancoId: item.id,
     indice: item.indice,
@@ -1263,10 +1292,163 @@ function adicionarHabilidadeDoBanco(pid, bancoId) {
     cdRestante: 0, turnosRecarga: item.turnosRecarga || 2,
     efeitoSecundario: item.efeitoSecundario || null,
     concedeNota: item.concedeNota || null,
-  });
+  };
+}
+
+function adicionarHabilidadeDoBanco(pid, bancoId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = getBancoHabilidades(p).find(h => h.id === bancoId);
+  if (!item) return;
+  if (!Array.isArray(p.skills)) p.skills = [];
+  const jaTem = p.skills.some(sk => sk.bancoId === item.id);
+  if (jaTem) return;
+
+  const { nivel, maxOutras, maxTotal } = getBancoLimites(p);
+  const { outras, total } = contarBancoEscolhas(p);
+  const ehPropria = item.subclasseOrigem === p.cls;
+
+  if (total >= maxTotal) {
+    alert(`Limite de Habilidades do Banco atingido para o Nível ${nivel} (máx. ${maxTotal}). Suba de Nível para desbloquear mais escolhas.`);
+    return;
+  }
+  if (!ehPropria && outras >= maxOutras) {
+    alert(`No Nível ${nivel}, você só pode escolher ${maxOutras} Habilidade${maxOutras === 1 ? '' : 's'} de outra subclasse. Suba de Nível para desbloquear mais.`);
+    return;
+  }
+
+  p.skills.push(construirSkillDoBanco(item));
   saveState();
   renderAll();
   if (typeof renderBancoModal === 'function') renderBancoModal(pid);
+}
+
+// ═══════════════════════════════════════
+// PASSO 5 DO WIZARD DE CRIAÇÃO — Escolha de Habilidades
+// ═══════════════════════════════════════
+// Monta um "personagem provisório" só com os campos necessários para
+// reaproveitar getBancoHabilidades/getBancoLimites/contarBancoEscolhas
+// durante a criação, antes de o personagem existir de fato em PLAYERS.
+function getWizardPseudoPlayer() {
+  const cls = getSelectedSubclasse() || '';
+  const classeBase = getBaseClass(cls) || cls;
+  return {
+    cls, classeBase, level: creationLevel,
+    skills: wizardSkillsEscolhidas.map(id => ({ bancoId: id })),
+  };
+}
+
+// Repinta o passo 5 (catálogo do Banco de Habilidades) dentro do wizard de
+// criação. Chamado ao entrar no passo e sempre que uma escolha muda.
+function renderWizardBancoStep() {
+  const pseudo = getWizardPseudoPlayer();
+
+  // Se a Classe/Subclasse mudou desde a última montagem, descarta escolhas
+  // antigas (podem não fazer mais sentido para a nova Classe).
+  if (wizardSkillsClasseSnapshot !== null && wizardSkillsClasseSnapshot !== pseudo.cls) {
+    wizardSkillsEscolhidas = [];
+    wizardBancoTabAtiva = null;
+  }
+  wizardSkillsClasseSnapshot = pseudo.cls;
+  pseudo.skills = wizardSkillsEscolhidas.map(id => ({ bancoId: id }));
+
+  const todosItens = getBancoHabilidades(pseudo);
+  const COLOR_LABEL = { green: 'Técnica', red: 'Golpe', blue: 'Feitiço', gray: 'Neutra' };
+  const clsBase = pseudo.classeBase || '';
+
+  const tabsEl = document.getElementById('c-skills-tabs');
+  const lista = document.getElementById('c-skills-lista');
+  const progressoEl = document.getElementById('c-skills-progresso');
+  if (!tabsEl || !lista) return;
+
+  if (!pseudo.cls || !todosItens.length) {
+    tabsEl.innerHTML = '';
+    lista.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:10px 0">${pseudo.cls ? `Nenhuma Habilidade cadastrada ainda para ${clsBase || 'esta classe'}.` : 'Escolha uma Classe no passo anterior para ver as Habilidades disponíveis.'}</div>`;
+    if (progressoEl) progressoEl.innerHTML = '';
+    return;
+  }
+
+  const { nivel, maxOutras, maxTotal } = getBancoLimites(pseudo);
+  const { propria, outras, total } = contarBancoEscolhas(pseudo);
+  if (progressoEl) {
+    progressoEl.innerHTML = `Nível ${nivel} · Escolhidas: <strong style="color:var(--text)">${total}/${maxTotal}</strong>`
+      + ` (própria subclasse: ${propria} · outras subclasses: ${outras}/${maxOutras})`
+      + (total >= maxTotal ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '');
+  }
+
+  const subsPresentes = [];
+  todosItens.forEach(item => { if (!subsPresentes.includes(item.subclasseOrigem)) subsPresentes.push(item.subclasseOrigem); });
+  if (!wizardBancoTabAtiva || !subsPresentes.includes(wizardBancoTabAtiva)) {
+    wizardBancoTabAtiva = subsPresentes.includes(pseudo.cls) ? pseudo.cls : subsPresentes[0];
+  }
+
+  tabsEl.innerHTML = subsPresentes.map(sub => {
+    const ativa = sub === wizardBancoTabAtiva;
+    const propriaSub = sub === pseudo.cls;
+    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaWizardBanco('${sub}')">${propriaSub ? '★ ' : ''}${sub}</button>`;
+  }).join('');
+
+  const itens = todosItens.filter(item => item.subclasseOrigem === wizardBancoTabAtiva);
+  const abaEhPropria = wizardBancoTabAtiva === pseudo.cls;
+
+  lista.innerHTML = itens.map(item => {
+    const jaTem = wizardSkillsEscolhidas.includes(item.id);
+    const bloqueadaPorLimite = !jaTem && (total >= maxTotal || (!abaEhPropria && outras >= maxOutras));
+    let labelBtn = 'Escolher';
+    if (jaTem) labelBtn = '✓ Escolhida — clique para remover';
+    else if (bloqueadaPorLimite) labelBtn = total >= maxTotal ? `🔒 Limite do Nível ${nivel} atingido` : `🔒 Cota livre esgotada (${outras}/${maxOutras})`;
+    return `
+    <div class="skill-card sk-${item.color}" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div class="sk-tags">
+        <span class="sk-tag">${COLOR_LABEL[item.color] || ''}</span>
+        <span class="sk-tag">${item.cost} ${item.cost === 1 ? 'ação' : 'ações'}</span>
+        <span class="sk-tag">${tipoLabel(item)}</span>
+        ${item.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${item.concedeNota === 'qualquer' ? 'escolha uma nota' : item.concedeNota}</span>` : ''}
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      <button class="btn ${jaTem ? '' : (bloqueadaPorLimite ? '' : 'btn-primary')}" style="width:100%;justify-content:center" ${(bloqueadaPorLimite && !jaTem) ? 'disabled' : ''} onclick="toggleWizardSkill('${item.id}')">
+        ${labelBtn}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function trocarAbaWizardBanco(subNome) {
+  wizardBancoTabAtiva = subNome;
+  renderWizardBancoStep();
+}
+
+// Alterna a escolha de uma Habilidade do banco durante a criação (adiciona
+// se ainda não tinha, remove se já tinha). Respeita os mesmos limites de
+// Nível usados no jogo já formado (getBancoLimites/contarBancoEscolhas).
+function toggleWizardSkill(bancoId) {
+  const idx = wizardSkillsEscolhidas.indexOf(bancoId);
+  if (idx !== -1) {
+    wizardSkillsEscolhidas.splice(idx, 1);
+    renderWizardBancoStep();
+    return;
+  }
+
+  const pseudo = getWizardPseudoPlayer();
+  const item = getBancoHabilidades(pseudo).find(h => h.id === bancoId);
+  if (!item) return;
+
+  const { nivel, maxOutras, maxTotal } = getBancoLimites(pseudo);
+  const { outras, total } = contarBancoEscolhas(pseudo);
+  const ehPropria = item.subclasseOrigem === pseudo.cls;
+
+  if (total >= maxTotal) {
+    alert(`Limite de Habilidades do Banco atingido para o Nível ${nivel} (máx. ${maxTotal}).`);
+    return;
+  }
+  if (!ehPropria && outras >= maxOutras) {
+    alert(`No Nível ${nivel}, você só pode escolher ${maxOutras} Habilidade${maxOutras === 1 ? '' : 's'} de outra subclasse.`);
+    return;
+  }
+
+  wizardSkillsEscolhidas.push(bancoId);
+  renderWizardBancoStep();
 }
 
 // ═══════════════════════════════════════
@@ -1851,6 +2033,17 @@ let modalCharId = null;
 // Nível escolhido na criação de um personagem NOVO (1 a 5). Ignorado ao
 // editar um personagem existente, que usa o próprio p.level.
 let creationLevel = 1;
+// Habilidades do Banco escolhidas durante a criação (passo 5 do wizard),
+// guardadas como lista de bancoId — só é efetivada em p.skills quando o
+// personagem é de fato criado em saveCharacter(). Reseta a cada abertura do
+// modal para um personagem novo (ver openCharModal).
+let wizardSkillsEscolhidas = [];
+let wizardBancoTabAtiva = null;
+// Guarda qual subclasse estava selecionada da última vez que o passo de
+// Habilidades foi montado — se o jogador voltar e trocar de Classe/Subclasse,
+// as escolhas antigas (de outra subclasse) deixam de fazer sentido e são
+// descartadas automaticamente.
+let wizardSkillsClasseSnapshot = null;
 let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
@@ -4522,11 +4715,22 @@ function renderBancoModal(pid) {
 
   const tabsEl = document.getElementById('banco-tabs');
   const lista = document.getElementById('banco-lista');
+  const progressoEl = document.getElementById('banco-progresso');
 
   if (!todosItens.length) {
     tabsEl.innerHTML = '';
     lista.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:10px 0">Nenhuma Habilidade cadastrada ainda para ${clsBase || 'esta classe'}.</div>`;
+    if (progressoEl) progressoEl.innerHTML = '';
     return;
+  }
+
+  // Progresso de escolhas do banco, conforme o Nível do personagem.
+  const { nivel, maxOutras, maxTotal } = getBancoLimites(p);
+  const { propria, outras, total } = contarBancoEscolhas(p);
+  if (progressoEl) {
+    progressoEl.innerHTML = `Nível ${nivel} · Escolhidas: <strong style="color:var(--text)">${total}/${maxTotal}</strong>`
+      + ` (própria subclasse: ${propria} · outras subclasses: ${outras}/${maxOutras})`
+      + (total >= maxTotal ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '');
   }
 
   // Subclasses na ordem em que aparecem no catálogo (mesma ordem de CLASSES)
@@ -4543,9 +4747,17 @@ function renderBancoModal(pid) {
   }).join('');
 
   const itens = todosItens.filter(item => item.subclasseOrigem === bancoTabAtiva);
+  const abaEhPropria = bancoTabAtiva === p.cls;
 
   lista.innerHTML = itens.map(item => {
     const jaTem = (p.skills || []).some(sk => sk.bancoId === item.id);
+    // Bloqueia por limite de Nível: total geral esgotado, ou (se for de outra
+    // subclasse) cota "livre" esgotada.
+    const bloqueadaPorLimite = !jaTem && (total >= maxTotal || (!abaEhPropria && outras >= maxOutras));
+    const desabilitado = jaTem || bloqueadaPorLimite;
+    let labelBtn = 'Adicionar à ficha';
+    if (jaTem) labelBtn = '✓ Já adicionada';
+    else if (bloqueadaPorLimite) labelBtn = total >= maxTotal ? `🔒 Limite do Nível ${nivel} atingido` : `🔒 Cota livre esgotada (${outras}/${maxOutras})`;
     return `
     <div class="skill-card sk-${item.color}" style="margin:0">
       <div class="sk-name">${item.name}</div>
@@ -4557,8 +4769,8 @@ function renderBancoModal(pid) {
       </div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
       ${renderEfeitoSecundarioHtml(p, item)}
-      <button class="btn ${jaTem ? '' : 'btn-primary'}" style="width:100%;justify-content:center" ${jaTem ? 'disabled' : ''} onclick="adicionarHabilidadeDoBanco(${p.id}, '${item.id}')">
-        ${jaTem ? '✓ Já adicionada' : 'Adicionar à ficha'}
+      <button class="btn ${desabilitado ? '' : 'btn-primary'}" style="width:100%;justify-content:center" ${desabilitado ? 'disabled' : ''} onclick="adicionarHabilidadeDoBanco(${p.id}, '${item.id}')">
+        ${labelBtn}
       </button>
     </div>`;
   }).join('');
@@ -5102,7 +5314,7 @@ function openCharModal() {
   const titleEl = document.getElementById('modal-char-title');
   if (titleEl) titleEl.textContent = 'Novo Personagem';
   const saveBtn = document.getElementById('c-btn-save');
-  if (saveBtn) saveBtn.textContent = 'Criar Personagem';
+  if (saveBtn) saveBtn.textContent = 'Próximo';
   document.getElementById('c-name').value = '';
   setRaceSelectValue('');
   updateOrigemSelector('', null);
@@ -5121,6 +5333,8 @@ function openCharModal() {
     b.classList.toggle('active', parseInt(b.dataset.lvl) === 1)
   );
   updatePointBuy(1);
+  wizardSkillsEscolhidas = [];
+  wizardBancoTabAtiva = null;
   setModalMode(false);
   showWizardStep(1);
   setTimeout(() => document.getElementById('c-name').focus(), 50);
@@ -5189,6 +5403,41 @@ function closeCharModal() {
   if(overlay) overlay.classList.remove('open');
 }
 
+// Valida a distribuição de pontos de atributo (Vida/AGI/FOR/INT) para o
+// Nível informado. Retorna true/false; em caso de falha, já mostra o alerta
+// explicando o motivo. Reaproveitada tanto na transição do passo 4 → 5 do
+// wizard de criação quanto no salvamento final (edição ou criação direta).
+function validatePointBuyStep(nivel) {
+  const hpMax  = parseInt(document.getElementById('c-hp').value)  || 10;
+  const agi    = parseInt(document.getElementById('c-agi').value) || 5;
+  const forca  = parseInt(document.getElementById('c-for').value) || 5;
+  const intel  = parseInt(document.getElementById('c-int').value) || 5;
+
+  const totalPontos = getPointBuyTotal(nivel);
+  const gasto = (hpMax - ATTR_BASE_HP) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
+  if (gasto > totalPontos) {
+    alert(`Pontos excedidos! Você gastou ${gasto} pontos mas tem apenas ${totalPontos} disponíveis.`);
+    return false;
+  }
+  const limitePontos = getAttrLimiteNivel(nivel);
+  if (agi > limitePontos || forca > limitePontos || intel > limitePontos) {
+    alert(`No Nível ${nivel}, AGI, FOR e INT não podem ultrapassar ${limitePontos}.`);
+    return false;
+  }
+  return true;
+}
+
+// Botão "Salvar" do passo 4 (Atributos): na edição, salva direto (o passo 5
+// de Habilidades é escondido — gerenciar Habilidades de um personagem já
+// existente continua pelo botão "Escolher da Subclasse"). Na criação de um
+// personagem novo, valida os pontos e avança para o passo 5.
+function handleStep4Continue() {
+  if (modalCharId) { saveCharacter(); return; }
+  if (!validatePointBuyStep(creationLevel)) return;
+  renderWizardBancoStep();
+  showWizardStep(5);
+}
+
 function saveCharacter() {
   const name   = document.getElementById('c-name').value.trim() || 'Desconhecido';
   const race   = document.getElementById('c-race').value.trim() || 'Sem Raça';
@@ -5213,18 +5462,7 @@ function saveCharacter() {
 
   // Validação de point-buy
   const editLevel = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : creationLevel;
-  const totalPontos = getPointBuyTotal(editLevel);
-  const gasto = (hpMax - ATTR_BASE_HP) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
-  if (gasto > totalPontos) {
-    alert(`Pontos excedidos! Você gastou ${gasto} pontos mas tem apenas ${totalPontos} disponíveis.`);
-    return;
-  }
-  // Limite de atributo do Nível atual (20 no Nv1, +5 por Nível)
-  const limitePontos = getAttrLimiteNivel(editLevel);
-  if (agi > limitePontos || forca > limitePontos || intel > limitePontos) {
-    alert(`No Nível ${editLevel}, AGI, FOR e INT não podem ultrapassar ${limitePontos}.`);
-    return;
-  }
+  if (!validatePointBuyStep(editLevel)) return;
 
   if (modalCharId) {
     const p = PLAYERS.find(x => x.id === modalCharId);
@@ -5273,9 +5511,20 @@ function saveCharacter() {
     ensureGeneralSkills(novo);
     ensureRacePassivas(novo);
     ensureCamposHarmonicos(novo);
+    // Habilidades do Banco escolhidas no passo 5 do wizard de criação.
+    wizardSkillsEscolhidas.forEach(bancoId => {
+      const item = getBancoHabilidades(novo).find(h => h.id === bancoId);
+      if (item && !novo.skills.some(sk => sk.bancoId === item.id)) {
+        novo.skills.push(construirSkillDoBanco(item));
+      }
+    });
     PLAYERS.push(novo);
     modalCharId = newId;
   }
+
+  wizardSkillsEscolhidas = [];
+  wizardBancoTabAtiva = null;
+  wizardSkillsClasseSnapshot = null;
 
   saveState();
   renderAll();
