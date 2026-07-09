@@ -115,6 +115,7 @@
       <div class="modal" style="max-width:560px">
         <h3>Habilidades de <span id="banco-subclasse-nome"></span></h3>
         <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Escolha quais Habilidades das subclasses da sua Classe você quer adicionar à ficha. ★ marca a sua própria subclasse.</p>
+        <div id="banco-progresso" style="font-size:11px;color:var(--text2);margin:-4px 0 12px;line-height:1.6;"></div>
         <div id="banco-tabs" class="banco-tabs"></div>
         <div id="banco-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
         <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
@@ -314,6 +315,7 @@
           <div class="wstep" data-step="2"><span class="wstep-num">2</span> Raça</div>
           <div class="wstep" data-step="3"><span class="wstep-num">3</span> Classe</div>
           <div class="wstep" data-step="4"><span class="wstep-num">4</span> Atributos</div>
+          <div class="wstep" data-step="5"><span class="wstep-num">5</span> Habilidades</div>
         </div>
 
         <div class="modal-step active" data-step="1">
@@ -467,7 +469,21 @@
 
           <div class="modal-btns step-nav">
             <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
-            <button class="btn btn-primary" id="c-btn-save" onclick="saveCharacter()">Salvar</button>
+            <button class="btn btn-primary" id="c-btn-save" onclick="handleStep4Continue()">Salvar</button>
+          </div>
+        </div>
+
+        <div class="modal-step" data-step="5">
+          <p style="font-size:11px;color:var(--text3);margin:0 0 10px;line-height:1.5;">
+            Escolha as Habilidades do Banco de Habilidades da sua Classe. ★ marca a sua própria subclasse.
+            Habilidades de outras subclasses só ficam disponíveis a partir do Nível 2 (uma cota "livre" por Nível).
+          </p>
+          <div id="c-skills-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
+          <div id="c-skills-tabs" class="banco-tabs"></div>
+          <div id="c-skills-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+          <div class="modal-btns step-nav">
+            <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
+            <button class="btn btn-primary" onclick="saveCharacter()">Criar Personagem</button>
           </div>
         </div>
       </div>
