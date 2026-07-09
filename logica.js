@@ -45,19 +45,22 @@ function getHumanidade(p) {
 }
 
 // ═══════════════════════════════════════
-// EFEITOS SECUNDÁRIOS — exclusivo do Bruxo
+// EFEITOS SECUNDÁRIOS — Bruxo e Paladino
 // ═══════════════════════════════════════
-// Algumas Habilidades do banco de Bruxo têm um Efeito Secundário que custa
-// Humanidade para ativar: Êxtase (Alquimista), Sacrilégio (Receptáculo
-// Demoníaco) e Assombrar (Amaldiçoado). Cada um só fica disponível se o
-// personagem tiver a passiva correspondente da própria subclasse — que é
-// concedida automaticamente a quem É daquela subclasse, mas pode ter sido
-// removida manualmente da ficha (nesse caso, o Efeito Secundário some da
-// Habilidade até a passiva ser restaurada).
-const EFEITOS_SECUNDARIOS_BRUXO = {
-  extase:     { nome: 'Êxtase',     passivaId: 'alquimista_sistema_nervoso_elevado' },
-  sacrilegio: { nome: 'Sacrilégio', passivaId: 'receptaculo_demoniaco_selo_demoniaco' },
-  assombrar:  { nome: 'Assombrar',  passivaId: 'amaldicoado_maldicao' },
+// Algumas Habilidades do banco têm um Efeito Secundário que só fica
+// disponível se o personagem tiver a passiva correspondente da própria
+// subclasse (concedida automaticamente a quem É daquela subclasse, mas pode
+// ter sido removida manualmente da ficha — nesse caso, o Efeito Secundário
+// some da Habilidade até a passiva ser restaurada). No Bruxo, esses efeitos
+// custam Humanidade para ativar: Êxtase (Alquimista), Sacrilégio
+// (Receptáculo Demoníaco) e Assombrar (Amaldiçoado). No Paladino, a
+// Fidelidade (ligada à passiva Poder de um Fiel) funciona igual, mas não
+// envolve Humanidade — por isso não define `custoHumanidade`.
+const EFEITOS_SECUNDARIOS_ESPECIAIS = {
+  extase:     { nome: 'Êxtase',     passivaId: 'alquimista_sistema_nervoso_elevado',        icone: '🩸' },
+  sacrilegio: { nome: 'Sacrilégio', passivaId: 'receptaculo_demoniaco_selo_demoniaco',       icone: '🩸' },
+  assombrar:  { nome: 'Assombrar',  passivaId: 'amaldicoado_maldicao',                       icone: '🩸' },
+  fidelidade: { nome: 'Fidelidade', passivaId: 'paladino_poder_de_um_fiel',                  icone: '⚔️' },
 };
 
 // Alguns Efeitos Secundários (em especial alguns Êxtases) liberam um efeito
@@ -75,9 +78,9 @@ function temPassivaSubclasse(p, subclasseId) {
 }
 
 // Verifica se o personagem pode ativar um tipo de Efeito Secundário
-// ('extase' | 'sacrilegio' | 'assombrar'), checando a passiva vinculada.
+// ('extase' | 'sacrilegio' | 'assombrar' | 'fidelidade'), checando a passiva vinculada.
 function podeUsarEfeitoSecundario(p, tipoEfeito) {
-  const info = EFEITOS_SECUNDARIOS_BRUXO[tipoEfeito];
+  const info = EFEITOS_SECUNDARIOS_ESPECIAIS[tipoEfeito];
   return !!info && temPassivaSubclasse(p, info.passivaId);
 }
 
@@ -92,9 +95,9 @@ function toggleEfeitoSecundario(boxId) {
 function getEfeitoSecundarioTextoPlano(p, item) {
   const ef = item.efeitoSecundario;
   if (!ef || !podeUsarEfeitoSecundario(p, ef.tipo)) return '';
-  const info = EFEITOS_SECUNDARIOS_BRUXO[ef.tipo];
-  const custoTxt = ef.custoHumanidade ? `${ef.custoHumanidade} de Humanidade` : 'Humanidade';
-  let txt = `\n\n${info.nome} (${custoTxt}): ${ef.desc}`;
+  const info = EFEITOS_SECUNDARIOS_ESPECIAIS[ef.tipo];
+  const custoTxt = ef.custoHumanidade ? ` (${ef.custoHumanidade} de Humanidade)` : '';
+  let txt = `\n\n${info.nome}${custoTxt}: ${ef.desc}`;
   const liberado = ef.libera && EFEITOS_LIBERADOS[ef.libera];
   if (liberado) txt += `\nLibera: ${liberado.nome} — ${liberado.desc}`;
   return txt;
@@ -109,8 +112,8 @@ function getEfeitoSecundarioTextoPlano(p, item) {
 function renderEfeitoSecundarioHtml(p, item) {
   const ef = item.efeitoSecundario;
   if (!ef || !podeUsarEfeitoSecundario(p, ef.tipo)) return '';
-  const info = EFEITOS_SECUNDARIOS_BRUXO[ef.tipo];
-  const custoTxt = ef.custoHumanidade ? `${ef.custoHumanidade} de Humanidade` : 'Humanidade';
+  const info = EFEITOS_SECUNDARIOS_ESPECIAIS[ef.tipo];
+  const custoTxt = ef.custoHumanidade ? ` <span class="efeito-secundario-custo">(${ef.custoHumanidade} de Humanidade)</span>` : '';
   const liberado = ef.libera && EFEITOS_LIBERADOS[ef.libera];
   const liberadoHtml = liberado ? `
       <div class="efeito-liberado-box">
@@ -121,7 +124,7 @@ function renderEfeitoSecundarioHtml(p, item) {
   return `
     <div class="efeito-secundario-box collapsed" id="${boxId}">
       <div class="efeito-secundario-header" onclick="event.stopPropagation(); toggleEfeitoSecundario('${boxId}')">
-        <span class="efeito-secundario-titulo">🩸 ${info.nome} <span class="efeito-secundario-custo">(${custoTxt})</span></span>
+        <span class="efeito-secundario-titulo">${info.icone || '✨'} ${info.nome}${custoTxt}</span>
         <i class="ti ti-chevron-down efeito-secundario-chevron"></i>
       </div>
       <div class="efeito-secundario-body">
@@ -1187,8 +1190,36 @@ const BANCO_HABILIDADES_SUBCLASSE = {
     { indice: 9, id: 'exorcista_oracao_do_exorcista', name: 'Oração do Exorcista', color: 'green', cost: 2, tipo: 'turno_N', turnosRecarga: 5, usosMax: 1, desc: 'Faça uma oração para sua divindade: ao tocar num Alvo, tente remover o invasor daquele corpo/mente, por meio de um Teste de Devoção. Só pode ser usado uma vez por Alvo, e ele precisa desejar, por meio de sua alma, que o invasor saia.' },
     { indice: 10, id: 'exorcista_purificacao', name: 'Purificação', color: 'green', cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, desc: 'Com uma oração à sua divindade, remova um efeito negativo de sua escolha de um Alvo a até 6 Casas. Escolha uma Bênção e lance-a neste turno.' },
   ],
-  'Paladino': [],
-  'Acólito': [],
+  'Paladino': [
+    { indice: 1, id: 'paladino_aparo_milagroso', name: 'Aparo Milagroso', color: 'red', cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, desc: 'Após você ou um Aliado, que esteja até 3 Casas, terem falhado num Aparar/Desviar, sua divindade permite que você entre na frente e apare novamente. Se for fora do seu turno, consome uma Ação do seu próximo turno.',
+      efeitoSecundario: { tipo: 'fidelidade', desc: 'Faça um Teste de Devoção e troque o resultado para aprimorar: Bênção — +3 de Vantagem; Intervenção — o atacante refaz o lançamento; Milagre — não consome Ação; Milagre Supremo — ganha o Aparar e não perde Ação.' } },
+    { indice: 2, id: 'paladino_arma_sagrada', name: 'Arma Sagrada', color: 'red', cost: 1, tipo: 'turno_N', turnosRecarga: 2, usosMax: 1, desc: 'Escolha um Alvo a até 8 Casas e arremesse um martelo sagrado que causa 1d10 de Dano. O martelo se desintegra ao final do Golpe.',
+      efeitoSecundario: { tipo: 'fidelidade', desc: 'Faça um Teste de Devoção e troque o resultado para aprimorar: Bênção — +3 de Vantagem; Intervenção — +3 de Dano; Milagre — o dano é total; Milagre Supremo — substitua o martelo por uma Arma qualquer e ative o efeito dela.' } },
+    { indice: 3, id: 'paladino_avanco_corajoso', name: 'Avanço Corajoso', color: 'red', cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, desc: 'Escolha um Alvo a até 8 Casas e avance nele com tudo: ele não poderá Desviar, e você causa 5 de Dano com sua Arma nele.',
+      efeitoSecundario: { tipo: 'fidelidade', desc: 'Faça um Teste de Devoção e troque o resultado para aprimorar: Bênção — +3 de Vantagem; Intervenção — +2 de Alcance; Milagre — o dano atravessa Armadura; Milagre Supremo — 50% de chance de Crítico neste Golpe.' } },
+    { indice: 4, id: 'paladino_contra_ataque_sagrado', name: 'Contra-Ataque Sagrado', color: 'red', cost: 1, tipo: 'turno_N', turnosRecarga: 5, usosMax: 1, desc: 'Sua fé e raiva se manifestam, fazendo surgirem 2 martelos sagrados que flutuam ao seu redor. Ao receber um ataque vindo de até 8 Casas, você pode escolher um dos martelos para contra-atacar, causando 1d10 de Dano. Após o contra-ataque, o martelo sagrado se desintegra.',
+      efeitoSecundario: { tipo: 'fidelidade', desc: 'Faça um Teste de Devoção e troque o resultado para aprimorar: Bênção — +3 de Dano; Intervenção — possui mais um martelo sagrado; Milagre — o dano é total; Milagre Supremo — substitua o martelo por uma Arma qualquer e ative o efeito dela.' } },
+    { indice: 5, id: 'paladino_discurso_da_alma', name: 'Discurso da Alma', color: 'red', cost: 1, tipo: 'turno_N', turnosRecarga: 4, usosMax: 1, desc: 'Sua fé é liberada por meio da sua voz, ecoando na alma de seus Aliados. Faça um discurso que concede +1 Ação no próximo turno deles. Se algum Aliado estiver à beira da morte, o Teste de Emoção será automaticamente considerado um sucesso.' },
+    { indice: 6, id: 'paladino_transcendencia_espiritual', name: 'Transcendência Espiritual', color: 'red', cost: 0, tipo: 'sessao', usosMax: 1, desc: 'Sua divindade te concede uma forma sagrada até o final do seu próximo turno: você faz 1d2+1 Testes de Devoção e troca os resultados por um efeito — Bênção: +2 de Dano/Cura; Intervenção: +2 de Passos; Milagre: +1 Ação; Milagre Supremo: +5 de Dano/Cura, +5 de Passos e +2 Ações. Ao fazer um Teste de Devoção, a forma sagrada dura mais um turno.' },
+    { indice: 7, id: 'paladino_fe_envolvente', name: 'Fé Envolvente', color: 'red', cost: 1, tipo: 'luta', usosMax: 1, desc: 'Sua fé te envolve com um escudo que possui a sua Vida (mesma quantidade). Você só voltará a receber dano após quebrá-lo.',
+      efeitoSecundario: { tipo: 'fidelidade', desc: 'Faça um Teste de Devoção e troque o resultado para aprimorar: Bênção — +5 de Vida; Intervenção — +10 de Vida; Milagre — +15 de Vida; Milagre Supremo — escolha entre Feitiço, Golpe ou Técnica, e o escudo será imune a esse tipo de dano.' } },
+    { indice: 8, id: 'paladino_fiel_exemplar', name: 'Fiel Exemplar', color: 'red', cost: 0, tipo: 'sessao', usosMax: 2, desc: 'Sua fé é colocada à prova: até o início do próximo turno, toda vez que usar Fidelidade, lance também um Teste de Devoção e restaure apenas 1d6 de Vida. Caso consiga algum Milagre ou Milagre Supremo, ganhe uma Ação neste turno.' },
+    { indice: 9, id: 'paladino_oracao_dos_paladinos', name: 'Oração dos Paladinos', color: 'red', cost: 2, tipo: 'turno_N', turnosRecarga: 5, usosMax: 1, desc: 'Faça uma oração para sua divindade, e sua fé manifesta a presença dela na Cena/Luta: nenhuma mentira pode ser proliferada diante de você, e você sente a intenção no coração de todos ao seu redor.' },
+    { indice: 10, id: 'paladino_proposito_divino', name: 'Propósito Divino', color: 'red', cost: 1, tipo: 'turno_N', turnosRecarga: 5, usosMax: 1, desc: 'Sua divindade te auxilia em momentos de tormento, apresentando suas memórias mais preciosas: remova um efeito negativo, e caso tenha falhado num Teste de Emoção ou Teste de Resistência, poderá fazer um Teste de Devoção para substituir o resultado.',
+      efeitoSecundario: { tipo: 'fidelidade', desc: 'Faça um Teste de Devoção e troque o resultado para aprimorar: Bênção — +30 de Vantagem; Intervenção — funciona 2 vezes; Milagre — se estiver à beira da morte, se levanta; Milagre Supremo — sai do estado à beira da morte e receba um Milagre da sua divindade.' } },
+  ],
+  'Acólito': [
+    { indice: 1, id: 'acolito_confrontar_angustia', name: 'Confrontar Angústia', color: 'blue', cost: 1, tipo: 'luta', usosMax: 1, desc: 'Você e sua divindade se unem para adentrar a mente de uma pessoa e confrontam os sentimentos que a afligem. O Alvo realizará um Teste de Emoção em módulo, e o resultado desse confronto será refletido na Vida de um monstro que deve ser vencido. Ao derrotá-lo, escolha um dos efeitos: receber uma Intervenção, obter 2 Bênçãos, ou curar 3d10 de Vida do Alvo.' },
+    { indice: 2, id: 'acolito_escudo_divino', name: 'Escudo Divino', color: 'blue', cost: 1, tipo: 'sessao', usosMax: 2, desc: 'Com seu poder sagrado, crie um escudo num Alvo que esteja a 1 Casa de distância: ele ignora o próximo dano que receber.' },
+    { indice: 3, id: 'acolito_feixes_da_alma', name: 'Feixes da Alma', color: 'blue', cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1, desc: 'Seu poder sagrado se concentra em 2 feixes: escolha 2 Alvos diferentes a até 8 Casas e cause 1d6 de Dano — se for Aliado, cura apenas 1d4 de Vida. Caso acerte os 2, receba um Teste de Devoção gratuito neste turno.' },
+    { indice: 4, id: 'acolito_grito_da_alma', name: 'Grito da Alma', color: 'blue', cost: 1, tipo: 'turno_N', turnosRecarga: 4, usosMax: 1, desc: 'Seu poder sagrado é liberado em 3x3 Casas, com você no centro, empurrando todos os outros para 1d2+1 Casas para trás e causando 1d6 de Dano. Os atingidos podem resistir, porém ainda recebem o dano. Ao receber um ataque, pode usar este feitiço, porém consumirá uma Ação do próximo turno.' },
+    { indice: 5, id: 'acolito_o_caminhar_do_divino', name: 'O Caminhar do Divino', color: 'blue', cost: 1, tipo: 'turno_N', turnosRecarga: 2, usosMax: 1, desc: 'Com seu poder sagrado, seu corpo se desloca 3 Casas de forma engajada: se tiver algum inimigo no percurso, ele recebe 1d2 de Dano na Vida e você para nele; já se for um Aliado, ele recebe 1d2 de Cura e você para nele. Se não tiver ninguém, faça um Teste de Devoção gratuitamente.' },
+    { indice: 6, id: 'acolito_oracao_do_acolito', name: 'Oração do Acólito', color: 'blue', cost: 2, tipo: 'turno_N', turnosRecarga: 5, usosMax: 1, desc: 'Faça uma oração para sua divindade, e seu poder sagrado se manifesta de forma intensa: todos que estiverem na Cena/Luta recebem um deslumbre de sua divindade, não podendo se atacar por um turno, e te escutam perfeitamente. (Não funciona com outros Clérigos.)' },
+    { indice: 7, id: 'acolito_penitencia_sagrada', name: 'Penitência Sagrada', color: 'blue', cost: 0, tipo: 'sessao', usosMax: 5, desc: 'Renuncie: uma Ação; uma Ação de Movimento; 1d8 da sua Vida; ou 1d4 da sua Armadura. Assim, receba neste turno um Teste de Devoção sem consumir Ação.' },
+    { indice: 8, id: 'acolito_raio_da_alma', name: 'Raio da Alma', color: 'blue', cost: 1, tipo: 'turno_N', turnosRecarga: 2, usosMax: 1, desc: 'Seu poder sagrado se manifesta por meio de um raio sagrado: escolha um Alvo a até 8 Casas e cause 1d6 de Dano. Se você já fez um Teste de Devoção neste turno, cause +1d4 de Dano.' },
+    { indice: 9, id: 'acolito_sensacao_de_anjo', name: 'Sensação de Anjo', color: 'blue', cost: 0, tipo: 'luta', usosMax: 1, desc: 'Seu poder sagrado se manifesta de forma intensa: sua divindade concede, até o final do seu próximo turno, asas divinas que te atribuem +3 de Passos, +3 de Vantagem em Desviar, e +3 de Dano em Feitiços. Pode estender por +1 turno se fizer um Teste de Devoção. (Pode fazer infinitamente.)' },
+    { indice: 10, id: 'acolito_sentenca_instantanea', name: 'Sentença Instantânea', color: 'blue', cost: 1, tipo: 'turno_N', turnosRecarga: 2, usosMax: 1, desc: 'Com a essência da sua divindade, castigue um pecador! Escolha um Alvo a até 8 Casas e cause 1d8 de Dano. Se o Alvo acabou de cometer um pecado à sua frente, o dano será total, ou causa +1d8 de Dano.' },
+  ],
 };
 
 // Retorna o catálogo de Habilidades disponível para o personagem: TODAS as
@@ -2546,7 +2577,8 @@ function renderNarrador() {
         const descTooltip = sk.desc ? `Efeito: ${sk.desc}\n\n` : '';
         const statusTooltip = ready ? 'Pronta para uso' : `Indisponível (${tipoLabel(sk)})`;
         const efeitoSecTxt = getEfeitoSecundarioTextoPlano(p, sk);
-        const efeitoSecBadge = efeitoSecTxt ? `<span class="chip-badge" style="background:rgba(124,92,191,0.25);color:#b89aff;border-color:rgba(155,125,224,0.45)">🩸</span>` : '';
+        const efeitoSecIcone = (sk.efeitoSecundario && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo] && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo].icone) || '✨';
+        const efeitoSecBadge = efeitoSecTxt ? `<span class="chip-badge" style="background:rgba(124,92,191,0.25);color:#b89aff;border-color:rgba(155,125,224,0.45)">${efeitoSecIcone}</span>` : '';
         return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${descTooltip}${statusTooltip}${efeitoSecTxt}">
           <span class="chip-dot"></span><span class="chip-name">${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}
         </div>`;
