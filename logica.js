@@ -1848,6 +1848,9 @@ let modalPid = null;
 let modalSkid = null;
 let modalColor = 'green';
 let modalCharId = null;
+// Nível escolhido na criação de um personagem NOVO (1 a 5). Ignorado ao
+// editar um personagem existente, que usa o próprio p.level.
+let creationLevel = 1;
 let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
@@ -4870,10 +4873,36 @@ function selectOrigem(origemId) {
 // ─── Sistema de Point Buy ───────────────────────────────────────────────────
 // Pontos base por nível: 35 no Nv 1, +5 por nível adicional
 // Base fixa: HP 10, AGI/FOR/INT 5 cada → total base gasto = 25
-// Atributos (AGI/FOR/INT) têm limite de 20 apenas no Nv 1
+// Atributos (AGI/FOR/INT) têm um limite por Nível: 20 no Nv 1, subindo +5 a
+// cada Nível (25 no Nv 2, 30 no Nv 3, 35 no Nv 4, 40 no Nv 5 — nível máximo).
 const POINT_BUY_BASE = 35;
 const ATTR_BASE_HP = 10;
 const ATTR_BASE_STAT = 5;
+const ATTR_LIMITE_NV1 = 20;
+const ATTR_LIMITE_POR_NIVEL = 5;
+
+function getAttrLimiteNivel(level) {
+  return ATTR_LIMITE_NV1 + (Math.max(1, level || 1) - 1) * ATTR_LIMITE_POR_NIVEL;
+}
+
+// Chamado pelos botões de Nível na criação de personagem novo (Nv 1 a 5).
+// Reseta os atributos pra base ao trocar de Nível, pra evitar estados
+// inconsistentes (ex: pontos investidos que já não caberiam no novo total).
+function selectCreationLevel(n) {
+  creationLevel = Math.max(1, Math.min(5, n));
+  document.querySelectorAll('.creation-level-btn').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.lvl) === creationLevel)
+  );
+  const hpEl = document.getElementById('c-hp');
+  const agiEl = document.getElementById('c-agi');
+  const forEl = document.getElementById('c-for');
+  const intEl = document.getElementById('c-int');
+  if (hpEl) hpEl.value = ATTR_BASE_HP;
+  if (agiEl) agiEl.value = ATTR_BASE_STAT;
+  if (forEl) forEl.value = ATTR_BASE_STAT;
+  if (intEl) intEl.value = ATTR_BASE_STAT;
+  updatePointBuy(creationLevel);
+}
 
 function getPointBuyTotal(level) {
   return POINT_BUY_BASE + (Math.max(1, level || 1) - 1) * POINT_BUY_PER_LEVEL;
@@ -4904,17 +4933,17 @@ function stepStat(field, delta) {
   if (!input) return;
   if (field === 'hp' && delta > 0 && isTaurenHpLocked()) return;
 
-  const level = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : 1;
+  const level = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : creationLevel;
   const total = getPointBuyTotal(level);
-  const isNv1 = level === 1;
+  const limite = getAttrLimiteNivel(level);
   const base  = field === 'hp' ? ATTR_BASE_HP : ATTR_BASE_STAT;
   const cur   = parseInt(input.value) || base;
   const next  = cur + delta;
 
   // Não vai abaixo da base
   if (next < base) return;
-  // Limite de 20 nos atributos no Nv 1
-  if (isNv1 && field !== 'hp' && next > 20) return;
+  // Limite de atributo do Nível atual (20 no Nv1, +5 por Nível)
+  if (field !== 'hp' && next > limite) return;
   // Não gasta mais pontos do que o disponível
   const spent = getPointsSpent();
   const left  = total - spent;
@@ -4931,7 +4960,7 @@ function updatePointBuy(levelOverride) {
       const p = PLAYERS.find(x => x.id === modalCharId);
       level = p ? (p.level || 1) : 1;
     } else {
-      level = 1;
+      level = creationLevel;
     }
   }
 
@@ -4948,7 +4977,7 @@ function updatePointBuy(levelOverride) {
   };
   const spent = costs.hp + costs.agi + costs.for + costs.int;
   const left  = total - spent;
-  const isNv1 = level === 1;
+  const limite = getAttrLimiteNivel(level);
 
   // Barra de progresso
   const pct  = Math.max(0, Math.min(100, (left / total) * 100));
@@ -4964,15 +4993,13 @@ function updatePointBuy(levelOverride) {
   const hintEl = document.getElementById('c-points-hint');
   const taurenLocked = isTaurenHpLocked();
   if (hintEl) hintEl.textContent = taurenLocked
-    ? 'Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Tauren não pode investir pontos em Vida a partir do Nível 2 (recebe +4 automático a cada Nível).'
-    : isNv1
-    ? 'Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Limite de 20 por atributo no Nv 1.'
-    : `Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Sem limite de atributo no Nv ${level}.`;
+    ? `Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Tauren não pode investir pontos em Vida a partir do Nível 2 (recebe +4 automático a cada Nível). Limite de ${limite} por atributo no Nv ${level}.`
+    : `Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Limite de ${limite} por atributo no Nv ${level}.`;
 
-  // Labels de limite (máx 20)
+  // Labels de limite (mostra o valor atual, escalando com o Nível)
   ['agi','for','int'].forEach(a => {
     const lbl = document.getElementById(`c-${a}-limit`);
-    if (lbl) lbl.style.display = isNv1 ? '' : 'none';
+    if (lbl) { lbl.style.display = ''; lbl.textContent = `(máx ${limite})`; }
   });
 
   // Custo individual por campo
@@ -4992,7 +5019,7 @@ function updatePointBuy(levelOverride) {
     const inputEl = document.getElementById(`c-${key}`);
     const base = key === 'hp' ? ATTR_BASE_HP : ATTR_BASE_STAT;
     const val  = parseInt(inputEl?.value) || base;
-    const atLimit = isNv1 && key !== 'hp' && val >= 20;
+    const atLimit = key !== 'hp' && val >= limite;
     if (incBtn) {
       const blocked = noPoints || atLimit || (key === 'hp' && taurenLocked);
       incBtn.disabled = blocked;
@@ -5089,6 +5116,10 @@ function openCharModal() {
   document.getElementById('c-dinheiro').value = '100';
   const extraFields = document.getElementById('c-extra-fields');
   if (extraFields) extraFields.style.display = 'none';
+  creationLevel = 1;
+  document.querySelectorAll('.creation-level-btn').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.lvl) === 1)
+  );
   updatePointBuy(1);
   setModalMode(false);
   showWizardStep(1);
@@ -5181,16 +5212,17 @@ function saveCharacter() {
   const deus = (classeBase === 'Clérigo' && deusEl) ? (deusEl.value || null) : null;
 
   // Validação de point-buy
-  const editLevel = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : 1;
+  const editLevel = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : creationLevel;
   const totalPontos = getPointBuyTotal(editLevel);
   const gasto = (hpMax - ATTR_BASE_HP) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
   if (gasto > totalPontos) {
     alert(`Pontos excedidos! Você gastou ${gasto} pontos mas tem apenas ${totalPontos} disponíveis.`);
     return;
   }
-  // Limite de 20 por atributo no Nv 1
-  if (editLevel === 1 && (agi > 20 || forca > 20 || intel > 20)) {
-    alert('No Nível 1, AGI, FOR e INT não podem ultrapassar 20.');
+  // Limite de atributo do Nível atual (20 no Nv1, +5 por Nível)
+  const limitePontos = getAttrLimiteNivel(editLevel);
+  if (agi > limitePontos || forca > limitePontos || intel > limitePontos) {
+    alert(`No Nível ${editLevel}, AGI, FOR e INT não podem ultrapassar ${limitePontos}.`);
     return;
   }
 
@@ -5223,7 +5255,7 @@ function saveCharacter() {
   } else {
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
     const novo = {
-      id: newId, name, race, cls, classeBase, level: 1, xp: 0,
+      id: newId, name, race, cls, classeBase, level: editLevel, xp: 0,
       hp: hpMax, hpMax, agi, forca, intel,
       armadura: 0, armaduraMax: 0,
       elmo: 0, elmoMax: 0,
