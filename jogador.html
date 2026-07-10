@@ -124,6 +124,30 @@
       </div>
     </div>
 
+    <div class="modal-overlay" id="modal-talentos-overlay">
+      <div class="modal" style="max-width:560px">
+        <h3>Talentos Inferiores</h3>
+        <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Todo personagem recebe o direito de escolher 1 Talento Inferior ao chegar no Nível 2.</p>
+        <div id="talentos-progresso" style="font-size:11px;color:var(--text2);margin:-4px 0 12px;line-height:1.6;"></div>
+        <div id="talentos-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
+        <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
+          <button class="btn" onclick="closeTalentosModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-talentos-superiores-overlay">
+      <div class="modal" style="max-width:560px">
+        <h3>Talentos Superiores</h3>
+        <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Todo personagem recebe o direito de escolher 1 Talento Superior ao chegar no Nível 4.</p>
+        <div id="talentos-superiores-progresso" style="font-size:11px;color:var(--text2);margin:-4px 0 12px;line-height:1.6;"></div>
+        <div id="talentos-superiores-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
+        <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
+          <button class="btn" onclick="closeTalentosSuperioresModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="modal-passiva-overlay">
       <div class="modal">
         <h3 id="modal-passiva-title">Nova Passiva / Talento</h3>
@@ -489,6 +513,23 @@
           <div id="c-skills-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
           <div id="c-skills-tabs" class="banco-tabs"></div>
           <div id="c-skills-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+
+          <div id="c-talentos-section" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+            <div class="group-title" style="margin-top:0">🎖 Talento Inferior</div>
+            <p style="font-size:11px;color:var(--text3);margin:6px 0 12px;line-height:1.5;">Um personagem que já nasce no Nível 2 ou superior recebe o direito de escolher 1 Talento Inferior desde a criação.</p>
+            <div id="c-talentos-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas para personagens criados no Nível 2 ou superior. Escolha o Nível no passo anterior para liberar.</div>
+            <div id="c-talentos-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
+            <div id="c-talentos-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+          </div>
+
+          <div id="c-talentos-superiores-section" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+            <div class="group-title" style="margin-top:0">👑 Talento Superior</div>
+            <p style="font-size:11px;color:var(--text3);margin:6px 0 12px;line-height:1.5;">Um personagem que já nasce no Nível 4 ou superior recebe o direito de escolher 1 Talento Superior desde a criação.</p>
+            <div id="c-talentos-superiores-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas para personagens criados no Nível 4 ou superior. Escolha o Nível no passo anterior para liberar.</div>
+            <div id="c-talentos-superiores-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
+            <div id="c-talentos-superiores-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+          </div>
+
           <div class="modal-btns step-nav">
             <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
             <button class="btn btn-primary" onclick="saveCharacter()">Criar Personagem</button>
