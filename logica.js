@@ -219,7 +219,7 @@ const RACAS = {
   ],
   'Elfo': [
     { id: 'elfo_decreptico', name: 'Decréptico', desc: 'Por ter muitos anos de vida escolha 2 Testes de Intelecto para conceder, consequentemente, +1 de Vantagem e +3 de vantagem. Possui -2 de Desvantagem em Resistir.' },
-    { id: 'elfo_aprendizagem_elfica', name: 'Aprendizagem Élfica', desc: 'Ao subir de Nível aprenda uma Habilidade de outra classe. (Os efeitos exclusivos não funcionam e podem ser ajustados caso queira)' },
+    { id: 'elfo_aprendizagem_elfica', name: 'Aprendizagem Élfica', desc: 'Ao subir de Nível aprenda uma Habilidade de outra Classe (escolha no Banco de Habilidades, aba com o ícone da Classe de origem — cota própria, cumulativa por Nível).' },
   ],
   'Etéreo': [
     { id: 'etereo_lampejo_eterno', name: 'Lampejo Eterno', desc: 'Por ter seu corpo tomado por Éter seu movimento é sempre por meio de um teletransporte, ou seja, sempre está Engajado e seu deslocamento não possui obstáculos. (não atravessa paredes grossas)' },
@@ -1231,13 +1231,31 @@ const BANCO_HABILIDADES_SUBCLASSE = {
 function getBancoHabilidades(p) {
   const clsBase = p.classeBase || getBaseClass(p.cls);
   const cls = CLASSES.find(c => c.name === clsBase);
-  if (!cls) return BANCO_HABILIDADES_SUBCLASSE[p.cls] || [];
   const itens = [];
-  cls.subs.forEach(sub => {
-    (BANCO_HABILIDADES_SUBCLASSE[sub.name] || []).forEach(item => {
-      itens.push({ ...item, subclasseOrigem: sub.name });
+  if (cls) {
+    cls.subs.forEach(sub => {
+      (BANCO_HABILIDADES_SUBCLASSE[sub.name] || []).forEach(item => {
+        itens.push({ ...item, subclasseOrigem: sub.name, classeOrigem: cls.name });
+      });
     });
-  });
+  } else if (BANCO_HABILIDADES_SUBCLASSE[p.cls]) {
+    (BANCO_HABILIDADES_SUBCLASSE[p.cls] || []).forEach(item => {
+      itens.push({ ...item, subclasseOrigem: p.cls });
+    });
+  }
+  // Aprendizagem Élfica (Elfo): além do catálogo da própria Classe, o Elfo
+  // também enxerga o catálogo de TODAS as outras Classes, para poder
+  // escolher Habilidades de fora da sua Classe-base (ver getLimiteElfoOutraClasse).
+  if (p.race === 'Elfo') {
+    CLASSES.forEach(outraCls => {
+      if (cls && outraCls.name === cls.name) return;
+      outraCls.subs.forEach(sub => {
+        (BANCO_HABILIDADES_SUBCLASSE[sub.name] || []).forEach(item => {
+          itens.push({ ...item, subclasseOrigem: sub.name, classeOrigem: outraCls.name });
+        });
+      });
+    });
+  }
   return itens;
 }
 
@@ -1257,11 +1275,14 @@ function getBancoLimites(p) {
 
 // Conta quantas Habilidades do banco o personagem já escolheu, separando
 // entre as da própria subclasse e as de outras subclasses da mesma Classe.
+// Habilidades marcadas como `elfoOutraClasse` (Aprendizagem Élfica) NÃO
+// entram nessa contagem — elas têm cota própria e separada (ver
+// getLimiteElfoOutraClasse/contarElfoOutraClasseEscolhas).
 function contarBancoEscolhas(p) {
   const catalogo = getBancoHabilidades(p);
   let propria = 0, outras = 0;
   (p.skills || []).forEach(sk => {
-    if (!sk.bancoId) return;
+    if (!sk.bancoId || sk.elfoOutraClasse) return;
     const item = catalogo.find(it => it.id === sk.bancoId);
     const origem = item ? item.subclasseOrigem : null;
     if (origem === p.cls) propria++;
@@ -1270,15 +1291,37 @@ function contarBancoEscolhas(p) {
   return { propria, outras, total: propria + outras };
 }
 
+// ─── Aprendizagem Élfica (passiva racial do Elfo) ──────────────────────────
+// O Elfo pode escolher +1 Habilidade de QUALQUER Classe a cada Nível — cota
+// própria, cumulativa e independente do Banco de Habilidades normal da sua
+// Classe-base: Nv1=1, Nv2=2, Nv3=3, Nv4=4, Nv5=5.
+function getLimiteElfoOutraClasse(p) {
+  if (p.race !== 'Elfo') return 0;
+  return Math.max(1, Math.min(5, p.level || 1));
+}
+
+// Conta quantas Habilidades de outra Classe o Elfo já escolheu via
+// Aprendizagem Élfica.
+function contarElfoOutraClasseEscolhas(p) {
+  return (p.skills || []).filter(sk => sk.bancoId && sk.elfoOutraClasse).length;
+}
+
 // Quantas escolhas do Banco de Habilidades o personagem ainda pode fazer no
 // Nível atual (0 se já escolheu tudo que tinha direito, ou se a Classe não
 // tem Banco cadastrado). Usado para avisar o jogador — mesmo padrão do aviso
-// de pontos de atributo pendentes (p.pontosPendentes).
+// de pontos de atributo pendentes (p.pontosPendentes). Inclui também a cota
+// da Aprendizagem Élfica, se aplicável.
 function getHabilidadesPendentes(p) {
-  if (!getBancoHabilidades(p).length) return 0;
-  const { maxTotal } = getBancoLimites(p);
-  const { total } = contarBancoEscolhas(p);
-  return Math.max(0, maxTotal - total);
+  let pendentes = 0;
+  if (getBancoHabilidades(p).length) {
+    const { maxTotal } = getBancoLimites(p);
+    const { total } = contarBancoEscolhas(p);
+    pendentes += Math.max(0, maxTotal - total);
+  }
+  if (p.race === 'Elfo') {
+    pendentes += Math.max(0, getLimiteElfoOutraClasse(p) - contarElfoOutraClasseEscolhas(p));
+  }
+  return pendentes;
 }
 
 
@@ -1315,20 +1358,38 @@ function adicionarHabilidadeDoBanco(pid, bancoId) {
   const jaTem = p.skills.some(sk => sk.bancoId === item.id);
   if (jaTem) return;
 
-  const { nivel, maxOutras, maxTotal } = getBancoLimites(p);
-  const { outras, total } = contarBancoEscolhas(p);
-  const ehPropria = item.subclasseOrigem === p.cls;
+  const clsBaseAtual = p.classeBase || getBaseClass(p.cls);
+  const ehOutraClasse = p.race === 'Elfo' && item.classeOrigem && item.classeOrigem !== clsBaseAtual;
 
-  if (total >= maxTotal) {
-    alert(`Limite de Habilidades do Banco atingido para o Nível ${nivel} (máx. ${maxTotal}). Suba de Nível para desbloquear mais escolhas.`);
-    return;
-  }
-  if (!ehPropria && outras >= maxOutras) {
-    alert(`No Nível ${nivel}, você só pode escolher ${maxOutras} Habilidade${maxOutras === 1 ? '' : 's'} de outra subclasse. Suba de Nível para desbloquear mais.`);
-    return;
+  if (ehOutraClasse) {
+    // Aprendizagem Élfica: Habilidade de uma Classe totalmente diferente da
+    // sua — usa a cota própria do Elfo, e não a do Banco normal.
+    const limiteElfo = getLimiteElfoOutraClasse(p);
+    const usadoElfo = contarElfoOutraClasseEscolhas(p);
+    if (usadoElfo >= limiteElfo) {
+      alert(`Limite da Aprendizagem Élfica atingido para o Nível ${p.level || 1} (máx. ${limiteElfo}). Suba de Nível para escolher mais uma Habilidade de outra Classe.`);
+      return;
+    }
+    const nova = construirSkillDoBanco(item);
+    nova.elfoOutraClasse = true;
+    p.skills.push(nova);
+  } else {
+    const { nivel, maxOutras, maxTotal } = getBancoLimites(p);
+    const { outras, total } = contarBancoEscolhas(p);
+    const ehPropria = item.subclasseOrigem === p.cls;
+
+    if (total >= maxTotal) {
+      alert(`Limite de Habilidades do Banco atingido para o Nível ${nivel} (máx. ${maxTotal}). Suba de Nível para desbloquear mais escolhas.`);
+      return;
+    }
+    if (!ehPropria && outras >= maxOutras) {
+      alert(`No Nível ${nivel}, você só pode escolher ${maxOutras} Habilidade${maxOutras === 1 ? '' : 's'} de outra subclasse. Suba de Nível para desbloquear mais.`);
+      return;
+    }
+
+    p.skills.push(construirSkillDoBanco(item));
   }
 
-  p.skills.push(construirSkillDoBanco(item));
   saveState();
   renderAll();
   if (typeof renderBancoModal === 'function') renderBancoModal(pid);
@@ -1343,10 +1404,15 @@ function adicionarHabilidadeDoBanco(pid, bancoId) {
 function getWizardPseudoPlayer() {
   const cls = getSelectedSubclasse() || '';
   const classeBase = getBaseClass(cls) || cls;
-  return {
-    cls, classeBase, level: creationLevel,
-    skills: wizardSkillsEscolhidas.map(id => ({ bancoId: id })),
-  };
+  const race = document.getElementById('c-race')?.value || '';
+  const pseudo = { cls, classeBase, level: creationLevel, race };
+  const catalogo = getBancoHabilidades(pseudo);
+  pseudo.skills = wizardSkillsEscolhidas.map(id => {
+    const item = catalogo.find(it => it.id === id);
+    const elfoOutraClasse = !!(item && item.classeOrigem && item.classeOrigem !== classeBase);
+    return { bancoId: id, elfoOutraClasse };
+  });
+  return pseudo;
 }
 
 // Repinta o passo 5 (catálogo do Banco de Habilidades) dentro do wizard de
@@ -1361,7 +1427,6 @@ function renderWizardBancoStep() {
     wizardBancoTabAtiva = null;
   }
   wizardSkillsClasseSnapshot = pseudo.cls;
-  pseudo.skills = wizardSkillsEscolhidas.map(id => ({ bancoId: id }));
 
   const todosItens = getBancoHabilidades(pseudo);
   const COLOR_LABEL = { green: 'Técnica', red: 'Golpe', blue: 'Feitiço', gray: 'Neutra' };
@@ -1381,10 +1446,14 @@ function renderWizardBancoStep() {
 
   const { nivel, maxOutras, maxTotal } = getBancoLimites(pseudo);
   const { propria, outras, total } = contarBancoEscolhas(pseudo);
+  const ehElfo = pseudo.race === 'Elfo';
+  const limiteElfo = getLimiteElfoOutraClasse(pseudo);
+  const usadoElfo = contarElfoOutraClasseEscolhas(pseudo);
   if (progressoEl) {
     progressoEl.innerHTML = `Nível ${nivel} · Escolhidas: <strong style="color:var(--text)">${total}/${maxTotal}</strong>`
       + ` (própria subclasse: ${propria} · outras subclasses: ${outras}/${maxOutras})`
-      + (total >= maxTotal ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '');
+      + (total >= maxTotal ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '')
+      + (ehElfo ? `<br>✨ Aprendizagem Élfica (Habilidade de outra Classe): <strong style="color:var(--text)">${usadoElfo}/${limiteElfo}</strong>` : '');
   }
 
   const subsPresentes = [];
@@ -1396,18 +1465,27 @@ function renderWizardBancoStep() {
   tabsEl.innerHTML = subsPresentes.map(sub => {
     const ativa = sub === wizardBancoTabAtiva;
     const propriaSub = sub === pseudo.cls;
-    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaWizardBanco('${sub}')">${propriaSub ? '★ ' : ''}${sub}</button>`;
+    const itemRef = todosItens.find(i => i.subclasseOrigem === sub);
+    const outraClasseTab = ehElfo && itemRef && itemRef.classeOrigem !== clsBase;
+    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaWizardBanco('${sub}')">${propriaSub ? '★ ' : ''}${sub}${outraClasseTab ? ` <span style="opacity:.6">(${itemRef.classeOrigem})</span>` : ''}</button>`;
   }).join('');
 
   const itens = todosItens.filter(item => item.subclasseOrigem === wizardBancoTabAtiva);
   const abaEhPropria = wizardBancoTabAtiva === pseudo.cls;
+  const abaEhOutraClasse = ehElfo && itens.length > 0 && itens[0].classeOrigem !== clsBase;
 
   lista.innerHTML = itens.map(item => {
     const jaTem = wizardSkillsEscolhidas.includes(item.id);
-    const bloqueadaPorLimite = !jaTem && (total >= maxTotal || (!abaEhPropria && outras >= maxOutras));
-    let labelBtn = 'Escolher';
-    if (jaTem) labelBtn = '✓ Escolhida — clique para remover';
-    else if (bloqueadaPorLimite) labelBtn = total >= maxTotal ? `🔒 Limite do Nível ${nivel} atingido` : `🔒 Cota livre esgotada (${outras}/${maxOutras})`;
+    let bloqueadaPorLimite, labelBtn = 'Escolher';
+    if (abaEhOutraClasse) {
+      bloqueadaPorLimite = !jaTem && usadoElfo >= limiteElfo;
+      if (jaTem) labelBtn = '✓ Escolhida — clique para remover';
+      else if (bloqueadaPorLimite) labelBtn = `🔒 Cota da Aprendizagem Élfica esgotada (${usadoElfo}/${limiteElfo})`;
+    } else {
+      bloqueadaPorLimite = !jaTem && (total >= maxTotal || (!abaEhPropria && outras >= maxOutras));
+      if (jaTem) labelBtn = '✓ Escolhida — clique para remover';
+      else if (bloqueadaPorLimite) labelBtn = total >= maxTotal ? `🔒 Limite do Nível ${nivel} atingido` : `🔒 Cota livre esgotada (${outras}/${maxOutras})`;
+    }
     return `
     <div class="skill-card sk-${item.color}" style="margin:0">
       <div class="sk-name">${item.name}</div>
@@ -1444,6 +1522,19 @@ function toggleWizardSkill(bancoId) {
   const pseudo = getWizardPseudoPlayer();
   const item = getBancoHabilidades(pseudo).find(h => h.id === bancoId);
   if (!item) return;
+
+  const ehOutraClasse = pseudo.race === 'Elfo' && item.classeOrigem && item.classeOrigem !== pseudo.classeBase;
+  if (ehOutraClasse) {
+    const limiteElfo = getLimiteElfoOutraClasse(pseudo);
+    const usadoElfo = contarElfoOutraClasseEscolhas(pseudo);
+    if (usadoElfo >= limiteElfo) {
+      alert(`Limite da Aprendizagem Élfica atingido para o Nível ${pseudo.level} (máx. ${limiteElfo}).`);
+      return;
+    }
+    wizardSkillsEscolhidas.push(bancoId);
+    renderWizardBancoStep();
+    return;
+  }
 
   const { nivel, maxOutras, maxTotal } = getBancoLimites(pseudo);
   const { outras, total } = contarBancoEscolhas(pseudo);
@@ -4748,10 +4839,15 @@ function renderBancoModal(pid) {
   // Progresso de escolhas do banco, conforme o Nível do personagem.
   const { nivel, maxOutras, maxTotal } = getBancoLimites(p);
   const { propria, outras, total } = contarBancoEscolhas(p);
+  const ehElfo = p.race === 'Elfo';
+  const limiteElfo = getLimiteElfoOutraClasse(p);
+  const usadoElfo = contarElfoOutraClasseEscolhas(p);
+  const clsBaseAtualProgresso = p.classeBase || getBaseClass(p.cls) || '';
   if (progressoEl) {
     progressoEl.innerHTML = `Nível ${nivel} · Escolhidas: <strong style="color:var(--text)">${total}/${maxTotal}</strong>`
       + ` (própria subclasse: ${propria} · outras subclasses: ${outras}/${maxOutras})`
-      + (total >= maxTotal ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '');
+      + (total >= maxTotal ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '')
+      + (ehElfo ? `<br>✨ Aprendizagem Élfica (Habilidade de outra Classe): <strong style="color:var(--text)">${usadoElfo}/${limiteElfo}</strong>` : '');
   }
 
   // Subclasses na ordem em que aparecem no catálogo (mesma ordem de CLASSES)
@@ -4764,21 +4860,31 @@ function renderBancoModal(pid) {
   tabsEl.innerHTML = subsPresentes.map(sub => {
     const ativa = sub === bancoTabAtiva;
     const propria = sub === p.cls;
-    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaBanco('${sub}')">${propria ? '★ ' : ''}${sub}</button>`;
+    const itemRef = todosItens.find(i => i.subclasseOrigem === sub);
+    const outraClasseTab = ehElfo && itemRef && itemRef.classeOrigem !== clsBaseAtualProgresso;
+    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaBanco('${sub}')">${propria ? '★ ' : ''}${sub}${outraClasseTab ? ` <span style="opacity:.6">(${itemRef.classeOrigem})</span>` : ''}</button>`;
   }).join('');
 
   const itens = todosItens.filter(item => item.subclasseOrigem === bancoTabAtiva);
   const abaEhPropria = bancoTabAtiva === p.cls;
+  const abaEhOutraClasse = ehElfo && itens.length > 0 && itens[0].classeOrigem !== clsBaseAtualProgresso;
 
   lista.innerHTML = itens.map(item => {
     const jaTem = (p.skills || []).some(sk => sk.bancoId === item.id);
     // Bloqueia por limite de Nível: total geral esgotado, ou (se for de outra
-    // subclasse) cota "livre" esgotada.
-    const bloqueadaPorLimite = !jaTem && (total >= maxTotal || (!abaEhPropria && outras >= maxOutras));
+    // subclasse) cota "livre" esgotada — ou, se for uma aba de outra Classe
+    // (Aprendizagem Élfica), a cota separada do Elfo.
+    let bloqueadaPorLimite, labelBtn = 'Adicionar à ficha';
+    if (abaEhOutraClasse) {
+      bloqueadaPorLimite = !jaTem && usadoElfo >= limiteElfo;
+      if (jaTem) labelBtn = '✓ Já adicionada';
+      else if (bloqueadaPorLimite) labelBtn = `🔒 Cota da Aprendizagem Élfica esgotada (${usadoElfo}/${limiteElfo})`;
+    } else {
+      bloqueadaPorLimite = !jaTem && (total >= maxTotal || (!abaEhPropria && outras >= maxOutras));
+      if (jaTem) labelBtn = '✓ Já adicionada';
+      else if (bloqueadaPorLimite) labelBtn = total >= maxTotal ? `🔒 Limite do Nível ${nivel} atingido` : `🔒 Cota livre esgotada (${outras}/${maxOutras})`;
+    }
     const desabilitado = jaTem || bloqueadaPorLimite;
-    let labelBtn = 'Adicionar à ficha';
-    if (jaTem) labelBtn = '✓ Já adicionada';
-    else if (bloqueadaPorLimite) labelBtn = total >= maxTotal ? `🔒 Limite do Nível ${nivel} atingido` : `🔒 Cota livre esgotada (${outras}/${maxOutras})`;
     return `
     <div class="skill-card sk-${item.color}" style="margin:0">
       <div class="sk-name">${item.name}</div>
@@ -4993,6 +5099,9 @@ function selectClasse(clsName, keepSub) {
   if (!keepSub) {
     document.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
   }
+  // Trocar de Classe geralmente limpa a Subclasse escolhida — recalcula a
+  // Vida base (ex: deixa de ter o bônus de Maestro Macabro).
+  if (typeof resetHpParaBaseEfetiva === 'function') resetHpParaBaseEfetiva();
 }
 
 // Mostra/monta o seletor de Divindade (só relevante para Clérigo). Reaproveita
@@ -5029,6 +5138,8 @@ function selectSubclasse(subName) {
   document.querySelectorAll('.sub-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.sub === subName)
   );
+  // Maestro Macabro concede +20 de Vida base — recalcula ao trocar de Subclasse.
+  if (typeof resetHpParaBaseEfetiva === 'function') resetHpParaBaseEfetiva();
 }
 
 // Retorna a subclasse atualmente selecionada no modal (ou '' se nenhuma)
@@ -5048,6 +5159,8 @@ function setClasseSubclasse(clsName, subName) {
 // Atualiza (ou cria) o bloco de seleção de Origem dentro do modal de personagem,
 // logo abaixo do seletor de Raça. Chamado sempre que a raça muda.
 function updateOrigemSelector(raceName, selectedOrigemId) {
+  // Troll tem Vida base 5 ao invés de 10 — recalcula sempre que a Raça muda.
+  if (typeof resetHpParaBaseEfetiva === 'function') resetHpParaBaseEfetiva();
   const container = document.getElementById('c-origem-container');
   if (!container) return;
   const origens = getRaceOrigens(raceName);
@@ -5108,11 +5221,35 @@ function selectOrigem(origemId) {
 // Base fixa: HP 10, AGI/FOR/INT 5 cada → total base gasto = 25
 // Atributos (AGI/FOR/INT) têm um limite por Nível: 20 no Nv 1, subindo +5 a
 // cada Nível (25 no Nv 2, 30 no Nv 3, 35 no Nv 4, 40 no Nv 5 — nível máximo).
+//
+// Peculiaridades de Vida base por Raça/Subclasse:
+// - Troll ("Tatuagem Rúnica"): Vida base é 5 ao invés de 10.
+// - Maestro Macabro ("Maestro Demoníaco"): +20 de Vida base.
+// As duas se acumulam (ex: Troll Maestro Macabro começa com 25 de Vida base).
 const POINT_BUY_BASE = 35;
 const ATTR_BASE_HP = 10;
 const ATTR_BASE_STAT = 5;
 const ATTR_LIMITE_NV1 = 20;
 const ATTR_LIMITE_POR_NIVEL = 5;
+const TROLL_BASE_HP = 5;
+const MAESTRO_MACABRO_HP_BONUS = 20;
+
+// Calcula a Vida base efetiva dado um nome de Raça e de Subclasse.
+function getBaseHpFor(race, subclasse) {
+  let base = (race === 'Troll') ? TROLL_BASE_HP : ATTR_BASE_HP;
+  if (subclasse === 'Maestro Macabro') base += MAESTRO_MACABRO_HP_BONUS;
+  return base;
+}
+
+// Vida base efetiva para o estado atual do formulário (funciona tanto na
+// criação quanto na edição, já que ambas usam os mesmos campos/botões de
+// Raça e Subclasse — o campo de Vida em si não é sobrescrito aqui, apenas
+// usado para calcular custo/limite do point-buy).
+function getEffectiveBaseHp() {
+  const race = document.getElementById('c-race')?.value || '';
+  const sub = (typeof getSelectedSubclasse === 'function') ? getSelectedSubclasse() : '';
+  return getBaseHpFor(race, sub);
+}
 
 function getAttrLimiteNivel(level) {
   return ATTR_LIMITE_NV1 + (Math.max(1, level || 1) - 1) * ATTR_LIMITE_POR_NIVEL;
@@ -5130,11 +5267,22 @@ function selectCreationLevel(n) {
   const agiEl = document.getElementById('c-agi');
   const forEl = document.getElementById('c-for');
   const intEl = document.getElementById('c-int');
-  if (hpEl) hpEl.value = ATTR_BASE_HP;
+  if (hpEl) hpEl.value = getEffectiveBaseHp();
   if (agiEl) agiEl.value = ATTR_BASE_STAT;
   if (forEl) forEl.value = ATTR_BASE_STAT;
   if (intEl) intEl.value = ATTR_BASE_STAT;
   updatePointBuy(creationLevel);
+}
+
+// Reseta apenas o campo de Vida para a base efetiva atual (chamado sempre
+// que a Raça ou a Subclasse mudam durante a criação, já que ambas podem
+// alterar a Vida base — Troll e Maestro Macabro). Não faz nada na edição de
+// um personagem já existente (nesse caso o valor vem da ficha salva).
+function resetHpParaBaseEfetiva() {
+  if (modalCharId) return;
+  const hpEl = document.getElementById('c-hp');
+  if (hpEl) hpEl.value = getEffectiveBaseHp();
+  if (typeof updatePointBuy === 'function') updatePointBuy();
 }
 
 function getPointBuyTotal(level) {
@@ -5143,11 +5291,12 @@ function getPointBuyTotal(level) {
 
 // Calcula quantos pontos foram gastos ALÉM das bases fixas
 function getPointsSpent() {
-  const hp    = parseInt(document.getElementById('c-hp')?.value)  || ATTR_BASE_HP;
+  const baseHp = getEffectiveBaseHp();
+  const hp    = parseInt(document.getElementById('c-hp')?.value)  || baseHp;
   const agi   = parseInt(document.getElementById('c-agi')?.value) || ATTR_BASE_STAT;
   const forca = parseInt(document.getElementById('c-for')?.value) || ATTR_BASE_STAT;
   const intel = parseInt(document.getElementById('c-int')?.value) || ATTR_BASE_STAT;
-  return (hp - ATTR_BASE_HP) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
+  return (hp - baseHp) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
 }
 
 // Tauren possui a passiva "De bem com a Vida": ao subir de Nível recebe +4
@@ -5169,7 +5318,7 @@ function stepStat(field, delta) {
   const level = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : creationLevel;
   const total = getPointBuyTotal(level);
   const limite = getAttrLimiteNivel(level);
-  const base  = field === 'hp' ? ATTR_BASE_HP : ATTR_BASE_STAT;
+  const base  = field === 'hp' ? getEffectiveBaseHp() : ATTR_BASE_STAT;
   const cur   = parseInt(input.value) || base;
   const next  = cur + delta;
 
@@ -5198,12 +5347,13 @@ function updatePointBuy(levelOverride) {
   }
 
   const total  = getPointBuyTotal(level);
-  const hp     = parseInt(document.getElementById('c-hp')?.value)  || ATTR_BASE_HP;
+  const baseHp = getEffectiveBaseHp();
+  const hp     = parseInt(document.getElementById('c-hp')?.value)  || baseHp;
   const agi    = parseInt(document.getElementById('c-agi')?.value) || ATTR_BASE_STAT;
   const forca  = parseInt(document.getElementById('c-for')?.value) || ATTR_BASE_STAT;
   const intel  = parseInt(document.getElementById('c-int')?.value) || ATTR_BASE_STAT;
   const costs  = {
-    hp:  hp    - ATTR_BASE_HP,
+    hp:  hp    - baseHp,
     agi: agi   - ATTR_BASE_STAT,
     for: forca - ATTR_BASE_STAT,
     int: intel - ATTR_BASE_STAT,
@@ -5226,8 +5376,8 @@ function updatePointBuy(levelOverride) {
   const hintEl = document.getElementById('c-points-hint');
   const taurenLocked = isTaurenHpLocked();
   if (hintEl) hintEl.textContent = taurenLocked
-    ? `Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Tauren não pode investir pontos em Vida a partir do Nível 2 (recebe +4 automático a cada Nível). Limite de ${limite} por atributo no Nv ${level}.`
-    : `Base fixa: Vida 10 · AGI 5 · FOR 5 · INT 5. Limite de ${limite} por atributo no Nv ${level}.`;
+    ? `Base fixa: Vida ${baseHp} · AGI 5 · FOR 5 · INT 5. Tauren não pode investir pontos em Vida a partir do Nível 2 (recebe +4 automático a cada Nível). Limite de ${limite} por atributo no Nv ${level}.`
+    : `Base fixa: Vida ${baseHp} · AGI 5 · FOR 5 · INT 5. Limite de ${limite} por atributo no Nv ${level}.`;
 
   // Labels de limite (mostra o valor atual, escalando com o Nível)
   ['agi','for','int'].forEach(a => {
@@ -5250,7 +5400,7 @@ function updatePointBuy(levelOverride) {
     const incBtn = document.getElementById(`c-${key}-inc`);
     const decBtn = document.getElementById(`c-${key}-dec`);
     const inputEl = document.getElementById(`c-${key}`);
-    const base = key === 'hp' ? ATTR_BASE_HP : ATTR_BASE_STAT;
+    const base = key === 'hp' ? baseHp : ATTR_BASE_STAT;
     const val  = parseInt(inputEl?.value) || base;
     const atLimit = key !== 'hp' && val >= limite;
     if (incBtn) {
@@ -5429,13 +5579,14 @@ function closeCharModal() {
 // explicando o motivo. Reaproveitada tanto na transição do passo 4 → 5 do
 // wizard de criação quanto no salvamento final (edição ou criação direta).
 function validatePointBuyStep(nivel) {
-  const hpMax  = parseInt(document.getElementById('c-hp').value)  || 10;
+  const baseHp = getEffectiveBaseHp();
+  const hpMax  = parseInt(document.getElementById('c-hp').value)  || baseHp;
   const agi    = parseInt(document.getElementById('c-agi').value) || 5;
   const forca  = parseInt(document.getElementById('c-for').value) || 5;
   const intel  = parseInt(document.getElementById('c-int').value) || 5;
 
   const totalPontos = getPointBuyTotal(nivel);
-  const gasto = (hpMax - ATTR_BASE_HP) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
+  const gasto = (hpMax - baseHp) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
   if (gasto > totalPontos) {
     alert(`Pontos excedidos! Você gastou ${gasto} pontos mas tem apenas ${totalPontos} disponíveis.`);
     return false;
@@ -5536,7 +5687,11 @@ function saveCharacter() {
     wizardSkillsEscolhidas.forEach(bancoId => {
       const item = getBancoHabilidades(novo).find(h => h.id === bancoId);
       if (item && !novo.skills.some(sk => sk.bancoId === item.id)) {
-        novo.skills.push(construirSkillDoBanco(item));
+        const novaSkill = construirSkillDoBanco(item);
+        if (novo.race === 'Elfo' && item.classeOrigem && item.classeOrigem !== novo.classeBase) {
+          novaSkill.elfoOutraClasse = true;
+        }
+        novo.skills.push(novaSkill);
       }
     });
     PLAYERS.push(novo);
