@@ -346,6 +346,14 @@
               <option value="Troll">Troll</option>
             </select>
             <div id="c-origem-container" style="display:none; margin-top:10px;"></div>
+            <div id="c-troll-maestria-container" style="display:none; margin-top:10px;">
+              <label class="form-label" style="font-size:12px;color:var(--text2)">🗿 Tatuagem Rúnica — +1 de Maestria em:</label>
+              <select id="c-troll-maestria" onchange="if(typeof updatePointBuy==='function') updatePointBuy()" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+                <option value="agi">Agilidade</option>
+                <option value="forca">Força</option>
+                <option value="intel">Intelecto</option>
+              </select>
+            </div>
           </div>
           <div class="modal-btns step-nav">
             <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
