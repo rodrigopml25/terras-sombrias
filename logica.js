@@ -965,6 +965,134 @@ function ensureClasseSkills(p) {
 }
 
 // ═══════════════════════════════════════
+// BANCO DE TALENTOS INFERIORES
+// ═══════════════════════════════════════
+// Catálogo fixo de Talentos Inferiores. Todo personagem recebe o direito de
+// escolher 1 Talento Inferior ao chegar no Nível 2 (ver getLimiteTalentosInferiores).
+// Os talentos escolhidos são salvos em p.passivas (mesmo array das Passivas
+// normais), marcados com o campo `talentoInferiorId` — assim reaproveitam a
+// mesma UI de exibição/edição/exclusão das Passivas, tanto no Jogador quanto
+// no Narrador, sem precisar de uma seção nova inteira.
+const TALENTOS_INFERIORES = [
+  { id: 'ambidestro', name: 'Ambidestro', desc: 'Você pode usar 1 arma na outra mão, desde que seja de apenas uma mão. Pode lançar uma habilidade usando as duas armas, assim terá +dano da segunda arma, porém, no lançamento, sua maestria é reduzida pela metade (arredonda para cima).' },
+  { id: 'aperfeicoamento_especifico', name: 'Aperfeiçoamento Específico', desc: 'Conceda a um teste +3 de vantagem. Se for um teste de emoção, será +14 de vantagem.' },
+  { id: 'aprofundamento_na_area', name: 'Aprofundamento na Área', desc: 'Conceda a um teste de Agilidade, Força ou Intelecto Mega Vantagem. Se ela já tiver, ao invés disso, conceda: não tem mais erro crítico e tem +15% de chance crítica (-3 para acertar crítico).' },
+  { id: 'armamentista_mistico', name: 'Armamentista Místico', desc: 'O Vazio encantou algumas armas/instrumentos musicais, assim, poderá comprá-los e utilizá-los conforme sua maestria de peso. Caso tenha acesso a elas sem ter esse talento, o Corromper Arma é crítico.' },
+  { id: 'catalizador_de_lancamento', name: 'Catalizador de Lançamento', desc: 'Escolha 2 habilidades que não possuem "0 de recarga" de seu Grimório e reduza 1 Ação de lançamento delas, ou use numa habilidade só e reduza 2 Ações de lançamento dela. As condições são as mesmas.' },
+  { id: 'catalizador_de_recarga', name: 'Catalizador de Recarga', desc: 'Escolha 2 habilidades que recarregam por turno e que possuam pelo menos 1 Ação de lançamento do seu Grimório e reduza um turno de recarga delas, ou use numa habilidade só e reduza 2 turnos de recarga dela. As condições são as mesmas.' },
+  { id: 'equipamento_encantado', name: 'Equipamento Encantado', desc: 'Você possui acesso a armadura encantada, elmo encantado e armas encantadas. Podem ser encantadas com encantamentos arcanos ou místicos, no qual concede uma passiva e um feitiço/ritual místico.' },
+  { id: 'equipamento_exotico', name: 'Equipamento Exótico', desc: 'Possui o direito de comprar armaduras exóticas, elmos exóticos, armas exóticas e aprimoramentos exóticos.' },
+  { id: 'interesse_interdisciplinar', name: 'Interesse Interdisciplinar', desc: 'Aprenda mais 2 habilidades de sua Classe que não sejam do seu caminho.' },
+  { id: 'maestria_de_peso_aprimorada', name: 'Maestria de Peso Aprimorada', desc: 'Melhore sua maestria de peso em 1 grau. Se você já for maestria Pesada, ou tiver acesso a essa, terá uma maestria Mega Pesada, permitindo acesso e compra de armadura, elmos e armas Mega Pesadas.' },
+  { id: 'progressao', name: 'Progressão', desc: 'Receba +6 pontos de vida. Ao subir de Nível, receba +3 pontos de vida.' },
+];
+
+// Talentos Inferiores já escolhidos pelo personagem (vivem em p.passivas,
+// identificados por `talentoInferiorId`).
+function getTalentosInferioresEscolhidos(p) {
+  return (p.passivas || []).filter(pas => pas.talentoInferiorId);
+}
+
+// Quantos Talentos Inferiores o personagem tem direito de escolher. Regra
+// atual: recebe 1 ao chegar no Nível 2 (não escala com Níveis futuros).
+function getLimiteTalentosInferiores(p) {
+  return (p.level || 1) >= 2 ? 1 : 0;
+}
+
+// Quantas escolhas de Talento Inferior ainda faltam ser feitas — usado para
+// exibir o aviso na ficha, mesmo padrão de getHabilidadesPendentes.
+function getTalentosInferioresPendentes(p) {
+  return Math.max(0, getLimiteTalentosInferiores(p) - getTalentosInferioresEscolhidos(p).length);
+}
+
+// Adiciona um Talento Inferior do catálogo à ficha do personagem, respeitando
+// o limite do Nível atual. Não duplica.
+function adicionarTalentoInferior(pid, talentoId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = TALENTOS_INFERIORES.find(t => t.id === talentoId);
+  if (!item) return;
+  if (!Array.isArray(p.passivas)) p.passivas = [];
+  const jaTem = p.passivas.some(pas => pas.talentoInferiorId === item.id);
+  if (jaTem) return;
+
+  const limite = getLimiteTalentosInferiores(p);
+  const escolhidos = getTalentosInferioresEscolhidos(p).length;
+  if (escolhidos >= limite) {
+    alert(limite === 0
+      ? 'Talentos Inferiores só ficam disponíveis a partir do Nível 2.'
+      : `Limite de Talentos Inferiores atingido (máx. ${limite}). Suba de Nível para desbloquear mais.`);
+    return;
+  }
+
+  p.passivas.push({ id: 'pas_talento_' + item.id, talentoInferiorId: item.id, name: item.name, desc: item.desc });
+  saveState();
+  renderAll();
+  if (typeof renderTalentosModal === 'function') renderTalentosModal(pid);
+}
+
+// ═══════════════════════════════════════
+// BANCO DE TALENTOS SUPERIORES
+// ═══════════════════════════════════════
+// Mesmo padrão dos Talentos Inferiores, mas liberado no Nível 4. Também
+// salvos em p.passivas, marcados com `talentoSuperiorId`.
+const TALENTOS_SUPERIORES = [
+  { id: 'auge_do_poder', name: 'Auge do Poder', desc: 'Escolha uma Técnica, um Golpe e um Feitiço do seu Grimório. Conceda para cada um deles: Mega Vantagem (se já tiver, conceda +1d6 de Vantagem); +20% de chance crítica (-4 para acertar crítico); e reduza 2 turnos de recarga deles (não podem ter Ação como 0).' },
+  { id: 'base_solida', name: 'Base Sólida', desc: 'Escolha 2 Talentos Inferiores — pode repetir um que você já possui.' },
+  { id: 'catalizador_de_recarga_supremo', name: 'Catalizador de Recarga Supremo', desc: 'Troque a recarga de "sessão" para "luta" de uma habilidade do Grimório.' },
+  { id: 'complemento', name: 'Complemento', desc: 'Dobre os "usos (Nx)" de uma habilidade do seu Grimório.' },
+  { id: 'hibrido', name: 'Híbrido', desc: 'Aprenda uma nova área de combate: escolha um caminho de Classe da sua Classe e receba as Passivas dele, 2 Habilidades desse caminho, direito de uso do peso dela, Mega Vantagem a um teste da área dela e +1 de maestria da área do caminho.' },
+  { id: 'proeminencia_sensorial', name: 'Proeminência Sensorial', desc: 'Seu reflexo se aprimora: você sempre está engajado (não recebe ataque ao passar próximo de um adversário); sua iniciativa é 2d20; pode fazer teste de Percepção ao invés de Arcano e Místico; seu teste de Percepção possui Mega Vantagem (caso já tenha, recebe +1d6 de Vantagem); pode ver no escuro natural e mágico; pode ver coisas invisíveis e não é mais surpreendido.' },
+  { id: 'sangue_aprimorado', name: 'Sangue Aprimorado', desc: 'Receba +10 pontos de vida. Para cada 1 de dano que você receber na Vida, ganhe 1 ponto de Sangue, que pode ser gasto concedendo +1 de dano ou +1 de Vantagem em qualquer teste/ação (máximo de 5 pontos de Sangue por vez).' },
+  { id: 'superacao_de_limite', name: 'Superação de Limite', desc: 'Não pode mais ser movido sem sua vontade; pode empurrar e arremessar objetos Mega Pesados; seu teste de Resistência possui Mega Vantagem (caso já tenha, recebe +1d6 de Vantagem); pode usar um teste de Resistência ao invés de um teste de Emoção; todo dano recebido é reduzido pela metade (arredonda para cima) e possui 6 de Armadura que não pode ser reduzida.' },
+  { id: 'transcendencia_mental', name: 'Transcendência Mental', desc: 'Seus feitiços têm +3 de alcance e dano/cura; conceda Mega Vantagem ao teste de Arcano ou Místico (caso já possua, recebe +1d6 de Vantagem). Além disso, possui um escudo psíquico com Vida = (maestria de Intelecto)², que se regenera ao fim da luta, e aprende um feitiço Lendário.' },
+  { id: 'vinculo_mistico', name: 'Vínculo Místico', desc: 'Sua insanidade máxima é dobrada; possui Mega Vantagem no teste de Emoção e nos dados de Sanidade (caso já tenha Mega Vantagem no teste de Emoção, recebe +40% de Vantagem); seu teste de Emoção é 2d100 - insanidade; sequelas emocionais não possuem mais efeitos sobre você; e tem direito a um ritual Místico.' },
+];
+
+// Talentos Superiores já escolhidos pelo personagem (vivem em p.passivas,
+// identificados por `talentoSuperiorId`).
+function getTalentosSuperioresEscolhidos(p) {
+  return (p.passivas || []).filter(pas => pas.talentoSuperiorId);
+}
+
+// Quantos Talentos Superiores o personagem tem direito de escolher. Regra
+// atual: recebe 1 ao chegar no Nível 4 (não escala com Níveis futuros).
+function getLimiteTalentosSuperiores(p) {
+  return (p.level || 1) >= 4 ? 1 : 0;
+}
+
+// Quantas escolhas de Talento Superior ainda faltam ser feitas.
+function getTalentosSuperioresPendentes(p) {
+  return Math.max(0, getLimiteTalentosSuperiores(p) - getTalentosSuperioresEscolhidos(p).length);
+}
+
+// Adiciona um Talento Superior do catálogo à ficha do personagem, respeitando
+// o limite do Nível atual. Não duplica.
+function adicionarTalentoSuperior(pid, talentoId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = TALENTOS_SUPERIORES.find(t => t.id === talentoId);
+  if (!item) return;
+  if (!Array.isArray(p.passivas)) p.passivas = [];
+  const jaTem = p.passivas.some(pas => pas.talentoSuperiorId === item.id);
+  if (jaTem) return;
+
+  const limite = getLimiteTalentosSuperiores(p);
+  const escolhidos = getTalentosSuperioresEscolhidos(p).length;
+  if (escolhidos >= limite) {
+    alert(limite === 0
+      ? 'Talentos Superiores só ficam disponíveis a partir do Nível 4.'
+      : `Limite de Talentos Superiores atingido (máx. ${limite}). Suba de Nível para desbloquear mais.`);
+    return;
+  }
+
+  p.passivas.push({ id: 'pas_talento_sup_' + item.id, talentoSuperiorId: item.id, name: item.name, desc: item.desc });
+  saveState();
+  renderAll();
+  if (typeof renderTalentosSuperioresModal === 'function') renderTalentosSuperioresModal(pid);
+}
+
+// ═══════════════════════════════════════
 // BANCO DE HABILIDADES DE SUBCLASSE
 // ═══════════════════════════════════════
 // Diferente de SUBCLASSES_SKILLS (habilidades fixas, injetadas automaticamente),
@@ -1538,6 +1666,134 @@ function renderWizardBancoStep() {
 function trocarAbaWizardBanco(subNome) {
   wizardBancoTabAtiva = subNome;
   renderWizardBancoStep();
+}
+
+// ═══════════════════════════════════════
+// PASSO 5 DO WIZARD DE CRIAÇÃO — Escolha de Talento Inferior
+// ═══════════════════════════════════════
+// Um personagem criado já no Nível 2 ou superior tem direito ao Talento
+// Inferior desde a criação — mesma regra de getLimiteTalentosInferiores,
+// só que usando o creationLevel escolhido no passo 4 em vez de p.level.
+function renderWizardTalentosStep() {
+  const secao = document.getElementById('c-talentos-section');
+  const aviso = document.getElementById('c-talentos-aviso');
+  const lista = document.getElementById('c-talentos-lista');
+  const progressoEl = document.getElementById('c-talentos-progresso');
+  if (!secao || !lista) return;
+
+  const limite = creationLevel >= 2 ? 1 : 0;
+
+  if (limite === 0) {
+    if (aviso) aviso.style.display = '';
+    lista.innerHTML = '';
+    if (progressoEl) progressoEl.innerHTML = '';
+    wizardTalentosEscolhidos = [];
+    return;
+  }
+  if (aviso) aviso.style.display = 'none';
+
+  if (progressoEl) {
+    progressoEl.innerHTML = `Escolhidos: <strong style="color:var(--text)">${wizardTalentosEscolhidos.length}/${limite}</strong>`
+      + (wizardTalentosEscolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '');
+  }
+
+  lista.innerHTML = TALENTOS_INFERIORES.map(item => {
+    const jaTem = wizardTalentosEscolhidos.includes(item.id);
+    const bloqueado = !jaTem && wizardTalentosEscolhidos.length >= limite;
+    let labelBtn = 'Escolher';
+    if (jaTem) labelBtn = '✓ Escolhido — clique para remover';
+    else if (bloqueado) labelBtn = `🔒 Limite atingido (${wizardTalentosEscolhidos.length}/${limite})`;
+    return `
+    <div class="skill-card sk-gray" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      <button class="btn ${jaTem ? '' : (bloqueado ? '' : 'btn-primary')}" style="width:100%;justify-content:center" ${(bloqueado && !jaTem) ? 'disabled' : ''} onclick="toggleWizardTalento('${item.id}')">
+        ${labelBtn}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// Alterna a escolha de um Talento Inferior durante a criação (adiciona se
+// ainda não tinha, remove se já tinha). Limite de 1, só a partir do Nível 2.
+function toggleWizardTalento(talentoId) {
+  const idx = wizardTalentosEscolhidos.indexOf(talentoId);
+  if (idx !== -1) {
+    wizardTalentosEscolhidos.splice(idx, 1);
+    renderWizardTalentosStep();
+    return;
+  }
+  if (creationLevel < 2) return;
+  if (wizardTalentosEscolhidos.length >= 1) {
+    alert('Limite de Talento Inferior atingido (máx. 1).');
+    return;
+  }
+  wizardTalentosEscolhidos.push(talentoId);
+  renderWizardTalentosStep();
+}
+
+// ═══════════════════════════════════════
+// PASSO 5 DO WIZARD DE CRIAÇÃO — Escolha de Talento Superior
+// ═══════════════════════════════════════
+// Um personagem criado já no Nível 4 ou superior tem direito ao Talento
+// Superior desde a criação — mesma regra de getLimiteTalentosSuperiores, só
+// que usando o creationLevel escolhido no passo 4 em vez de p.level.
+function renderWizardTalentosSuperioresStep() {
+  const secao = document.getElementById('c-talentos-superiores-section');
+  const aviso = document.getElementById('c-talentos-superiores-aviso');
+  const lista = document.getElementById('c-talentos-superiores-lista');
+  const progressoEl = document.getElementById('c-talentos-superiores-progresso');
+  if (!secao || !lista) return;
+
+  const limite = creationLevel >= 4 ? 1 : 0;
+
+  if (limite === 0) {
+    if (aviso) aviso.style.display = '';
+    lista.innerHTML = '';
+    if (progressoEl) progressoEl.innerHTML = '';
+    wizardTalentosSuperioresEscolhidos = [];
+    return;
+  }
+  if (aviso) aviso.style.display = 'none';
+
+  if (progressoEl) {
+    progressoEl.innerHTML = `Escolhidos: <strong style="color:var(--text)">${wizardTalentosSuperioresEscolhidos.length}/${limite}</strong>`
+      + (wizardTalentosSuperioresEscolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '');
+  }
+
+  lista.innerHTML = TALENTOS_SUPERIORES.map(item => {
+    const jaTem = wizardTalentosSuperioresEscolhidos.includes(item.id);
+    const bloqueado = !jaTem && wizardTalentosSuperioresEscolhidos.length >= limite;
+    let labelBtn = 'Escolher';
+    if (jaTem) labelBtn = '✓ Escolhido — clique para remover';
+    else if (bloqueado) labelBtn = `🔒 Limite atingido (${wizardTalentosSuperioresEscolhidos.length}/${limite})`;
+    return `
+    <div class="skill-card sk-gray" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      <button class="btn ${jaTem ? '' : (bloqueado ? '' : 'btn-primary')}" style="width:100%;justify-content:center" ${(bloqueado && !jaTem) ? 'disabled' : ''} onclick="toggleWizardTalentoSuperior('${item.id}')">
+        ${labelBtn}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// Alterna a escolha de um Talento Superior durante a criação (adiciona se
+// ainda não tinha, remove se já tinha). Limite de 1, só a partir do Nível 4.
+function toggleWizardTalentoSuperior(talentoId) {
+  const idx = wizardTalentosSuperioresEscolhidos.indexOf(talentoId);
+  if (idx !== -1) {
+    wizardTalentosSuperioresEscolhidos.splice(idx, 1);
+    renderWizardTalentosSuperioresStep();
+    return;
+  }
+  if (creationLevel < 4) return;
+  if (wizardTalentosSuperioresEscolhidos.length >= 1) {
+    alert('Limite de Talento Superior atingido (máx. 1).');
+    return;
+  }
+  wizardTalentosSuperioresEscolhidos.push(talentoId);
+  renderWizardTalentosSuperioresStep();
 }
 
 // Alterna a escolha de uma Habilidade do banco durante a criação (adiciona
@@ -2178,6 +2434,15 @@ let wizardBancoTabAtiva = null;
 // as escolhas antigas (de outra subclasse) deixam de fazer sentido e são
 // descartadas automaticamente.
 let wizardSkillsClasseSnapshot = null;
+// Talentos Inferiores escolhidos durante a criação (passo 5 do wizard),
+// guardados como lista de talentoId — só é efetivado em p.passivas quando o
+// personagem é de fato criado em saveCharacter(). Reseta a cada abertura do
+// modal para um personagem novo (ver openCharModal).
+let wizardTalentosEscolhidos = [];
+// Talento Superior escolhido durante a criação (passo 5 do wizard), guardado
+// como lista de talentoId — só disponível se o personagem já nasce no Nível
+// 4 ou superior. Mesmo ciclo de vida de wizardTalentosEscolhidos.
+let wizardTalentosSuperioresEscolhidos = [];
 let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
@@ -2941,6 +3206,8 @@ function renderNarrador() {
           else if (pas.racialId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(racial · ${p.race})</span>`;
           else if (pas.subclasseId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(subclasse · ${p.cls})</span>`;
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
+          else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
+          else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
           return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div></div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
@@ -2949,11 +3216,15 @@ function renderNarrador() {
     const pendBadge = (p.pontosPendentes > 0) ? ` <span title="Personagem subiu de nível e tem pontos de atributo não distribuídos" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">⬆ ${p.pontosPendentes} pts</span>` : '';
     const habPendentes = getHabilidadesPendentes(p);
     const pendHabBadge = (habPendentes > 0) ? ` <span title="Personagem subiu de nível e tem Habilidades do Banco não escolhidas" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">📖 ${habPendentes} hab.</span>` : '';
+    const talentosPendentes = getTalentosInferioresPendentes(p);
+    const pendTalentoBadge = (talentosPendentes > 0) ? ` <span title="Personagem tem Talento Inferior não escolhido" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🎖 ${talentosPendentes} talento</span>` : '';
+    const talentosSuperioresPendentes = getTalentosSuperioresPendentes(p);
+    const pendTalentoSuperiorBadge = (talentosSuperioresPendentes > 0) ? ` <span title="Personagem tem Talento Superior não escolhido" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">👑 ${talentosSuperioresPendentes} talento sup.</span>` : '';
     const formaDragaoBadge = (p.race === 'Dragão' && p.formaDragao) ? ` <span title="Em forma de Dragão: Sopro, Iniciar Voo, Impacto de Pouso e Garras Dracônicas disponíveis" style="display:inline-flex;align-items:center;gap:3px;background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐉 Forma de Dragão</span>` : '';
     return `<div class="prow ${bm ? 'beira-morte' : ''}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}${pendBadge}${pendHabBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -3430,6 +3701,8 @@ function renderJogador() {
     else if (pas.racialId) tag = `(racial · ${p.race})`;
     else if (pas.subclasseId) tag = `(subclasse · ${p.cls})`;
     else if (pas.classeId) tag = `(classe · ${p.classeBase})`;
+    else if (pas.talentoInferiorId) tag = `(talento inferior)`;
+    else if (pas.talentoSuperiorId) tag = `(talento superior)`;
     return `
     <div class="passiva-card">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -3509,6 +3782,22 @@ function renderJogador() {
           <div style="flex:1">
             <div style="font-size:12px;font-weight:700;color:var(--accent2)">Você subiu de nível!</div>
             <div style="font-size:11px;color:var(--text2)">${p.pontosPendentes} pontos de atributo para distribuir · toque para editar</div>
+          </div>
+        </div>` : ''}
+        ${getTalentosSuperioresPendentes(p) > 0 ? `
+        <div onclick="openTalentosSuperioresModal(${p.id})" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(124,92,191,0.15);border:1px solid rgba(124,92,191,0.45);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">👑</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--accent2)">Talento Superior disponível!</div>
+            <div style="font-size:11px;color:var(--text2)">${getTalentosSuperioresPendentes(p)} escolha${getTalentosSuperioresPendentes(p) === 1 ? '' : 's'} de Talento Superior · toque para escolher</div>
+          </div>
+        </div>` : ''}
+        ${getTalentosInferioresPendentes(p) > 0 ? `
+        <div onclick="openTalentosModal(${p.id})" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(124,92,191,0.15);border:1px solid rgba(124,92,191,0.45);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">🎖</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--accent2)">Talento Inferior disponível!</div>
+            <div style="font-size:11px;color:var(--text2)">${getTalentosInferioresPendentes(p)} escolha${getTalentosInferioresPendentes(p) === 1 ? '' : 's'} de Talento Inferior · toque para escolher</div>
           </div>
         </div>` : ''}
         ${getHabilidadesPendentes(p) > 0 ? `
@@ -3645,7 +3934,12 @@ function renderJogador() {
         <i class="ti ${passivasCollapsed ? 'ti-chevron-down' : 'ti-chevron-up'} gt-chevron"></i>
       </div>
       ${passivasCollapsed ? '' : `<div class="passivas-grid">${passivasHtml || '<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma passiva cadastrada ainda.</div>'}</div>`}
-      ${passivasCollapsed ? '' : `<button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>`}
+      ${passivasCollapsed ? '' : `
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>
+        <button class="add-skill-btn" onclick="openTalentosModal(${p.id})"><i class="ti ti-award"></i> Escolher Talento Inferior${getTalentosInferioresPendentes(p) > 0 ? ` <span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${getTalentosInferioresPendentes(p)}</span>` : ''}</button>
+        <button class="add-skill-btn" onclick="openTalentosSuperioresModal(${p.id})"><i class="ti ti-crown"></i> Escolher Talento Superior${getTalentosSuperioresPendentes(p) > 0 ? ` <span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${getTalentosSuperioresPendentes(p)}</span>` : ''}</button>
+      </div>`}
 
       ${expressoesList.length ? `
       <div class="group-title group-title-toggle" style="margin-top:24px" onclick="toggleJogSkillGroup('expressoes')">
@@ -4943,6 +5237,111 @@ function renderBancoModal(pid) {
   }).join('');
 }
 
+// ═══════════════════════════════════════
+// MODAL — BANCO DE TALENTOS INFERIORES
+// ═══════════════════════════════════════
+let talentosPid = null;
+
+function openTalentosModal(pid) {
+  talentosPid = pid;
+  renderTalentosModal(pid);
+  document.getElementById('modal-talentos-overlay').classList.add('open');
+}
+
+function closeTalentosModal() {
+  const overlay = document.getElementById('modal-talentos-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// Repinta o catálogo fixo de Talentos Inferiores (chamado ao abrir e após
+// adicionar um talento, pra atualizar o estado "já adicionado" sem fechar
+// o modal). Lista corrida, sem abas — o catálogo é pequeno.
+function renderTalentosModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  const limite = getLimiteTalentosInferiores(p);
+  const escolhidos = getTalentosInferioresEscolhidos(p);
+
+  const progressoEl = document.getElementById('talentos-progresso');
+  if (progressoEl) {
+    progressoEl.innerHTML = limite > 0
+      ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}/${limite}</strong>` + (escolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '')
+      : `Disponível a partir do Nível 2 · Nível atual: ${p.level || 1}`;
+  }
+
+  const lista = document.getElementById('talentos-lista');
+  if (!lista) return;
+  lista.innerHTML = TALENTOS_INFERIORES.map(item => {
+    const jaTem = escolhidos.some(pas => pas.talentoInferiorId === item.id);
+    const bloqueado = !jaTem && escolhidos.length >= limite;
+    let labelBtn = 'Adicionar à ficha';
+    if (jaTem) labelBtn = '✓ Já adicionado';
+    else if (bloqueado) labelBtn = limite === 0 ? '🔒 Disponível no Nível 2' : `🔒 Limite atingido (${escolhidos.length}/${limite})`;
+    const desabilitado = jaTem || bloqueado;
+    return `
+    <div class="skill-card sk-gray" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;max-height:130px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      <button class="btn ${desabilitado ? '' : 'btn-primary'}" style="width:100%;justify-content:center" ${desabilitado ? 'disabled' : ''} onclick="adicionarTalentoInferior(${p.id}, '${item.id}')">
+        ${labelBtn}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// MODAL — BANCO DE TALENTOS SUPERIORES
+// ═══════════════════════════════════════
+let talentosSuperioresPid = null;
+
+function openTalentosSuperioresModal(pid) {
+  talentosSuperioresPid = pid;
+  renderTalentosSuperioresModal(pid);
+  document.getElementById('modal-talentos-superiores-overlay').classList.add('open');
+}
+
+function closeTalentosSuperioresModal() {
+  const overlay = document.getElementById('modal-talentos-superiores-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// Repinta o catálogo fixo de Talentos Superiores (mesmo padrão do modal de
+// Talentos Inferiores, liberado a partir do Nível 4).
+function renderTalentosSuperioresModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  const limite = getLimiteTalentosSuperiores(p);
+  const escolhidos = getTalentosSuperioresEscolhidos(p);
+
+  const progressoEl = document.getElementById('talentos-superiores-progresso');
+  if (progressoEl) {
+    progressoEl.innerHTML = limite > 0
+      ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}/${limite}</strong>` + (escolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '')
+      : `Disponível a partir do Nível 4 · Nível atual: ${p.level || 1}`;
+  }
+
+  const lista = document.getElementById('talentos-superiores-lista');
+  if (!lista) return;
+  lista.innerHTML = TALENTOS_SUPERIORES.map(item => {
+    const jaTem = escolhidos.some(pas => pas.talentoSuperiorId === item.id);
+    const bloqueado = !jaTem && escolhidos.length >= limite;
+    let labelBtn = 'Adicionar à ficha';
+    if (jaTem) labelBtn = '✓ Já adicionado';
+    else if (bloqueado) labelBtn = limite === 0 ? '🔒 Disponível no Nível 4' : `🔒 Limite atingido (${escolhidos.length}/${limite})`;
+    const desabilitado = jaTem || bloqueado;
+    return `
+    <div class="skill-card sk-gray" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;max-height:130px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      <button class="btn ${desabilitado ? '' : 'btn-primary'}" style="width:100%;justify-content:center" ${desabilitado ? 'disabled' : ''} onclick="adicionarTalentoSuperior(${p.id}, '${item.id}')">
+        ${labelBtn}
+      </button>
+    </div>`;
+  }).join('');
+}
+
 function selColor(c, el) {
   modalColor = c;
   document.querySelectorAll('.color-opt').forEach(x => x.classList.remove('selected'));
@@ -5332,6 +5731,10 @@ function selectCreationLevel(n) {
   if (forEl) forEl.value = ATTR_BASE_STAT;
   if (intEl) intEl.value = ATTR_BASE_STAT;
   updatePointBuy(creationLevel);
+  if (creationLevel < 2) wizardTalentosEscolhidos = [];
+  if (creationLevel < 4) wizardTalentosSuperioresEscolhidos = [];
+  if (typeof renderWizardTalentosStep === 'function') renderWizardTalentosStep();
+  if (typeof renderWizardTalentosSuperioresStep === 'function') renderWizardTalentosSuperioresStep();
 }
 
 // Reseta apenas o campo de Vida para a base efetiva atual (chamado sempre
@@ -5593,6 +5996,8 @@ function openCharModal() {
   updatePointBuy(1);
   wizardSkillsEscolhidas = [];
   wizardBancoTabAtiva = null;
+  wizardTalentosEscolhidos = [];
+  wizardTalentosSuperioresEscolhidos = [];
   setModalMode(false);
   showWizardStep(1);
   setTimeout(() => document.getElementById('c-name').focus(), 50);
@@ -5703,6 +6108,8 @@ function handleStep4Continue() {
   if (modalCharId) { saveCharacter(); return; }
   if (!validatePointBuyStep(creationLevel)) return;
   renderWizardBancoStep();
+  renderWizardTalentosStep();
+  renderWizardTalentosSuperioresStep();
   showWizardStep(5);
 }
 
@@ -5797,6 +6204,22 @@ function saveCharacter() {
         novo.skills.push(novaSkill);
       }
     });
+    // Talento Inferior escolhido no passo 5 do wizard de criação (só
+    // disponível se o personagem já nasce no Nível 2 ou superior).
+    wizardTalentosEscolhidos.forEach(talentoId => {
+      const item = TALENTOS_INFERIORES.find(t => t.id === talentoId);
+      if (item && !novo.passivas.some(pas => pas.talentoInferiorId === item.id)) {
+        novo.passivas.push({ id: 'pas_talento_' + item.id, talentoInferiorId: item.id, name: item.name, desc: item.desc });
+      }
+    });
+    // Talento Superior escolhido no passo 5 do wizard de criação (só
+    // disponível se o personagem já nasce no Nível 4 ou superior).
+    wizardTalentosSuperioresEscolhidos.forEach(talentoId => {
+      const item = TALENTOS_SUPERIORES.find(t => t.id === talentoId);
+      if (item && !novo.passivas.some(pas => pas.talentoSuperiorId === item.id)) {
+        novo.passivas.push({ id: 'pas_talento_sup_' + item.id, talentoSuperiorId: item.id, name: item.name, desc: item.desc });
+      }
+    });
     PLAYERS.push(novo);
     modalCharId = newId;
   }
@@ -5804,6 +6227,8 @@ function saveCharacter() {
   wizardSkillsEscolhidas = [];
   wizardBancoTabAtiva = null;
   wizardSkillsClasseSnapshot = null;
+  wizardTalentosEscolhidos = [];
+  wizardTalentosSuperioresEscolhidos = [];
 
   saveState();
   renderAll();
