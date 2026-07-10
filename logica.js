@@ -38,6 +38,15 @@ const ACOES_POR_TURNO_PADRAO = 2;
 // (10/10) ao se tornar Bruxo e o máximo é fixo — não existe forma de aumentá-lo.
 const HUMANIDADE_MAX = 10;
 
+// Insanidade máxima: 100 pro geral, mas o Maestro Macabro ("Maestro
+// Demoníaco") tem o máximo reduzido para 80 por conta do vínculo com
+// demônios/criaturas bizarras.
+const INSANIDADE_MAX_PADRAO = 100;
+const INSANIDADE_MAX_MAESTRO_MACABRO = 80;
+function getInsanidadeMax(p) {
+  return (p && p.cls === 'Maestro Macabro') ? INSANIDADE_MAX_MAESTRO_MACABRO : INSANIDADE_MAX_PADRAO;
+}
+
 // Retorna a Humanidade atual de um personagem (fallback para o máximo em
 // fichas antigas que ainda não tinham esse campo).
 function getHumanidade(p) {
@@ -2442,6 +2451,15 @@ function vidaClass(hp, max) {
 function maestria(attr) {
   return Math.ceil((attr || 0) / 5);
 }
+// Maestria de um personagem em um atributo específico ('agi'|'forca'|'intel'),
+// já somando o bônus racial do Troll (Tatuagem Rúnica): +1 de Maestria no
+// atributo escolhido pelo jogador na criação (p.trollMaestriaEscolha).
+function maestriaDe(p, campoAttr) {
+  if (!p || !campoAttr) return null;
+  let m = maestria(p[campoAttr]);
+  if (p.race === 'Troll' && p.trollMaestriaEscolha === campoAttr) m += 1;
+  return m;
+}
 function tipoLabel(sk) {
   if (sk.tipo==='infinite') return '∞ livre';
   if (sk.tipo==='perturn')  return '1/turno';
@@ -2613,7 +2631,7 @@ function setHP(id, val) {
 
 function adjIns(id, d) {
   const p = PLAYERS.find(x => x.id === id);
-  if (!p) return; p.ins = Math.max(0, Math.min(100, p.ins + d));
+  if (!p) return; p.ins = Math.max(0, Math.min(getInsanidadeMax(p), p.ins + d));
   saveState(); renderAll();
 }
 
@@ -2622,7 +2640,7 @@ function setIns(id, val) {
   if (!p) return;
   const v = parseInt(val);
   if (isNaN(v)) { renderAll(); return; }
-  p.ins = Math.max(0, Math.min(100, v));
+  p.ins = Math.max(0, Math.min(getInsanidadeMax(p), v));
   saveState(); renderAll();
 }
 
@@ -2840,7 +2858,7 @@ function renderNarrador() {
   container.innerHTML = PLAYERS.map((p, i) => {
     const av = AVATARS[i % AVATARS.length];
     const hpPct = Math.round(p.hp / p.hpMax * 100);
-    const insPct = Math.round(p.ins);
+    const insPct = Math.round(p.ins / getInsanidadeMax(p) * 100);
     const armPct = p.armaduraMax > 0 ? Math.round(p.armadura / p.armaduraMax * 100) : 0;
     const elmPct = p.elmoMax > 0 ? Math.round(p.elmo / p.elmoMax * 100) : 0;
     const isBruxo = p.classeBase === 'Bruxo';
@@ -2853,10 +2871,10 @@ function renderNarrador() {
     const gruposNar = { green:[], red:[], blue:[], gray:[] };
     p.skills.forEach(sk => gruposNar[sk.color] && gruposNar[sk.color].push(sk));
     const narGrupoInfo = {
-      green: { label: 'Agilidade', icon: '🏃', attr: p.agi },
-      red:   { label: 'Força',     icon: '⚔️',  attr: p.forca },
-      blue:  { label: 'Intelecto', icon: '✨',  attr: p.intel },
-      gray:  { label: 'Neutras',   icon: '⚙️',  attr: null },
+      green: { label: 'Agilidade', icon: '🏃', attr: p.agi, campo: 'agi' },
+      red:   { label: 'Força',     icon: '⚔️',  attr: p.forca, campo: 'forca' },
+      blue:  { label: 'Intelecto', icon: '✨',  attr: p.intel, campo: 'intel' },
+      gray:  { label: 'Neutras',   icon: '⚙️',  attr: null, campo: null },
     };
 
     const skillsExpanded = !!narSkillsExpanded[p.id];
@@ -2866,7 +2884,7 @@ function renderNarrador() {
     ['green','red','blue','gray'].forEach(cor => {
       if (!gruposNar[cor].length) return;
       const info = narGrupoInfo[cor];
-      const mst = info.attr != null ? maestria(info.attr) : null;
+      const mst = info.campo != null ? maestriaDe(p, info.campo) : null;
       const chips = gruposNar[cor].map(sk => {
         const ready = isReady(sk, p);
         let extra = '';
@@ -3150,8 +3168,7 @@ function renderTestes(p, readonly) {
   const bdMap  = { green: 'var(--green-bd)', red: 'var(--red-bd)', blue: 'var(--blue-bd)', gray: 'var(--gray-bd)' };
 
   const colunas = grupos.map(g => {
-    const attrVal = g.attr !== 'neutro' ? (p[g.attr] || 0) : null;
-    const mst = attrVal != null ? maestria(attrVal) : null;
+    const mst = g.attr !== 'neutro' ? maestriaDe(p, g.attr) : null;
     const mstLabel = mst != null ? ` <span class="nar-skill-mst">+${mst} maestria</span>` : '';
 
     const rows = g.ids.map(tid => {
@@ -3309,7 +3326,7 @@ function renderJogador() {
   const i = PLAYERS.indexOf(p);
   const av = AVATARS[i % AVATARS.length];
   const hpPct = Math.round(p.hp / p.hpMax * 100);
-  const insPct = p.ins;
+  const insPct = Math.round(p.ins / getInsanidadeMax(p) * 100);
   const armPct = p.armaduraMax > 0 ? Math.round(p.armadura / p.armaduraMax * 100) : 0;
   const elmPct = p.elmoMax > 0 ? Math.round(p.elmo / p.elmoMax * 100) : 0;
   const xpPct = Math.round(p.xp / 10 * 100);
@@ -3324,13 +3341,13 @@ function renderJogador() {
   p.skills.forEach(sk => grupos[sk.color] && grupos[sk.color].push(sk));
   const nomesGrupo = { green: 'Técnicas — Agilidade', red: 'Golpes — Força', blue: 'Feitiços — Intelecto', gray: 'Neutras' };
   const dotColor = {green:'#6db33f', red:'#c94040', blue:'#4a8fd4', gray:'#7a7e95'};
-  const attrGrupo = { green: p.agi, red: p.forca, blue: p.intel, gray: null };
+  const campoGrupo = { green: 'agi', red: 'forca', blue: 'intel', gray: null };
 
   let skillsHtml = '';
   ['green','red','blue','gray'].forEach(cor => {
     if (!grupos[cor].length) return;
     const collapsed = !!jogSkillsCollapsed[cor];
-    const mst = attrGrupo[cor] != null ? maestria(attrGrupo[cor]) : null;
+    const mst = campoGrupo[cor] != null ? maestriaDe(p, campoGrupo[cor]) : null;
     const mstTag = mst != null ? `<span class="sk-tag sk-tag-mst">+${mst} maestria</span>` : '';
     const readyCount = grupos[cor].filter(sk => isReady(sk, p)).length;
     const totalCount = grupos[cor].length;
@@ -3498,7 +3515,7 @@ function renderJogador() {
         </div>
         <div class="bm-alert ${bm?'show':''}">⚠ Beira Morte<br><small>Emoção 1d100 ≥ 50 · Resistência 1d20 ≥ 10</small></div>
         <div class="stat-row" style="margin-top:10px"><span class="stat-lbl"><i class="ti ti-bolt" style="color:var(--accent2)"></i> Ações do turno</span><span class="stat-val" style="color:var(--accent2)">${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span></div>
-        <div class="stat-row" style="margin-top:10px"><span class="stat-lbl"><i class="ti ti-brain" style="color:var(--rose)"></i> Insanidade</span><span class="stat-val" style="color:var(--rose)">${p.ins}/100</span></div>
+        <div class="stat-row" style="margin-top:10px"><span class="stat-lbl"><i class="ti ti-brain" style="color:var(--rose)"></i> Insanidade</span><span class="stat-val" style="color:var(--rose)">${p.ins}/${getInsanidadeMax(p)}</span></div>
         <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div>
         <div class="ins-ctrl ins-ctrl-5">
           <button onclick="adjIns(${p.id},+10)">+10</button><button onclick="adjIns(${p.id},+5)">+5</button>
@@ -3560,9 +3577,9 @@ function renderJogador() {
       </div>
       <div class="stat-block">
         <div class="attr3">
-          <div class="am am-agi" title="Maestria: +${maestria(p.agi)} na rolagem (arredondado para cima de AGI/5)"><div class="am-lbl">AGI</div><div class="am-val">${p.agi}</div><div class="am-mst">+${maestria(p.agi)}</div></div>
-          <div class="am am-for" title="Maestria: +${maestria(p.forca)} na rolagem (arredondado para cima de FOR/5)"><div class="am-lbl">FOR</div><div class="am-val">${p.forca}</div><div class="am-mst">+${maestria(p.forca)}</div></div>
-          <div class="am am-int" title="Maestria: +${maestria(p.intel)} na rolagem (arredondado para cima de INT/5)"><div class="am-lbl">INT</div><div class="am-val">${p.intel}</div><div class="am-mst">+${maestria(p.intel)}</div></div>
+          <div class="am am-agi" title="Maestria: +${maestriaDe(p,'agi')} na rolagem (arredondado para cima de AGI/5${p.race==='Troll'&&p.trollMaestriaEscolha==='agi'?' +1 Tatuagem Rúnica':''})"><div class="am-lbl">AGI</div><div class="am-val">${p.agi}</div><div class="am-mst">+${maestriaDe(p,'agi')}</div></div>
+          <div class="am am-for" title="Maestria: +${maestriaDe(p,'forca')} na rolagem (arredondado para cima de FOR/5${p.race==='Troll'&&p.trollMaestriaEscolha==='forca'?' +1 Tatuagem Rúnica':''})"><div class="am-lbl">FOR</div><div class="am-val">${p.forca}</div><div class="am-mst">+${maestriaDe(p,'forca')}</div></div>
+          <div class="am am-int" title="Maestria: +${maestriaDe(p,'intel')} na rolagem (arredondado para cima de INT/5${p.race==='Troll'&&p.trollMaestriaEscolha==='intel'?' +1 Tatuagem Rúnica':''})"><div class="am-lbl">INT</div><div class="am-val">${p.intel}</div><div class="am-mst">+${maestriaDe(p,'intel')}</div></div>
         </div>
         <div class="equip2 equip1">
           <div class="eqm eqm-passos"><div class="eqm-lbl">Passos</div><div class="eqm-val">${p.passos}</div></div>
@@ -3837,15 +3854,15 @@ function renderInventarioArea(p) {
     // ── Bônus de maestria por peso da arma ──────────────────────────────────
     // Leve → INT; Média → AGI; Pesada → FOR; Exótica → piso(AGI/2); Mega Pesada → piso(FOR/2)
     function armaMaestriaBonus(peso) {
-      if (peso === 'leve')   return { val: maestria(p.intel), attr: 'INT', color: 'var(--blue)'  };
-      if (peso === 'media')  return { val: maestria(p.agi),   attr: 'AGI', color: 'var(--green)' };
-      if (peso === 'pesada') return { val: maestria(p.forca), attr: 'FOR', color: 'var(--red)'   };
+      if (peso === 'leve')   return { val: maestriaDe(p,'intel'), attr: 'INT', color: 'var(--blue)'  };
+      if (peso === 'media')  return { val: maestriaDe(p,'agi'),   attr: 'AGI', color: 'var(--green)' };
+      if (peso === 'pesada') return { val: maestriaDe(p,'forca'), attr: 'FOR', color: 'var(--red)'   };
       if (peso === 'exotica') {
-        const v = Math.ceil(maestria(p.agi) / 2);
+        const v = Math.ceil(maestriaDe(p,'agi') / 2);
         return { val: v, attr: 'AGI/2', color: 'var(--green-dim)' };
       }
       if (peso === 'mega') {
-        const v = Math.ceil(maestria(p.forca) / 2);
+        const v = Math.ceil(maestriaDe(p,'forca') / 2);
         return { val: v, attr: 'FOR/2', color: '#8b1f1f' };
       }
       return null;
@@ -5161,6 +5178,10 @@ function setClasseSubclasse(clsName, subName) {
 function updateOrigemSelector(raceName, selectedOrigemId) {
   // Troll tem Vida base 5 ao invés de 10 — recalcula sempre que a Raça muda.
   if (typeof resetHpParaBaseEfetiva === 'function') resetHpParaBaseEfetiva();
+  // Troll também escolhe em qual atributo recai o +1 de Maestria da Tatuagem
+  // Rúnica — mostra/esconde o seletor correspondente.
+  const trollWrap = document.getElementById('c-troll-maestria-container');
+  if (trollWrap) trollWrap.style.display = (raceName === 'Troll') ? '' : 'none';
   const container = document.getElementById('c-origem-container');
   if (!container) return;
   const origens = getRaceOrigens(raceName);
@@ -5491,6 +5512,8 @@ function openCharModal() {
   updateOrigemSelector('', null);
   buildClassSelector();
   document.getElementById('c-hp').value = '10';
+  const trollMaestriaElNovo = document.getElementById('c-troll-maestria');
+  if (trollMaestriaElNovo) trollMaestriaElNovo.value = 'agi';
   document.getElementById('c-ins').value = '0';
   document.getElementById('c-agi').value = '5';
   document.getElementById('c-for').value = '5';
@@ -5548,6 +5571,8 @@ function editCharacter(id) {
   setClasseSubclasse(clsBase, p.cls);
   updateDeusSelector(clsBase, p.deus || null);
   document.getElementById('c-hp').value = p.hpMax;
+  const trollMaestriaEl = document.getElementById('c-troll-maestria');
+  if (trollMaestriaEl) trollMaestriaEl.value = p.trollMaestriaEscolha || 'agi';
   document.getElementById('c-ins').value = p.ins;
   document.getElementById('c-agi').value = p.agi;
   document.getElementById('c-for').value = p.forca;
@@ -5632,6 +5657,10 @@ function saveCharacter() {
   const deusEl = document.getElementById('c-deus');
   const deus = (classeBase === 'Clérigo' && deusEl) ? (deusEl.value || null) : null;
 
+  // Tatuagem Rúnica (exclusivo de Troll): +1 de Maestria no atributo escolhido.
+  const trollMaestriaFormEl = document.getElementById('c-troll-maestria');
+  const trollMaestriaEscolha = (race === 'Troll' && trollMaestriaFormEl) ? (trollMaestriaFormEl.value || 'agi') : null;
+
   // Validação de point-buy
   const editLevel = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : creationLevel;
   if (!validatePointBuyStep(editLevel)) return;
@@ -5643,10 +5672,12 @@ function saveCharacter() {
       const eraBardo = p.classeBase === 'Bardo';
       p.name = name; p.race = race; p.cls = cls; p.classeBase = classeBase; p.hpMax = hpMax;
       if (p.hp > hpMax) p.hp = hpMax;
-      p.ins = ins; p.agi = agi; p.forca = forca; p.intel = intel;
+      p.agi = agi; p.forca = forca; p.intel = intel;
       p.passos = passos; p.dinheiro = dinheiro;
       p.origemId = origemId;
       p.deus = deus;
+      p.trollMaestriaEscolha = trollMaestriaEscolha;
+      p.ins = Math.max(0, Math.min(getInsanidadeMax(p), ins));
       p.pontosPendentes = 0;
       // Humanidade: vira Bruxo agora (ou ainda não tinha o campo) → inicia
       // cheia (10/10). Se já era Bruxo, mantém o valor atual sem resetar.
@@ -5670,11 +5701,12 @@ function saveCharacter() {
       armadura: 0, armaduraMax: 0,
       elmo: 0, elmoMax: 0,
       acoesMax: ACOES_POR_TURNO_PADRAO, acoesAtuais: ACOES_POR_TURNO_PADRAO,
-      passos, ins, dinheiro, origemId, deus, skills: [], passivas: [], inventario: [],
+      passos, dinheiro, origemId, deus, trollMaestriaEscolha, skills: [], passivas: [], inventario: [],
       jogNotas: Object.fromEntries(JOG_NOTA_TAGS.map(t => [t.toLowerCase(), ''])),
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
     };
+    novo.ins = Math.max(0, Math.min(getInsanidadeMax(novo), ins));
     if (classeBase === 'Bruxo') novo.humanidade = HUMANIDADE_MAX;
     if (classeBase === 'Bardo') {
       novo.notasBardo = {};
@@ -6752,7 +6784,7 @@ function construirRolagemTeste(p, testeId) {
   const isDevocao = testeId === 'devocao';
   const sides = (isEmocao || isDevocao) ? 100 : 20;
   // Testes "Neutros" (Iniciativa, Emoção, Devoção) não recebem bônus de maestria.
-  const mst = def.attr !== 'neutro' ? maestria(p[def.attr] || 0) : 0;
+  const mst = def.attr !== 'neutro' ? maestriaDe(p, def.attr) : 0;
 
   // Mega Vantagem / Mega Desvantagem: rola 2 dados e mantém o melhor ou o pior.
   const isMega = !!(t.mv || t.md);
@@ -6868,7 +6900,7 @@ function abrirTesteMentalModal(pid) {
     const megaTag = t.mv ? '<span class="tm-opcao-mega mv">MV</span>' : (t.md ? '<span class="tm-opcao-mega md">MD</span>' : '');
     const infoTxt = isEmocao
       ? `1d100 − ${p.ins || 0} insanidade`
-      : `1d20 +${maestria(p[def.attr] || 0)} maestria`;
+      : `1d20 +${maestriaDe(p, def.attr)} maestria`;
     return `<button class="tm-opcao ${isEmocao ? 'tm-opcao-gray' : 'tm-opcao-blue'}" onclick="escolherTesteMental(${p.id},'${tid}')">
       <span class="tm-opcao-nome">${def.name}${megaTag}</span>
       <span class="tm-opcao-info">${infoTxt}</span>
