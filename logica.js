@@ -2809,13 +2809,13 @@ function recomputeProtMax(p) {
 // subida de Nível, fora do orçamento normal de pontos de atributo).
 function onLevelUp(p) {
   if (p.race === 'Tauren') {
-    p.hpMax = (p.hpMax || 0) + 4;
-    p.hp = (p.hp || 0) + 4;
+    p.hpMax = (p.hpMax || 0) + TAUREN_HP_POR_NIVEL;
+    p.hp = (p.hp || 0) + TAUREN_HP_POR_NIVEL;
   }
 }
 function onLevelDown(p) {
   if (p.race === 'Tauren') {
-    p.hpMax = Math.max(1, (p.hpMax || 0) - 4);
+    p.hpMax = Math.max(1, (p.hpMax || 0) - TAUREN_HP_POR_NIVEL);
     p.hp = Math.min(p.hp || 0, p.hpMax);
   }
 }
@@ -5254,6 +5254,15 @@ const ATTR_LIMITE_NV1 = 20;
 const ATTR_LIMITE_POR_NIVEL = 5;
 const TROLL_BASE_HP = 5;
 const MAESTRO_MACABRO_HP_BONUS = 20;
+// Tauren ("De bem com a Vida"): +4 de Vida a cada Nível, aplicado automaticamente
+// (fora do orçamento normal de pontos de atributo). Usado tanto ao subir de
+// Nível (ver onLevelUp) quanto ao já criar um personagem Tauren acima do
+// Nível 1 (ver getEffectiveBaseHp) — nesse caso os níveis "pulados" já
+// concedem o bônus acumulado desde a criação.
+const TAUREN_HP_POR_NIVEL = 4;
+function getTaurenBonusNivel(level) {
+  return Math.max(0, (level || 1) - 1) * TAUREN_HP_POR_NIVEL;
+}
 
 // Calcula a Vida base efetiva dado um nome de Raça e de Subclasse.
 function getBaseHpFor(race, subclasse) {
@@ -5265,11 +5274,18 @@ function getBaseHpFor(race, subclasse) {
 // Vida base efetiva para o estado atual do formulário (funciona tanto na
 // criação quanto na edição, já que ambas usam os mesmos campos/botões de
 // Raça e Subclasse — o campo de Vida em si não é sobrescrito aqui, apenas
-// usado para calcular custo/limite do point-buy).
+// usado para calcular custo/limite do point-buy). Para Tauren, já soma o
+// bônus automático de Vida por Nível (mesmo criando o personagem direto
+// acima do Nível 1).
 function getEffectiveBaseHp() {
   const race = document.getElementById('c-race')?.value || '';
   const sub = (typeof getSelectedSubclasse === 'function') ? getSelectedSubclasse() : '';
-  return getBaseHpFor(race, sub);
+  let base = getBaseHpFor(race, sub);
+  if (race === 'Tauren') {
+    const level = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : creationLevel;
+    base += getTaurenBonusNivel(level);
+  }
+  return base;
 }
 
 function getAttrLimiteNivel(level) {
@@ -5322,12 +5338,27 @@ function getPointsSpent() {
 
 // Tauren possui a passiva "De bem com a Vida": ao subir de Nível recebe +4
 // de Vida automaticamente (ver onLevelUp) e, em contrapartida, não pode mais
-// investir Pontos de Atributo em Vida a partir do Nível 2 (a base de Vida
-// definida na criação, no Nível 1, fica congelada).
+// investir Pontos de Atributo em Vida a partir do Nível 2 — mas isso só vale
+// depois que o personagem já foi criado (edição). Durante a CRIAÇÃO ainda é
+// possível investir pontos em Vida normalmente, mesmo começando acima do
+// Nível 1 — só que, nesse caso, a Vida fica limitada a
+// TAUREN_HP_CRIACAO_MAX (ver stepStat/getMaxHpCriacao).
 function isTaurenHpLocked() {
   if (!modalCharId) return false;
   const p = PLAYERS.find(x => x.id === modalCharId);
   return !!p && p.race === 'Tauren' && (p.level || 1) > 1;
+}
+
+// Teto de PONTOS INVESTIDOS em Vida, exclusivo da criação de personagem
+// (Tauren): mesmo que o point-buy do Nível permitisse mais, o jogador não
+// pode investir mais que 35 pontos em Vida além da base efetiva (que já
+// inclui o bônus automático de Nível — ver getEffectiveBaseHp). Ex: Tauren
+// Nv2 → base 10 + bônus de Nível 4 + até 35 investidos = 49 de Vida máxima
+// na criação. Não se aplica depois de salvo (edição).
+const TAUREN_PONTOS_VIDA_CRIACAO_MAX = 35;
+function getMaxHpCriacao(race) {
+  if (modalCharId || race !== 'Tauren') return Infinity;
+  return getEffectiveBaseHp() + TAUREN_PONTOS_VIDA_CRIACAO_MAX;
 }
 
 // Botões +/− para cada atributo com point-buy
@@ -5347,6 +5378,11 @@ function stepStat(field, delta) {
   if (next < base) return;
   // Limite de atributo do Nível atual (20 no Nv1, +5 por Nível)
   if (field !== 'hp' && next > limite) return;
+  // Tauren: teto de Vida exclusivo da criação de personagem (35)
+  if (field === 'hp') {
+    const race = document.getElementById('c-race')?.value || '';
+    if (next > getMaxHpCriacao(race)) return;
+  }
   // Não gasta mais pontos do que o disponível
   const spent = getPointsSpent();
   const left  = total - spent;
@@ -5396,9 +5432,13 @@ function updatePointBuy(levelOverride) {
   // Hint
   const hintEl = document.getElementById('c-points-hint');
   const taurenLocked = isTaurenHpLocked();
+  const raceAtualHint = document.getElementById('c-race')?.value || '';
+  const maxHpCriacaoHint = getMaxHpCriacao(raceAtualHint);
   if (hintEl) hintEl.textContent = taurenLocked
     ? `Base fixa: Vida ${baseHp} · AGI 5 · FOR 5 · INT 5. Tauren não pode investir pontos em Vida a partir do Nível 2 (recebe +4 automático a cada Nível). Limite de ${limite} por atributo no Nv ${level}.`
-    : `Base fixa: Vida ${baseHp} · AGI 5 · FOR 5 · INT 5. Limite de ${limite} por atributo no Nv ${level}.`;
+    : (maxHpCriacaoHint < Infinity
+      ? `Base fixa: Vida ${baseHp} · AGI 5 · FOR 5 · INT 5. Limite de ${limite} por atributo no Nv ${level}. Vida limitada a ${maxHpCriacaoHint} durante a criação.`
+      : `Base fixa: Vida ${baseHp} · AGI 5 · FOR 5 · INT 5. Limite de ${limite} por atributo no Nv ${level}.`);
 
   // Labels de limite (mostra o valor atual, escalando com o Nível)
   ['agi','for','int'].forEach(a => {
@@ -5415,7 +5455,8 @@ function updatePointBuy(levelOverride) {
     }
   });
 
-  // Botão + bloqueado se não há pontos OU se atingiu limite Nv1
+  // Botão + bloqueado se não há pontos OU se atingiu limite Nv1 (ou, no caso
+  // da Vida do Tauren durante a criação, o teto de 35)
   const noPoints = left <= 0;
   ['hp','agi','for','int'].forEach(key => {
     const incBtn = document.getElementById(`c-${key}-inc`);
@@ -5423,7 +5464,7 @@ function updatePointBuy(levelOverride) {
     const inputEl = document.getElementById(`c-${key}`);
     const base = key === 'hp' ? baseHp : ATTR_BASE_STAT;
     const val  = parseInt(inputEl?.value) || base;
-    const atLimit = key !== 'hp' && val >= limite;
+    const atLimit = key !== 'hp' ? (val >= limite) : (val >= maxHpCriacaoHint);
     if (incBtn) {
       const blocked = noPoints || atLimit || (key === 'hp' && taurenLocked);
       incBtn.disabled = blocked;
@@ -5609,6 +5650,13 @@ function validatePointBuyStep(nivel) {
   const agi    = parseInt(document.getElementById('c-agi').value) || 5;
   const forca  = parseInt(document.getElementById('c-for').value) || 5;
   const intel  = parseInt(document.getElementById('c-int').value) || 5;
+
+  const raceValidacao = document.getElementById('c-race')?.value || '';
+  const maxHpCriacao = getMaxHpCriacao(raceValidacao);
+  if (hpMax > maxHpCriacao) {
+    alert(`Durante a criação, a Vida do Tauren não pode ultrapassar ${maxHpCriacao}.`);
+    return false;
+  }
 
   const totalPontos = getPointBuyTotal(nivel);
   const gasto = (hpMax - baseHp) + (agi - ATTR_BASE_STAT) + (forca - ATTR_BASE_STAT) + (intel - ATTR_BASE_STAT);
