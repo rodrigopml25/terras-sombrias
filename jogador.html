@@ -208,10 +208,23 @@
           </div>
         </div>
 
+        <!-- Catálogo de itens pré-definidos -->
+        <div class="form-row" id="inv-sec-catalogo">
+          <label class="form-label">Catálogo <span style="font-size:10px;color:var(--text3)">(opcional — escolha um item pronto ou preencha manualmente abaixo)</span></label>
+          <input type="text" id="inv-catalogo-search" placeholder="Buscar no catálogo..." oninput="renderInvCatalogo()" style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+          <div id="inv-catalogo-lista" style="max-height:180px;overflow-y:auto;margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
+
         <!-- Nome -->
         <div class="form-row">
           <label class="form-label">Nome</label>
           <input type="text" id="inv-m-name" placeholder="Nome do item">
+        </div>
+
+        <!-- Preço (dinheiro) — armas, instrumentos e proteções -->
+        <div class="form-row" id="inv-sec-preco">
+          <label class="form-label">Preço <span style="font-size:10px;color:var(--text3)">(em moedas)</span></label>
+          <input type="number" id="inv-m-preco" min="0" placeholder="Ex: 50" style="width:120px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
         </div>
 
         <!-- Seção: ARMA -->
@@ -293,6 +306,10 @@
             <input type="number" id="inv-m-valor" placeholder="Ex: 5" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
           </div>
           <div class="form-row">
+            <label class="form-label">Penalidade de Passos <span style="font-size:10px;color:var(--text3)">(ao equipar)</span></label>
+            <input type="number" id="inv-m-passos-penalidade" min="0" placeholder="Ex: 3" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+          </div>
+          <div class="form-row">
             <label class="form-label">Status</label>
             <div class="inv-tipo-group">
               <button class="inv-equip-btn active" data-equip="1" onclick="invSelectEquip(true)"><i class="ti ti-check"></i> Equipado</button>
@@ -364,6 +381,7 @@
           <div class="wstep" data-step="3"><span class="wstep-num">3</span> Classe</div>
           <div class="wstep" data-step="4"><span class="wstep-num">4</span> Atributos</div>
           <div class="wstep" data-step="5"><span class="wstep-num">5</span> Habilidades</div>
+          <div class="wstep" data-step="6"><span class="wstep-num">6</span> Armadura</div>
         </div>
 
         <div class="modal-step active" data-step="1">
@@ -514,7 +532,7 @@
                 <input type="number" id="c-ins" value="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
               </div>
               <div class="form-row">
-                <label class="form-label">Passos</label>
+                <label class="form-label">Passos <span style="font-size:10px;color:var(--text3)">(base, sem penalidade de armadura)</span></label>
                 <input type="number" id="c-passos" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
               </div>
               <div class="form-row">
@@ -568,6 +586,19 @@
             <div id="c-rituais-macabros-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas se tiver escolhido o Talento Superior "Vínculo Místico" acima.</div>
             <div id="c-rituais-macabros-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
             <div id="c-rituais-macabros-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+          </div>
+
+          <div class="modal-btns step-nav">
+            <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
+            <button class="btn btn-primary" onclick="handleStep5Continue()">Próximo <i class="ti ti-arrow-right"></i></button>
+          </div>
+        </div>
+
+        <div class="modal-step" data-step="6">
+          <div id="c-armadura-section">
+            <p style="font-size:11px;color:var(--text3);margin:0 0 10px;line-height:1.5;">As categorias de Armadura disponíveis dependem do atributo principal da sua Subclasse: Intelecto → Leve; Agilidade → Leve e Média; Força → Leve, Média e Pesada.</p>
+            <div id="c-armadura-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;"></div>
+            <div id="c-armadura-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
           </div>
 
           <div class="modal-btns step-nav">
