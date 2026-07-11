@@ -2221,6 +2221,62 @@ function toggleWizardRitualMacabro(itemId) {
   renderWizardRituaisMacabrosStep();
 }
 
+// Repinta a escolha de Armadura inicial (passo 5 do wizard de criação).
+// As opções disponíveis vêm do CATALOGO_ITENS.protecao (subtipo armadura),
+// filtradas pelas categorias de peso liberadas pelo atributo principal da
+// subclasse escolhida (ver getPesosArmaduraPermitidos). Escolha única —
+// selecionar outra troca a anterior; clicar na já escolhida remove.
+function renderWizardArmaduraStep() {
+  const lista = document.getElementById('c-armadura-lista');
+  const aviso = document.getElementById('c-armadura-aviso');
+  if (!lista) return;
+
+  const cls = getSelectedSubclasse();
+  if (!cls) {
+    lista.innerHTML = '';
+    if (aviso) { aviso.style.display = ''; aviso.textContent = 'Escolha uma Classe no passo anterior para liberar as opções de Armadura.'; }
+    return;
+  }
+
+  const pesosPermitidos = getPesosArmaduraPermitidos(cls);
+  const opcoes = CATALOGO_ITENS.protecao.filter(item => item.subtipo === 'armadura' && pesosPermitidos.includes(item.peso));
+
+  // Descarta uma escolha antiga que não seja mais válida (ex.: trocou de subclasse/atributo).
+  if (wizardArmaduraEscolhidaId && !opcoes.some(o => o.id === wizardArmaduraEscolhidaId)) {
+    wizardArmaduraEscolhidaId = null;
+  }
+
+  if (aviso) {
+    aviso.style.display = '';
+    aviso.textContent = `Categorias liberadas por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
+  }
+
+  if (!opcoes.length) {
+    lista.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:6px 2px">Nenhuma armadura disponível no catálogo para essas categorias ainda.</div>`;
+    return;
+  }
+
+  lista.innerHTML = opcoes.map(item => {
+    const jaEscolhida = wizardArmaduraEscolhidaId === item.id;
+    return `
+    <div class="skill-card sk-gray" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div class="sk-tags"><span class="sk-tag">${INV_PESO_LABEL[item.peso] || item.peso}</span><span class="sk-tag">🛡 ${item.valor}</span><span class="sk-tag">💰 ${item.preco}</span>${item.passosPenalidade ? `<span class="sk-tag">👣 -${item.passosPenalidade}</span>` : ''}</div>
+      ${item.efeito ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 12px;line-height:1.5">${item.efeito}</div>` : ''}
+      <button class="btn ${jaEscolhida ? '' : 'btn-primary'}" style="width:100%;justify-content:center;margin-top:6px" onclick="toggleWizardArmadura('${item.id}')">
+        ${jaEscolhida ? '✓ Escolhida — clique para remover' : 'Escolher'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// Alterna a escolha de Armadura inicial durante a criação — escolha única
+// (selecionar uma nova substitui a anterior; clicar na já escolhida remove).
+function toggleWizardArmadura(itemId) {
+  wizardArmaduraEscolhidaId = (wizardArmaduraEscolhidaId === itemId) ? null : itemId;
+  renderWizardArmaduraStep();
+}
+
 // Alterna a escolha de uma Habilidade do banco durante a criação (adiciona
 // se ainda não tinha, remove se já tinha). Respeita os mesmos limites de
 // Nível usados no jogo já formado (getBancoLimites/contarBancoEscolhas).
@@ -2612,6 +2668,19 @@ function getSubAttr(subclasseName) {
   return null;
 }
 
+// Categorias de peso de Armadura liberadas conforme o atributo principal da
+// subclasse: Intelecto → só Leve; Agilidade → Leve e Média; Força → Leve,
+// Média e Pesada. Usado na escolha de armadura inicial (passo 5 do wizard).
+const PESO_ARMADURA_POR_ATRIBUTO = {
+  intel: ['leve'],
+  agi:   ['leve', 'media'],
+  forca: ['leve', 'media', 'pesada'],
+};
+function getPesosArmaduraPermitidos(subclasseName) {
+  const attr = getSubAttr(subclasseName);
+  return PESO_ARMADURA_POR_ATRIBUTO[attr] || ['leve'];
+}
+
 // Retorna a classe-base (Guerreiro, Ladino…) dado o nome de uma subclasse
 function getBaseClass(subclasseName) {
   for (const cls of CLASSES) {
@@ -2878,6 +2947,11 @@ let wizardFeiticosLendariosEscolhidos = [];
 // Talento Superior "Vínculo Místico" no próprio wizard. Mesmo ciclo de vida
 // das outras listas do wizard.
 let wizardRituaisMacabrosEscolhidos = [];
+// Armadura inicial escolhida durante a criação (passo 5 do wizard), guardada
+// como o id do item no CATALOGO_ITENS.protecao (ou null = nenhuma). As opções
+// disponíveis dependem do atributo principal da subclasse escolhida (ver
+// getPesosArmaduraPermitidos). Mesmo ciclo de vida das outras escolhas do wizard.
+let wizardArmaduraEscolhidaId = null;
 let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
@@ -3525,6 +3599,14 @@ function recomputeProtMax(p) {
       p.elmo = Math.max(0, Math.min(novoMax, (p.elmo || 0) + (delta > 0 ? delta : 0)));
     }
   });
+
+  // Passos: proteções equipadas podem ter uma penalidade de Passos (ex.: armaduras
+  // mais pesadas reduzem o deslocamento). p.passosBase guarda o valor original do
+  // personagem (definido na ficha); p.passos é sempre recalculado a partir dele.
+  if (typeof p.passosBase !== 'number') p.passosBase = typeof p.passos === 'number' ? p.passos : 10;
+  const equipadas = p.inventario.filter(i => i.tipo === 'protecao' && i.equipado);
+  const penalidadeTotal = equipadas.reduce((acc, i) => acc + (Number(i.passosPenalidade) || 0), 0);
+  p.passos = Math.max(0, p.passosBase - penalidadeTotal);
 }
 
 // Efeitos automáticos de subida/queda de Nível dependentes de raça.
@@ -4657,6 +4739,10 @@ function renderInventarioArea(p) {
         : (mb && mb.val === 0 ? `<span style="font-size:10px;color:var(--text3);margin-left:2px" title="Maestria de ${mb.attr} ainda é 0">+0 <span style="opacity:.7">${mb.attr}</span></span>` : '');
       return `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}</div>`;
     }
+    function precoRow() {
+      if (item.preco == null) return '';
+      return `<div class="inv-dano"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val">${item.preco}</span></div>`;
+    }
 
     if (isInstrumento) {
       // Instrumentos: título + botão editar na primeira linha; tags na segunda
@@ -4671,6 +4757,7 @@ function renderInventarioArea(p) {
           ${pesoTag(item)}
         </div>
         ${danoRow(item.peso)}
+        ${precoRow()}
         ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
         ${municaoRow(item)}
         ${aprimoramentos}${ativas}
@@ -4687,6 +4774,7 @@ function renderInventarioArea(p) {
         ${pesoTag(item)}
       </div>
       ${danoRow(item.peso)}
+      ${precoRow()}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
       ${municaoRow(item)}
       ${aprimoramentos}${ativas}
@@ -4711,6 +4799,7 @@ function renderInventarioArea(p) {
         ${pesoTag(item)}
       </div>
       ${item.valor != null ? `<div class="inv-dano"><span class="inv-dano-label">${valLabel}</span><span class="inv-dano-val">${item.valor}</span></div>` : ''}
+      ${item.preco != null ? `<div class="inv-dano"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val">${item.preco}</span></div>` : ''}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
       ${municaoRow(item)}
       ${item.aprimoramentos && item.aprimoramentos.length ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>{
@@ -4794,6 +4883,25 @@ function toggleEquipProt(pid, itemId) {
   renderJogador();
 }
 
+// ═══════════════════════════════════════
+// BANCO DE ITENS (Catálogo) — Armaduras, Elmos, Armas e Instrumentos
+// ═══════════════════════════════════════
+// Mesmo espírito do catálogo de Talentos/Habilidades: uma lista fixa de
+// itens pré-definidos que o jogador pode escolher no modal de Inventário
+// (busca por nome) para autopreencher o formulário — que continua editável
+// manualmente antes ou depois de escolher um item do catálogo.
+// Cada entrada de 'protecao' já indica seu subtipo (armadura/elmo).
+const CATALOGO_ITENS = {
+  protecao: [
+    { id: 'cat_tecido',           name: 'Tecido',           subtipo: 'armadura', peso: 'leve',  valor: 3,  preco: 20, passosPenalidade: 0, efeito: 'Concede +1d4 de Vantagem em testes de Furtividade.' },
+    { id: 'cat_armadura_leve',    name: 'Armadura Leve',    subtipo: 'armadura', peso: 'leve',  valor: 6,  preco: 40, passosPenalidade: 3, efeito: 'Reduz 3 de Passos.' },
+    { id: 'cat_armadura_media',   name: 'Armadura Média',   subtipo: 'armadura', peso: 'media', valor: 8,  preco: 60, passosPenalidade: 5, efeito: 'Reduz 5 de Passos. Concede -1d4 de Desvantagem em testes de Furtividade.' },
+    { id: 'cat_armadura_pesada',  name: 'Armadura Pesada',  subtipo: 'armadura', peso: 'pesada', valor: 12, preco: 80, passosPenalidade: 7, efeito: 'Reduz 7 de Passos. Concede Mega Desvantagem em testes de Furtividade.' },
+  ],
+  arma: [],
+  instrumento: [],
+};
+
 // ─── Modal Inventário ───
 function openInvModal(pid, defaults = {}) {
   modalInvPid = pid;
@@ -4819,6 +4927,9 @@ function _buildInvModal(data) {
   const tipo = data.tipo || 'arma';
   document.getElementById('inv-modal-title').textContent = modalInvId ? 'Editar Item' : 'Novo Item';
   document.getElementById('inv-m-del').style.display = modalInvId ? 'inline-flex' : 'none';
+
+  const catalogoSearch = document.getElementById('inv-catalogo-search');
+  if (catalogoSearch) catalogoSearch.value = '';
 
   // tipo
   document.querySelectorAll('.inv-tipo-btn').forEach(b => {
@@ -4857,6 +4968,12 @@ function _buildInvModal(data) {
   }
   // valor protecao
   document.getElementById('inv-m-valor').value = data.valor != null ? data.valor : '';
+  // penalidade de passos (armaduras)
+  const inputPassosPenalidade = document.getElementById('inv-m-passos-penalidade');
+  if (inputPassosPenalidade) inputPassosPenalidade.value = data.passosPenalidade != null ? data.passosPenalidade : '';
+  // preço (dinheiro) — armas, instrumentos e proteções
+  const inputPreco = document.getElementById('inv-m-preco');
+  if (inputPreco) inputPreco.value = data.preco != null ? data.preco : '';
   // subtipo protecao
   const subtipo = data.subtipo || 'armadura';
   document.querySelectorAll('.inv-subtipo-btn').forEach(b => {
@@ -4901,6 +5018,15 @@ function _updateInvModalSections(tipo) {
   document.getElementById('inv-sec-alcance').style.display      = ehArmaOuInstrumento     ? '' : 'none';
   document.getElementById('inv-sec-protecao').style.display     = tipo === 'protecao'    ? '' : 'none';
   document.getElementById('inv-sec-item').style.display         = tipo === 'item'        ? '' : 'none';
+
+  // Preço (dinheiro): disponível para armas, instrumentos e proteções (não para item genérico)
+  const secPreco = document.getElementById('inv-sec-preco');
+  if (secPreco) secPreco.style.display = tipo !== 'item' ? '' : 'none';
+
+  // Catálogo: disponível para armas, instrumentos e proteções (não para item genérico)
+  const secCatalogo = document.getElementById('inv-sec-catalogo');
+  if (secCatalogo) secCatalogo.style.display = tipo !== 'item' ? '' : 'none';
+  renderInvCatalogo();
 
   const peso = _invSelectedPeso();
   // Aprimoramentos: disponíveis para armas, instrumentos e proteções
@@ -4984,6 +5110,7 @@ function invSelectPeso(peso) {
 }
 function invSelectSub(sub) {
   document.querySelectorAll('.inv-subtipo-btn').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+  renderInvCatalogo();
 }
 function invSelectEquip(equipado) {
   document.querySelectorAll('.inv-equip-btn').forEach(b => b.classList.toggle('active', (b.dataset.equip === '1') === equipado));
@@ -4991,6 +5118,72 @@ function invSelectEquip(equipado) {
 function invSelectAlcance(alcance) {
   document.querySelectorAll('.inv-alcance-btn').forEach(b => b.classList.toggle('active', b.dataset.alcance === alcance));
   _updateInvModalSections(_invSelectedTipo());
+}
+
+// Repinta a lista de resultados do catálogo (armas, instrumentos e proteções),
+// filtrando pelo texto de busca e, no caso de proteção, pelo subtipo ativo
+// (armadura/elmo). Escolher um item apenas preenche o formulário — o usuário
+// ainda pode editar tudo manualmente antes de salvar.
+function renderInvCatalogo() {
+  const lista = document.getElementById('inv-catalogo-lista');
+  if (!lista) return;
+  const tipo = _invSelectedTipo();
+  if (tipo === 'item') { lista.innerHTML = ''; return; }
+
+  const banco = CATALOGO_ITENS[tipo] || [];
+  const termo = (document.getElementById('inv-catalogo-search') || {}).value || '';
+  const termoNorm = termo.trim().toLowerCase();
+  const subAtivo = tipo === 'protecao' ? _invSelectedSub() : null;
+
+  const filtrados = banco.filter(item => {
+    if (subAtivo && item.subtipo !== subAtivo) return false;
+    if (!termoNorm) return true;
+    return item.name.toLowerCase().includes(termoNorm);
+  });
+
+  if (!filtrados.length) {
+    lista.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:6px 2px">Nenhum item encontrado no catálogo.</div>`;
+    return;
+  }
+
+  lista.innerHTML = filtrados.map(item => {
+    const detalhe = tipo === 'protecao'
+      ? `🛡 ${item.valor}   ·   💰 ${item.preco}   ·   ${INV_PESO_LABEL[item.peso] || item.peso}`
+      : `💰 ${item.preco}   ·   ${INV_PESO_LABEL[item.peso] || item.peso}${item.dano ? `   ·   ⚔ ${item.dano}` : ''}`;
+    return `<div class="inv-catalogo-item" onclick="selecionarCatalogoItem('${item.id}')" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)">
+      <div style="font-size:12px;font-weight:600;color:var(--text)">${item.name}</div>
+      <div style="font-size:10.5px;color:var(--text3);margin-top:2px">${detalhe}</div>
+    </div>`;
+  }).join('');
+}
+
+// Preenche o formulário do modal com os dados de um item do catálogo.
+function selecionarCatalogoItem(itemId) {
+  const tipo = _invSelectedTipo();
+  const banco = CATALOGO_ITENS[tipo] || [];
+  const item = banco.find(x => x.id === itemId);
+  if (!item) return;
+
+  document.getElementById('inv-m-name').value = item.name;
+  document.getElementById('inv-m-efeito').value = item.efeito || '';
+
+  const inputPreco = document.getElementById('inv-m-preco');
+  if (inputPreco) inputPreco.value = item.preco != null ? item.preco : '';
+
+  if (tipo === 'protecao') {
+    invSelectSub(item.subtipo);
+    invSelectPeso(item.peso);
+    document.getElementById('inv-m-valor').value = item.valor != null ? item.valor : '';
+    const inputPassosPenalidade = document.getElementById('inv-m-passos-penalidade');
+    if (inputPassosPenalidade) inputPassosPenalidade.value = item.passosPenalidade != null ? item.passosPenalidade : '';
+  } else if (tipo === 'instrumento') {
+    invSelectPeso(item.peso);
+    const inputDanoInst = document.getElementById('inv-m-dano-inst');
+    if (inputDanoInst) inputDanoInst.value = item.dano || '';
+  } else {
+    invSelectPeso(item.peso);
+    document.getElementById('inv-m-dano').value = item.dano || '';
+  }
 }
 
 function _renderInvAprimos() {
@@ -5119,6 +5312,10 @@ function saveInvItem() {
   const municaoRaw = document.getElementById('inv-m-municao').value.trim();
   const municao = municaoRaw !== '' ? Math.max(0, parseInt(municaoRaw)) : 0;
   const valor   = document.getElementById('inv-m-valor').value.trim();
+  const passosPenalidadeRaw = (document.getElementById('inv-m-passos-penalidade') || {}).value || '';
+  const passosPenalidade = passosPenalidadeRaw.trim() !== '' ? Math.max(0, Number(passosPenalidadeRaw.trim())) : 0;
+  const precoRaw = (document.getElementById('inv-m-preco') || {}).value || '';
+  const preco   = precoRaw.trim() !== '' ? Number(precoRaw.trim()) : null;
   const subtipo = _invSelectedSub();
   const equipado = _invSelectedEquip();
   const qtdRaw  = document.getElementById('inv-m-qtd').value.trim();
@@ -5156,7 +5353,7 @@ function saveInvItem() {
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Instrumentos exóticos: cristais ficam em p.cristais (pool do personagem), não no item
   } else if (tipo === 'protecao') {
-    Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, equipado });
+    Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, passosPenalidade, equipado });
     // Aprimoramentos disponíveis para proteções (Draenei)
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Proteções exóticas: atualiza o pool de cristais do personagem
@@ -5169,6 +5366,9 @@ function saveInvItem() {
   } else {
     if (qtd !== null) base.qtd = qtd;
   }
+
+  // Preço (dinheiro): armas, instrumentos e proteções (armaduras/elmos)
+  if (tipo !== 'item') base.preco = preco;
 
   let savedId;
   if (modalInvId) {
@@ -6585,6 +6785,7 @@ function openCharModal() {
   wizardTalentosSuperioresEscolhidos = [];
   wizardFeiticosLendariosEscolhidos = [];
   wizardRituaisMacabrosEscolhidos = [];
+  wizardArmaduraEscolhidaId = null;
   setModalMode(false);
   showWizardStep(1);
   setTimeout(() => document.getElementById('c-name').focus(), 50);
@@ -6633,7 +6834,7 @@ function editCharacter(id) {
   document.getElementById('c-agi').value = p.agi;
   document.getElementById('c-for').value = p.forca;
   document.getElementById('c-int').value = p.intel;
-  document.getElementById('c-passos').value = p.passos;
+  document.getElementById('c-passos').value = (typeof p.passosBase === 'number') ? p.passosBase : p.passos;
   document.getElementById('c-dinheiro').value = (typeof p.dinheiro === 'number') ? p.dinheiro : 100;
   const extraFields = document.getElementById('c-extra-fields');
   if (extraFields) extraFields.style.display = '';
@@ -6702,6 +6903,13 @@ function handleStep4Continue() {
   showWizardStep(5);
 }
 
+// Botão "Próximo" do passo 5 (Habilidades/Talentos/Feitiços/Rituais): avança
+// para o passo 6 (Armadura Inicial), a última etapa antes de criar o personagem.
+function handleStep5Continue() {
+  renderWizardArmaduraStep();
+  showWizardStep(6);
+}
+
 function saveCharacter() {
   const name   = document.getElementById('c-name').value.trim() || 'Desconhecido';
   const race   = document.getElementById('c-race').value.trim() || 'Sem Raça';
@@ -6740,7 +6948,7 @@ function saveCharacter() {
       p.name = name; p.race = race; p.cls = cls; p.classeBase = classeBase; p.hpMax = hpMax;
       if (p.hp > hpMax) p.hp = hpMax;
       p.agi = agi; p.forca = forca; p.intel = intel;
-      p.passos = passos; p.dinheiro = dinheiro;
+      p.passosBase = passos; p.dinheiro = dinheiro;
       p.origemId = origemId;
       p.deus = deus;
       p.trollMaestriaEscolha = trollMaestriaEscolha;
@@ -6759,6 +6967,7 @@ function saveCharacter() {
       }
       ensureRacePassivas(p);
       ensureCamposHarmonicos(p);
+      recomputeProtMax(p);
     }
   } else {
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
@@ -6768,7 +6977,7 @@ function saveCharacter() {
       armadura: 0, armaduraMax: 0,
       elmo: 0, elmoMax: 0,
       acoesMax: ACOES_POR_TURNO_PADRAO, acoesAtuais: ACOES_POR_TURNO_PADRAO,
-      passos, dinheiro, origemId, deus, trollMaestriaEscolha, skills: [], passivas: [], inventario: [],
+      passos, passosBase: passos, dinheiro, origemId, deus, trollMaestriaEscolha, skills: [], passivas: [], inventario: [],
       jogNotas: Object.fromEntries(JOG_NOTA_TAGS.map(t => [t.toLowerCase(), ''])),
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
@@ -6828,6 +7037,21 @@ function saveCharacter() {
         novo.skills.push(construirSkillRitualMacabro(item));
       }
     });
+    // Armadura inicial escolhida no passo 5 do wizard de criação (opções
+    // filtradas pelo atributo principal da subclasse — ver getPesosArmaduraPermitidos).
+    if (wizardArmaduraEscolhidaId) {
+      const catItem = CATALOGO_ITENS.protecao.find(x => x.id === wizardArmaduraEscolhidaId);
+      if (catItem) {
+        novo.inventario.push({
+          id: 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          tipo: 'protecao', subtipo: catItem.subtipo, peso: catItem.peso, name: catItem.name,
+          efeito: catItem.efeito || '', valor: catItem.valor != null ? catItem.valor : null,
+          preco: catItem.preco != null ? catItem.preco : null,
+          passosPenalidade: catItem.passosPenalidade || 0, equipado: true, aprimoramentos: [],
+        });
+      }
+    }
+    recomputeProtMax(novo);
     PLAYERS.push(novo);
     modalCharId = newId;
   }
@@ -6839,6 +7063,7 @@ function saveCharacter() {
   wizardTalentosSuperioresEscolhidos = [];
   wizardFeiticosLendariosEscolhidos = [];
   wizardRituaisMacabrosEscolhidos = [];
+  wizardArmaduraEscolhidaId = null;
 
   saveState();
   renderAll();
