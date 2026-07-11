@@ -1093,6 +1093,217 @@ function adicionarTalentoSuperior(pid, talentoId) {
 }
 
 // ═══════════════════════════════════════
+// BANCO DE FEITIÇOS LENDÁRIOS
+// ═══════════════════════════════════════
+// Catálogo fixo de Feitiços Lendários. Diferente das Habilidades normais de
+// Intelecto, os Feitiços Lendários usam maestria de Intelecto/2 (arredonda
+// para cima) em vez da maestria cheia — ver getMaestriaLendaria. Duas fontes
+// concedem o direito de escolher 1 Feitiço Lendário cada (podem se somar):
+// - Conjurador, Passiva "Transcendência Intelectual": no Nível 5, em vez de
+//   mais uma Habilidade de outra Classe, aprende um Feitiço Lendário.
+// - Talento Superior "Transcendência Mental": concede 1 Feitiço Lendário.
+// São salvos em p.skills (mesmo array das Habilidades normais), marcados com
+// `lendario: true`, cor azul (Feitiço/Intelecto) — reaproveitam a mesma UI
+// de exibição/uso/edição das Habilidades.
+const FEITICOS_LENDARIOS = [
+  { id: 'som_primordial', name: 'Som Primordial', desc: 'O alvo escutará o som do Big Bang. Neste turno, escutará um som grave e profundo, causando 1d8 de dano direto na Vida. No turno dele, o som se torna agudo e próximo, causando 1d20 de dano direto na Vida e Surdez. O som agudo continuará, causando dano também no turno do alvo. Ele poderá confrontar com um teste de Resistência contra o seu teste de Arcano ou Místico.', cost: 1, tipo: 'sessao', usosMax: 1 },
+  { id: 'nova_congelante', name: 'Nova Congelante', desc: 'Congele 5x5 casas, com você no centro, afetando todos os outros. Para sair, é necessário fazer um teste de Resistência contra o seu teste de Arcano ou Místico, o que custa o turno inteiro. Ao atacar alguém congelado, será acerto crítico e removerá o congelamento.', cost: 1, tipo: 'sessao', usosMax: 2 },
+  { id: 'maldicao_pos_vida', name: 'Maldição Pós-Vida', desc: 'Evoque uma alma perdida de um bruxo amaldiçoado que fica grudada com você, dividindo o turno com você. Ela não pode ser tocada e nem toca fisicamente, possui todos os feitiços de Bruxo, tem 50 pontos de Vida, 2 Ações próprias, os Assombrar estão ativados e seus dados de lançamento são o seu teste de Arcano ou Místico. Só pode evocar 1 por vez.', cost: 1, tipo: 'sessao', usosMax: 2 },
+  { id: 'ilusao_perfeita', name: 'Ilusão Perfeita', desc: 'Vire o Narrador até o início do seu próximo turno e altere a cena como quiser. Ao acabar o efeito, a cena retornará como era, porém você pode fazer 4 Ações enquanto estiver na ilusão. Os outros podem fazer um teste de Percepção contra o seu teste de Arcano ou Místico para sair da ilusão.', cost: 2, tipo: 'sessao', usosMax: 1 },
+  { id: 'expansao_de_dominio', name: 'Expansão de Domínio', desc: 'Seu aspecto mágico se manifesta em todo o tabuleiro, tornando-se seu domínio — os outros não poderão lançar feitiços. Podem fazer um teste de Arcano ou Místico contra o seu para superar o seu domínio; caso falhem, recebem 1d10 de dano na Vida. Podem tentar até conseguir.', cost: 1, tipo: 'sessao', usosMax: 1 },
+  { id: 'demonstracao_ungida', name: 'Demonstração Ungida', desc: 'Alguma divindade lança um feixe sagrado num alvo: se for inimigo, causa 1d20 de dano; se for aliado, cura 1d20. Se no dado de dano/cura sair valor acima de 10, poderá lançar novamente com 1d12 — e se no 1d12 ocorrer o mesmo, repete (pode ser infinito).', cost: 1, tipo: 'sessao', usosMax: 1 },
+];
+
+// Maestria usada pelos Feitiços Lendários: metade da maestria de Intelecto,
+// arredondada para cima (regra própria, diferente da maestria cheia usada
+// pelos demais Feitiços).
+function getMaestriaLendaria(p) {
+  return Math.ceil(maestriaDe(p, 'intel') / 2);
+}
+
+// O personagem tem alguma fonte que concede direito a Feitiço Lendário
+// (Conjurador ou Talento Superior "Transcendência Mental")? Usado só pra
+// decidir se mostra o botão de escolha na ficha.
+function temAcessoFeiticoLendario(p) {
+  const ehConjurador = p.cls === 'Conjurador';
+  const temTranscendenciaMental = getTalentosSuperioresEscolhidos(p).some(pas => pas.talentoSuperiorId === 'transcendencia_mental');
+  return ehConjurador || temTranscendenciaMental;
+}
+
+// Quantos Feitiços Lendários o personagem tem direito de escolher — as
+// fontes se somam se o personagem tiver as duas.
+function getLimiteFeiticosLendarios(p) {
+  let limite = 0;
+  if (p.cls === 'Conjurador' && (p.level || 1) >= 5) limite += 1;
+  if (getTalentosSuperioresEscolhidos(p).some(pas => pas.talentoSuperiorId === 'transcendencia_mental')) limite += 1;
+  return limite;
+}
+
+function getFeiticosLendariosEscolhidos(p) {
+  return (p.skills || []).filter(sk => sk.lendario);
+}
+
+function getFeiticosLendariosPendentes(p) {
+  return Math.max(0, getLimiteFeiticosLendarios(p) - getFeiticosLendariosEscolhidos(p).length);
+}
+
+// Constrói o objeto de Habilidade (skill) para um Feitiço Lendário escolhido
+// do catálogo, pronto para entrar em p.skills.
+function construirSkillLendaria(item) {
+  return {
+    id: 'sk_lendario_' + item.id,
+    lendario: true,
+    name: item.name,
+    desc: item.desc,
+    color: 'blue',
+    cost: item.cost,
+    tipo: item.tipo,
+    usosMax: item.usosMax,
+    usosAtuais: item.usosMax,
+    cdRestante: 0,
+    turnosRecarga: item.turnosRecarga || 0,
+  };
+}
+
+// Adiciona um Feitiço Lendário do catálogo à ficha do personagem, respeitando
+// o limite de fontes que ele possui. Não duplica.
+function adicionarFeiticoLendario(pid, itemId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = FEITICOS_LENDARIOS.find(f => f.id === itemId);
+  if (!item) return;
+  if (!Array.isArray(p.skills)) p.skills = [];
+  const jaTem = p.skills.some(sk => sk.lendario && sk.id === 'sk_lendario_' + item.id);
+  if (jaTem) return;
+
+  const limite = getLimiteFeiticosLendarios(p);
+  const escolhidos = getFeiticosLendariosEscolhidos(p).length;
+  if (escolhidos >= limite) {
+    alert(limite === 0
+      ? 'Você ainda não tem direito a um Feitiço Lendário (precisa ser Conjurador no Nível 5 ou ter o Talento Superior "Transcendência Mental").'
+      : `Limite de Feitiços Lendários atingido (máx. ${limite}).`);
+    return;
+  }
+
+  p.skills.push(construirSkillLendaria(item));
+  saveState();
+  renderAll();
+  if (typeof renderFeiticosLendariosModal === 'function') renderFeiticosLendariosModal(pid);
+}
+
+// Monta o HTML do bloco "Corromper" de um Ritual Macabro — diferente do
+// Efeito Secundário (que depende de uma passiva de subclasse e custa
+// Humanidade), o Corromper é intrínseco ao próprio Ritual e custa Sanidade
+// (um dado, ex: "1d10"). Sempre visível, sem checagem de passiva. Reaproveita
+// as mesmas classes CSS do Efeito Secundário (caixa colapsável).
+function renderCorromperHtml(uniqueKey, item) {
+  const cor = item.corromper;
+  if (!cor) return '';
+  const boxId = 'corromper-' + uniqueKey;
+  return `
+    <div class="efeito-secundario-box collapsed" id="${boxId}">
+      <div class="efeito-secundario-header" onclick="event.stopPropagation(); toggleEfeitoSecundario('${boxId}')">
+        <span class="efeito-secundario-titulo">🌀 Corromper <span class="efeito-secundario-custo">(${cor.dado} de Sanidade)</span></span>
+        <i class="ti ti-chevron-down efeito-secundario-chevron"></i>
+      </div>
+      <div class="efeito-secundario-body">
+        <div class="efeito-secundario-desc">${cor.desc}</div>
+      </div>
+    </div>`;
+}
+
+// Versão em texto puro do Corromper, pra tooltips nativos (chip do Narrador).
+function getCorromperTextoPlano(item) {
+  const cor = item.corromper;
+  if (!cor) return '';
+  return `\n\nCorromper (${cor.dado} de Sanidade): ${cor.desc}`;
+}
+
+// ═══════════════════════════════════════
+// BANCO DE RITUAIS MACABROS
+// ═══════════════════════════════════════
+// Catálogo fixo de Rituais Macabros, concedidos pelo Talento Superior
+// "Vínculo Místico" ("...tem direito a um ritual místico"). Não possuem
+// nenhuma maestria vinculada (cor 'gray' / Neutras, sem bônus de atributo).
+// Cada um tem uma versão "Corromper": um efeito extra, mais poderoso, pago
+// com dano direto na Sanidade (aumenta a Insanidade) em vez de Ação extra ou
+// Humanidade. São salvos em p.skills, marcados com `ritualMacabro: true`.
+const RITUAIS_MACABROS = [
+  { id: 'perfeicao_armamentista', name: 'Perfeição Armamentista', desc: 'Sua arma cria um olho até o final do turno que irá nas fraquezas do alvo: o alvo não pode desviar e o dano da sua arma tem Mega Vantagem.', corromper: { dado: '1d10', desc: 'O Vazio aprimora sua criação: +1 Ação e +1 dado de dano base até o final do seu turno.' }, cost: 0, tipo: 'turno_N', turnosRecarga: 2 },
+  { id: 'bola_de_cristal_corrompida', name: 'Bola de Cristal Corrompida', desc: 'Você prevê a próxima ação do alvo. Se a ação mudar por causa da luta, você saberá.', corromper: { dado: '1d20', desc: 'O Vazio introduz um pensamento na mente do alvo, permitindo que você altere a próxima ação dele como desejar.' }, cost: 1, tipo: 'turno_N', turnosRecarga: 3 },
+  { id: 'aura_de_caos', name: 'Aura de Caos', desc: 'Receba asas do Caos até o final do próximo turno. Gasta 1 de Passos para levantar ou descer voando. Ao voar, recebe +12 de Passos e +1d8 de Vantagem em ataques de longo alcance.', corromper: { dado: '1d20', desc: 'O Vazio te concede mais poder: as asas se mantêm até o final da luta/cena.' }, cost: 0, tipo: 'turno_N', turnosRecarga: 5 },
+  { id: 'remoldando_a_realidade', name: 'Remoldando a Realidade', desc: 'Cancele um resultado de qualquer dado. Se quiser, pode relançar. (Pode usar fora do turno.)', corromper: { dado: '1d10', desc: 'O Vazio altera a ação/teste/cena que exigiu o dado do jeito que você desejar.' }, cost: 0, tipo: 'sessao', usosMax: 3 },
+  { id: 'remicao_profana', name: 'Remição Profana', desc: 'Consuma 1d4 de Sanidade e receba 1 Ação neste turno; receba 1 Ação de Movimento neste turno; cure 1d8 da sua Vida ou restaure 1d4 da sua Armadura. Além disso, neste turno, uma Habilidade sua não gasta uma Ação.', corromper: { dado: '3d4', desc: 'O Vazio te oferece todas as outras opções de uma vez.' }, cost: 0, tipo: 'sessao', usosMax: 5 },
+  { id: 'poema_caotico', name: 'Poema Caótico', desc: 'Escolha um alvo e as vozes te contarão uma informação útil sobre ele.', corromper: { dado: '3d10', desc: 'O Vazio te oferece 3 informações sobre o alvo, escolha 1 e ela será adicionada sobre o alvo.' }, cost: 1, tipo: 'turno_N', turnosRecarga: 3, concedeNota: 'qualquer' },
+];
+
+// O personagem tem acesso aos Rituais Macabros (Talento Superior "Vínculo
+// Místico")? Usado só pra decidir se mostra o botão de escolha na ficha.
+function temAcessoRitualMacabro(p) {
+  return getTalentosSuperioresEscolhidos(p).some(pas => pas.talentoSuperiorId === 'vinculo_mistico');
+}
+
+// Quantos Rituais Macabros o personagem tem direito de escolher — "Vínculo
+// Místico" concede o direito a 1.
+function getLimiteRituaisMacabros(p) {
+  return temAcessoRitualMacabro(p) ? 1 : 0;
+}
+
+function getRituaisMacabrosEscolhidos(p) {
+  return (p.skills || []).filter(sk => sk.ritualMacabro);
+}
+
+function getRituaisMacabrosPendentes(p) {
+  return Math.max(0, getLimiteRituaisMacabros(p) - getRituaisMacabrosEscolhidos(p).length);
+}
+
+// Constrói o objeto de Habilidade (skill) para um Ritual Macabro escolhido
+// do catálogo, pronto para entrar em p.skills.
+function construirSkillRitualMacabro(item) {
+  return {
+    id: 'sk_ritual_' + item.id,
+    ritualMacabro: true,
+    name: item.name,
+    desc: item.desc,
+    color: 'gray',
+    cost: item.cost,
+    tipo: item.tipo,
+    usosMax: item.usosMax,
+    usosAtuais: item.usosMax,
+    cdRestante: 0,
+    turnosRecarga: item.turnosRecarga || 0,
+    corromper: item.corromper,
+    concedeNota: item.concedeNota || null,
+  };
+}
+
+// Adiciona um Ritual Macabro do catálogo à ficha do personagem, respeitando
+// o limite (1, dado por "Vínculo Místico"). Não duplica.
+function adicionarRitualMacabro(pid, itemId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = RITUAIS_MACABROS.find(r => r.id === itemId);
+  if (!item) return;
+  if (!Array.isArray(p.skills)) p.skills = [];
+  const jaTem = p.skills.some(sk => sk.ritualMacabro && sk.id === 'sk_ritual_' + item.id);
+  if (jaTem) return;
+
+  const limite = getLimiteRituaisMacabros(p);
+  const escolhidos = getRituaisMacabrosEscolhidos(p).length;
+  if (escolhidos >= limite) {
+    alert(limite === 0
+      ? 'Você ainda não tem direito a um Ritual Macabro (precisa do Talento Superior "Vínculo Místico").'
+      : `Limite de Rituais Macabros atingido (máx. ${limite}).`);
+    return;
+  }
+
+  p.skills.push(construirSkillRitualMacabro(item));
+  saveState();
+  renderAll();
+  if (typeof renderRituaisMacabrosModal === 'function') renderRituaisMacabrosModal(pid);
+}
+
+// ═══════════════════════════════════════
 // BANCO DE HABILIDADES DE SUBCLASSE
 // ═══════════════════════════════════════
 // Diferente de SUBCLASSES_SKILLS (habilidades fixas, injetadas automaticamente),
@@ -1444,7 +1655,7 @@ function contarBancoEscolhas(p) {
 // - Elfo ("Aprendizagem Élfica"): cumulativo até o Nível 5 (1,2,3,4,5).
 // - Conjurador ("Transcendência Intelectual"): cumulativo até o Nível 4
 //   (1,2,3,4) — no Nível 5, ao invés de mais uma Habilidade normal, aprende
-//   um Feitiço Lendário (mecânica própria, ainda não implementada aqui).
+//   um Feitiço Lendário — ver getLimiteFeiticosLendarios/openFeiticosLendariosModal.
 function temFonteOutraClasse(p) {
   return p.race === 'Elfo' || p.cls === 'Conjurador';
 }
@@ -1785,6 +1996,8 @@ function toggleWizardTalentoSuperior(talentoId) {
   if (idx !== -1) {
     wizardTalentosSuperioresEscolhidos.splice(idx, 1);
     renderWizardTalentosSuperioresStep();
+    if (typeof renderWizardFeiticosLendariosStep === 'function') renderWizardFeiticosLendariosStep();
+    if (typeof renderWizardRituaisMacabrosStep === 'function') renderWizardRituaisMacabrosStep();
     return;
   }
   if (creationLevel < 4) return;
@@ -1794,6 +2007,164 @@ function toggleWizardTalentoSuperior(talentoId) {
   }
   wizardTalentosSuperioresEscolhidos.push(talentoId);
   renderWizardTalentosSuperioresStep();
+  if (typeof renderWizardFeiticosLendariosStep === 'function') renderWizardFeiticosLendariosStep();
+  if (typeof renderWizardRituaisMacabrosStep === 'function') renderWizardRituaisMacabrosStep();
+}
+
+// ═══════════════════════════════════════
+// PASSO 5 DO WIZARD DE CRIAÇÃO — Escolha de Feitiço Lendário
+// ═══════════════════════════════════════
+// Um personagem criado já como Conjurador no Nível 5+ ou que já escolheu o
+// Talento Superior "Transcendência Mental" neste mesmo wizard tem direito a
+// escolher 1 Feitiço Lendário por fonte (as fontes se somam) desde a criação.
+function getLimiteWizardFeiticosLendarios() {
+  const pseudo = getWizardPseudoPlayer();
+  let limite = 0;
+  if (pseudo.cls === 'Conjurador' && creationLevel >= 5) limite += 1;
+  if (wizardTalentosSuperioresEscolhidos.includes('transcendencia_mental')) limite += 1;
+  return limite;
+}
+
+function renderWizardFeiticosLendariosStep() {
+  const secao = document.getElementById('c-feiticos-lendarios-section');
+  const aviso = document.getElementById('c-feiticos-lendarios-aviso');
+  const lista = document.getElementById('c-feiticos-lendarios-lista');
+  const progressoEl = document.getElementById('c-feiticos-lendarios-progresso');
+  if (!secao || !lista) return;
+
+  const limite = getLimiteWizardFeiticosLendarios();
+
+  if (wizardFeiticosLendariosEscolhidos.length > limite) {
+    wizardFeiticosLendariosEscolhidos = wizardFeiticosLendariosEscolhidos.slice(0, limite);
+  }
+
+  if (limite === 0) {
+    if (aviso) aviso.style.display = '';
+    lista.innerHTML = '';
+    if (progressoEl) progressoEl.innerHTML = '';
+    wizardFeiticosLendariosEscolhidos = [];
+    return;
+  }
+  if (aviso) aviso.style.display = 'none';
+
+  const intel = parseInt(document.getElementById('c-int')?.value) || 5;
+  const mstLendaria = Math.ceil(maestria(intel) / 2);
+
+  if (progressoEl) {
+    progressoEl.innerHTML = `Escolhidos: <strong style="color:var(--text)">${wizardFeiticosLendariosEscolhidos.length}/${limite}</strong>`
+      + (wizardFeiticosLendariosEscolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '')
+      + ` · Maestria Lendária: <strong style="color:var(--text)">+${mstLendaria}</strong> (Intelecto/2)`;
+  }
+
+  lista.innerHTML = FEITICOS_LENDARIOS.map(item => {
+    const jaTem = wizardFeiticosLendariosEscolhidos.includes(item.id);
+    const bloqueado = !jaTem && wizardFeiticosLendariosEscolhidos.length >= limite;
+    let labelBtn = 'Escolher';
+    if (jaTem) labelBtn = '✓ Escolhido — clique para remover';
+    else if (bloqueado) labelBtn = `🔒 Limite atingido (${wizardFeiticosLendariosEscolhidos.length}/${limite})`;
+    return `
+    <div class="skill-card sk-blue" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div class="sk-tags"><span class="sk-tag">${item.cost === 0 ? '0 ações' : item.cost === 1 ? '1 ação' : '2 ações'}</span><span class="sk-tag">${item.usosMax}x/sessão</span><span class="sk-tag sk-tag-mst">🌟 +${mstLendaria} maestria (lendária)</span></div>
+      <div style="font-size:11px;color:var(--text2);margin:8px 0 12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      <button class="btn ${jaTem ? '' : (bloqueado ? '' : 'btn-primary')}" style="width:100%;justify-content:center" ${(bloqueado && !jaTem) ? 'disabled' : ''} onclick="toggleWizardFeiticoLendario('${item.id}')">
+        ${labelBtn}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// Alterna a escolha de um Feitiço Lendário durante a criação (adiciona se
+// ainda não tinha, remove se já tinha). Limite dado por getLimiteWizardFeiticosLendarios.
+function toggleWizardFeiticoLendario(itemId) {
+  const idx = wizardFeiticosLendariosEscolhidos.indexOf(itemId);
+  if (idx !== -1) {
+    wizardFeiticosLendariosEscolhidos.splice(idx, 1);
+    renderWizardFeiticosLendariosStep();
+    return;
+  }
+  const limite = getLimiteWizardFeiticosLendarios();
+  if (limite === 0) return;
+  if (wizardFeiticosLendariosEscolhidos.length >= limite) {
+    alert(`Limite de Feitiços Lendários atingido (máx. ${limite}).`);
+    return;
+  }
+  wizardFeiticosLendariosEscolhidos.push(itemId);
+  renderWizardFeiticosLendariosStep();
+}
+
+// ═══════════════════════════════════════
+// PASSO 5 DO WIZARD DE CRIAÇÃO — Escolha de Ritual Macabro
+// ═══════════════════════════════════════
+// Um personagem que já escolheu o Talento Superior "Vínculo Místico" neste
+// mesmo wizard tem direito a escolher 1 Ritual Macabro desde a criação.
+function getLimiteWizardRituaisMacabros() {
+  return wizardTalentosSuperioresEscolhidos.includes('vinculo_mistico') ? 1 : 0;
+}
+
+function renderWizardRituaisMacabrosStep() {
+  const secao = document.getElementById('c-rituais-macabros-section');
+  const aviso = document.getElementById('c-rituais-macabros-aviso');
+  const lista = document.getElementById('c-rituais-macabros-lista');
+  const progressoEl = document.getElementById('c-rituais-macabros-progresso');
+  if (!secao || !lista) return;
+
+  const limite = getLimiteWizardRituaisMacabros();
+
+  if (wizardRituaisMacabrosEscolhidos.length > limite) {
+    wizardRituaisMacabrosEscolhidos = wizardRituaisMacabrosEscolhidos.slice(0, limite);
+  }
+
+  if (limite === 0) {
+    if (aviso) aviso.style.display = '';
+    lista.innerHTML = '';
+    if (progressoEl) progressoEl.innerHTML = '';
+    wizardRituaisMacabrosEscolhidos = [];
+    return;
+  }
+  if (aviso) aviso.style.display = 'none';
+
+  if (progressoEl) {
+    progressoEl.innerHTML = `Escolhidos: <strong style="color:var(--text)">${wizardRituaisMacabrosEscolhidos.length}/${limite}</strong>`
+      + (wizardRituaisMacabrosEscolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '');
+  }
+
+  lista.innerHTML = RITUAIS_MACABROS.map(item => {
+    const jaTem = wizardRituaisMacabrosEscolhidos.includes(item.id);
+    const bloqueado = !jaTem && wizardRituaisMacabrosEscolhidos.length >= limite;
+    let labelBtn = 'Escolher';
+    if (jaTem) labelBtn = '✓ Escolhido — clique para remover';
+    else if (bloqueado) labelBtn = `🔒 Limite atingido (${wizardRituaisMacabrosEscolhidos.length}/${limite})`;
+    return `
+    <div class="skill-card sk-gray" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div class="sk-tags"><span class="sk-tag">${item.cost === 0 ? '0 ações' : item.cost === 1 ? '1 ação' : '2 ações'}</span><span class="sk-tag">${tipoLabel(item)}</span>${item.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${item.concedeNota === 'qualquer' ? 'escolha uma nota' : item.concedeNota}</span>` : ''}</div>
+      <div style="font-size:11px;color:var(--text2);margin:8px 0 12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      ${renderCorromperHtml('wizard-' + item.id, item)}
+      <button class="btn ${jaTem ? '' : (bloqueado ? '' : 'btn-primary')}" style="width:100%;justify-content:center;margin-top:10px" ${(bloqueado && !jaTem) ? 'disabled' : ''} onclick="toggleWizardRitualMacabro('${item.id}')">
+        ${labelBtn}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// Alterna a escolha de um Ritual Macabro durante a criação (adiciona se
+// ainda não tinha, remove se já tinha). Limite dado por getLimiteWizardRituaisMacabros.
+function toggleWizardRitualMacabro(itemId) {
+  const idx = wizardRituaisMacabrosEscolhidos.indexOf(itemId);
+  if (idx !== -1) {
+    wizardRituaisMacabrosEscolhidos.splice(idx, 1);
+    renderWizardRituaisMacabrosStep();
+    return;
+  }
+  const limite = getLimiteWizardRituaisMacabros();
+  if (limite === 0) return;
+  if (wizardRituaisMacabrosEscolhidos.length >= limite) {
+    alert(`Limite de Rituais Macabros atingido (máx. ${limite}).`);
+    return;
+  }
+  wizardRituaisMacabrosEscolhidos.push(itemId);
+  renderWizardRituaisMacabrosStep();
 }
 
 // Alterna a escolha de uma Habilidade do banco durante a criação (adiciona
@@ -2236,7 +2607,7 @@ const SUBCLASSES_PASSIVAS = {
     { id: 'feiticeiro_fogo_maestria_pesada', name: 'Maestria Pesada', desc: 'Sabe usar Armadura Pesada e Armas Pesadas. Escolha um Teste de Força e receberá Mega Vantagem.' },
   ],
   'Conjurador': [
-    { id: 'conjurador_transcendencia_intelectual', name: 'Transcendência Intelectual', desc: 'Aprenda um feitiço de outra Classe, desde que baseado em Intelecto (escolha no Banco de Habilidades, aba com o ícone da Classe de origem). Ao subir de Nível, repita esse efeito. No Nível 5, ao invés de um feitiço, aprenda um feitiço Lendário (mecânica ainda não implementada).' },
+    { id: 'conjurador_transcendencia_intelectual', name: 'Transcendência Intelectual', desc: 'Aprenda um feitiço de outra Classe, desde que baseado em Intelecto (escolha no Banco de Habilidades, aba com o ícone da Classe de origem). Ao subir de Nível, repita esse efeito. No Nível 5, ao invés de um feitiço, aprenda um Feitiço Lendário (botão "Escolher Feitiço Lendário" na ficha).' },
     { id: 'conjurador_maestria_leve', name: 'Maestria Leve', desc: 'Sabe usar Armadura Leve e Armas Leves. Escolha um Teste de Intelecto e receberá Mega Vantagem.' },
   ],
   'Alquimista': [
@@ -2443,6 +2814,16 @@ let wizardTalentosEscolhidos = [];
 // como lista de talentoId — só disponível se o personagem já nasce no Nível
 // 4 ou superior. Mesmo ciclo de vida de wizardTalentosEscolhidos.
 let wizardTalentosSuperioresEscolhidos = [];
+// Feitiço Lendário escolhido durante a criação (passo 5 do wizard), guardado
+// como lista de itemId — só disponível se o personagem já nasce Conjurador
+// no Nível 5+ ou já escolheu o Talento Superior "Transcendência Mental" no
+// próprio wizard. Mesmo ciclo de vida das outras listas do wizard.
+let wizardFeiticosLendariosEscolhidos = [];
+// Ritual Macabro escolhido durante a criação (passo 5 do wizard), guardado
+// como lista de itemId — só disponível se o personagem já escolheu o
+// Talento Superior "Vínculo Místico" no próprio wizard. Mesmo ciclo de vida
+// das outras listas do wizard.
+let wizardRituaisMacabrosEscolhidos = [];
 let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
@@ -3180,11 +3561,13 @@ function renderNarrador() {
         else if ((sk.tipo==='luta'||sk.tipo==='sessao') && sk.usosAtuais < sk.usosMax) extra = `<span class="chip-cd">${sk.usosAtuais}/${sk.usosMax}</span>`;
         const descTooltip = sk.desc ? `Efeito: ${sk.desc}\n\n` : '';
         const statusTooltip = ready ? 'Pronta para uso' : `Indisponível (${tipoLabel(sk)})`;
+        const lendarioTooltip = sk.lendario ? `Feitiço Lendário — Maestria: +${getMaestriaLendaria(p)} (Intelecto/2)\n\n` : '';
+        const corromperTooltip = getCorromperTextoPlano(sk);
         const efeitoSecTxt = getEfeitoSecundarioTextoPlano(p, sk);
         const efeitoSecIcone = (sk.efeitoSecundario && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo] && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo].icone) || '✨';
         const efeitoSecBadge = efeitoSecTxt ? `<span class="chip-badge" style="background:rgba(124,92,191,0.25);color:#b89aff;border-color:rgba(155,125,224,0.45)">${efeitoSecIcone}</span>` : '';
-        return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${descTooltip}${statusTooltip}${efeitoSecTxt}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}
+        return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
+          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
@@ -3220,11 +3603,15 @@ function renderNarrador() {
     const pendTalentoBadge = (talentosPendentes > 0) ? ` <span title="Personagem tem Talento Inferior não escolhido" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🎖 ${talentosPendentes} talento</span>` : '';
     const talentosSuperioresPendentes = getTalentosSuperioresPendentes(p);
     const pendTalentoSuperiorBadge = (talentosSuperioresPendentes > 0) ? ` <span title="Personagem tem Talento Superior não escolhido" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">👑 ${talentosSuperioresPendentes} talento sup.</span>` : '';
+    const feiticosLendariosPendentes = getFeiticosLendariosPendentes(p);
+    const pendFeiticoLendarioBadge = (feiticosLendariosPendentes > 0) ? ` <span title="Personagem tem Feitiço Lendário não escolhido" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">✨ ${feiticosLendariosPendentes} lendário</span>` : '';
+    const rituaisMacabrosPendentes = getRituaisMacabrosPendentes(p);
+    const pendRitualMacabroBadge = (rituaisMacabrosPendentes > 0) ? ` <span title="Personagem tem Ritual Macabro não escolhido" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🌀 ${rituaisMacabrosPendentes} ritual</span>` : '';
     const formaDragaoBadge = (p.race === 'Dragão' && p.formaDragao) ? ` <span title="Em forma de Dragão: Sopro, Iniciar Voo, Impacto de Pouso e Garras Dracônicas disponíveis" style="display:inline-flex;align-items:center;gap:3px;background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐉 Forma de Dragão</span>` : '';
     return `<div class="prow ${bm ? 'beira-morte' : ''}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -3647,6 +4034,9 @@ function renderJogador() {
     const totalCount = grupos[cor].length;
     const cards = collapsed ? '' : grupos[cor].map(sk => {
       const ready = isReady(sk, p);
+      const mstTagCard = sk.lendario
+        ? `<span class="sk-tag sk-tag-mst">🌟 +${getMaestriaLendaria(p)} maestria (lendária)</span>`
+        : mstTag;
       const state = sk.tipo==='infinite' ? 'ready' : ready ? 'ready' : sk.cdRestante>0 ? 'cooldown' : 'exhausted';
       let cdHtml = '', dotsHtml = '';
       if (sk.tipo === 'turno_N') cdHtml = sk.cdRestante > 0 ? `<span class="sk-cd">⏳ ${sk.cdRestante} turno${sk.cdRestante>1?'s':''}</span>` : `<span class="sk-cd">Pronta</span>`;
@@ -3666,13 +4056,16 @@ function renderJogador() {
         <div class="sk-tags">
           <span class="sk-tag">${sk.cost===0?'0 ações':sk.cost===1?'1 ação':'2 ações'}</span>
           <span class="sk-tag">${tipoLabel(sk)}</span>
-          ${mstTag}
+          ${mstTagCard}
+          ${sk.lendario ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">✨ Feitiço Lendário</span>` : ''}
+          ${sk.ritualMacabro ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🌀 Ritual Macabro</span>` : ''}
           ${sk.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${sk.concedeNota === 'qualquer' ? 'escolha uma nota' : sk.concedeNota}</span>` : ''}
         </div>
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
             ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
         </div>
         ${renderEfeitoSecundarioHtml(p, sk)}
+        ${renderCorromperHtml(p.id + '-' + sk.id, sk)}
         <div class="sk-bottom">
           <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>
             Usar
@@ -3782,6 +4175,22 @@ function renderJogador() {
           <div style="flex:1">
             <div style="font-size:12px;font-weight:700;color:var(--accent2)">Você subiu de nível!</div>
             <div style="font-size:11px;color:var(--text2)">${p.pontosPendentes} pontos de atributo para distribuir · toque para editar</div>
+          </div>
+        </div>` : ''}
+        ${getRituaisMacabrosPendentes(p) > 0 ? `
+        <div onclick="openRituaisMacabrosModal(${p.id})" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(124,92,191,0.15);border:1px solid rgba(124,92,191,0.45);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">🌀</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--accent2)">Ritual Macabro disponível!</div>
+            <div style="font-size:11px;color:var(--text2)">${getRituaisMacabrosPendentes(p)} escolha${getRituaisMacabrosPendentes(p) === 1 ? '' : 's'} de Ritual Macabro · toque para escolher</div>
+          </div>
+        </div>` : ''}
+        ${getFeiticosLendariosPendentes(p) > 0 ? `
+        <div onclick="openFeiticosLendariosModal(${p.id})" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(124,92,191,0.15);border:1px solid rgba(124,92,191,0.45);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">✨</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--accent2)">Feitiço Lendário disponível!</div>
+            <div style="font-size:11px;color:var(--text2)">${getFeiticosLendariosPendentes(p)} escolha${getFeiticosLendariosPendentes(p) === 1 ? '' : 's'} de Feitiço Lendário · toque para escolher</div>
           </div>
         </div>` : ''}
         ${getTalentosSuperioresPendentes(p) > 0 ? `
@@ -3939,6 +4348,8 @@ function renderJogador() {
         <button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>
         <button class="add-skill-btn" onclick="openTalentosModal(${p.id})"><i class="ti ti-award"></i> Escolher Talento Inferior${getTalentosInferioresPendentes(p) > 0 ? ` <span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${getTalentosInferioresPendentes(p)}</span>` : ''}</button>
         <button class="add-skill-btn" onclick="openTalentosSuperioresModal(${p.id})"><i class="ti ti-crown"></i> Escolher Talento Superior${getTalentosSuperioresPendentes(p) > 0 ? ` <span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${getTalentosSuperioresPendentes(p)}</span>` : ''}</button>
+        ${temAcessoFeiticoLendario(p) ? `<button class="add-skill-btn" onclick="openFeiticosLendariosModal(${p.id})"><i class="ti ti-sparkles"></i> Escolher Feitiço Lendário${getFeiticosLendariosPendentes(p) > 0 ? ` <span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${getFeiticosLendariosPendentes(p)}</span>` : ''}</button>` : ''}
+        ${temAcessoRitualMacabro(p) ? `<button class="add-skill-btn" onclick="openRituaisMacabrosModal(${p.id})"><i class="ti ti-eye"></i> Escolher Ritual Macabro${getRituaisMacabrosPendentes(p) > 0 ? ` <span class="gt-ready-badge" style="background:rgba(124,92,191,0.15);color:var(--accent2);border-color:rgba(124,92,191,0.3)">${getRituaisMacabrosPendentes(p)}</span>` : ''}</button>` : ''}
       </div>`}
 
       ${expressoesList.length ? `
@@ -5342,6 +5753,116 @@ function renderTalentosSuperioresModal(pid) {
   }).join('');
 }
 
+// ═══════════════════════════════════════
+// MODAL — BANCO DE FEITIÇOS LENDÁRIOS
+// ═══════════════════════════════════════
+let feiticosLendariosPid = null;
+
+function openFeiticosLendariosModal(pid) {
+  feiticosLendariosPid = pid;
+  renderFeiticosLendariosModal(pid);
+  document.getElementById('modal-feiticos-lendarios-overlay').classList.add('open');
+}
+
+function closeFeiticosLendariosModal() {
+  const overlay = document.getElementById('modal-feiticos-lendarios-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// Repinta o catálogo fixo de Feitiços Lendários (mesmo padrão dos modais de
+// Talentos, mas indica também a maestria especial — Intelecto/2 — de cada
+// Feitiço, já calculada para o personagem atual).
+function renderFeiticosLendariosModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  const limite = getLimiteFeiticosLendarios(p);
+  const escolhidos = getFeiticosLendariosEscolhidos(p);
+  const mstLendaria = getMaestriaLendaria(p);
+
+  const progressoEl = document.getElementById('feiticos-lendarios-progresso');
+  if (progressoEl) {
+    progressoEl.innerHTML = limite > 0
+      ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}/${limite}</strong>` + (escolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '') + ` · Maestria Lendária: <strong style="color:var(--text)">+${mstLendaria}</strong> (Intelecto/2)`
+      : `Sem acesso ainda — precisa ser Conjurador no Nível 5 ou ter o Talento Superior "Transcendência Mental".`;
+  }
+
+  const lista = document.getElementById('feiticos-lendarios-lista');
+  if (!lista) return;
+  lista.innerHTML = FEITICOS_LENDARIOS.map(item => {
+    const jaTem = escolhidos.some(sk => sk.id === 'sk_lendario_' + item.id);
+    const bloqueado = !jaTem && escolhidos.length >= limite;
+    let labelBtn = 'Adicionar à ficha';
+    if (jaTem) labelBtn = '✓ Já adicionado';
+    else if (bloqueado) labelBtn = limite === 0 ? '🔒 Sem acesso' : `🔒 Limite atingido (${escolhidos.length}/${limite})`;
+    const desabilitado = jaTem || bloqueado;
+    return `
+    <div class="skill-card sk-blue" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div class="sk-tags"><span class="sk-tag">${item.cost === 0 ? '0 ações' : item.cost === 1 ? '1 ação' : '2 ações'}</span><span class="sk-tag">${item.usosMax}x/sessão</span><span class="sk-tag sk-tag-mst">🌟 +${mstLendaria} maestria (lendária)</span></div>
+      <div style="font-size:11px;color:var(--text2);margin:8px 0 12px;line-height:1.5;white-space:pre-wrap;max-height:130px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      <button class="btn ${desabilitado ? '' : 'btn-primary'}" style="width:100%;justify-content:center" ${desabilitado ? 'disabled' : ''} onclick="adicionarFeiticoLendario(${p.id}, '${item.id}')">
+        ${labelBtn}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// MODAL — BANCO DE RITUAIS MACABROS
+// ═══════════════════════════════════════
+let rituaisMacabrosPid = null;
+
+function openRituaisMacabrosModal(pid) {
+  rituaisMacabrosPid = pid;
+  renderRituaisMacabrosModal(pid);
+  document.getElementById('modal-rituais-macabros-overlay').classList.add('open');
+}
+
+function closeRituaisMacabrosModal() {
+  const overlay = document.getElementById('modal-rituais-macabros-overlay');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// Repinta o catálogo fixo de Rituais Macabros. Cada card já mostra o bloco
+// colapsável de Corromper (custo em dado de Sanidade), igual ao que aparece
+// depois na ficha.
+function renderRituaisMacabrosModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  const limite = getLimiteRituaisMacabros(p);
+  const escolhidos = getRituaisMacabrosEscolhidos(p);
+
+  const progressoEl = document.getElementById('rituais-macabros-progresso');
+  if (progressoEl) {
+    progressoEl.innerHTML = limite > 0
+      ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}/${limite}</strong>` + (escolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '')
+      : `Sem acesso ainda — precisa do Talento Superior "Vínculo Místico".`;
+  }
+
+  const lista = document.getElementById('rituais-macabros-lista');
+  if (!lista) return;
+  lista.innerHTML = RITUAIS_MACABROS.map(item => {
+    const jaTem = escolhidos.some(sk => sk.id === 'sk_ritual_' + item.id);
+    const bloqueado = !jaTem && escolhidos.length >= limite;
+    let labelBtn = 'Adicionar à ficha';
+    if (jaTem) labelBtn = '✓ Já adicionado';
+    else if (bloqueado) labelBtn = limite === 0 ? '🔒 Sem acesso' : `🔒 Limite atingido (${escolhidos.length}/${limite})`;
+    const desabilitado = jaTem || bloqueado;
+    return `
+    <div class="skill-card sk-gray" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div class="sk-tags"><span class="sk-tag">${item.cost === 0 ? '0 ações' : item.cost === 1 ? '1 ação' : '2 ações'}</span><span class="sk-tag">${tipoLabel(item)}</span>${item.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${item.concedeNota === 'qualquer' ? 'escolha uma nota' : item.concedeNota}</span>` : ''}</div>
+      <div style="font-size:11px;color:var(--text2);margin:8px 0 12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
+      ${renderCorromperHtml('modal-' + item.id, item)}
+      <button class="btn ${desabilitado ? '' : 'btn-primary'}" style="width:100%;justify-content:center;margin-top:10px" ${desabilitado ? 'disabled' : ''} onclick="adicionarRitualMacabro(${p.id}, '${item.id}')">
+        ${labelBtn}
+      </button>
+    </div>`;
+  }).join('');
+}
+
 function selColor(c, el) {
   modalColor = c;
   document.querySelectorAll('.color-opt').forEach(x => x.classList.remove('selected'));
@@ -5735,6 +6256,7 @@ function selectCreationLevel(n) {
   if (creationLevel < 4) wizardTalentosSuperioresEscolhidos = [];
   if (typeof renderWizardTalentosStep === 'function') renderWizardTalentosStep();
   if (typeof renderWizardTalentosSuperioresStep === 'function') renderWizardTalentosSuperioresStep();
+  if (typeof renderWizardFeiticosLendariosStep === 'function') renderWizardFeiticosLendariosStep();
 }
 
 // Reseta apenas o campo de Vida para a base efetiva atual (chamado sempre
@@ -5998,6 +6520,8 @@ function openCharModal() {
   wizardBancoTabAtiva = null;
   wizardTalentosEscolhidos = [];
   wizardTalentosSuperioresEscolhidos = [];
+  wizardFeiticosLendariosEscolhidos = [];
+  wizardRituaisMacabrosEscolhidos = [];
   setModalMode(false);
   showWizardStep(1);
   setTimeout(() => document.getElementById('c-name').focus(), 50);
@@ -6110,6 +6634,8 @@ function handleStep4Continue() {
   renderWizardBancoStep();
   renderWizardTalentosStep();
   renderWizardTalentosSuperioresStep();
+  renderWizardFeiticosLendariosStep();
+  renderWizardRituaisMacabrosStep();
   showWizardStep(5);
 }
 
@@ -6220,6 +6746,24 @@ function saveCharacter() {
         novo.passivas.push({ id: 'pas_talento_sup_' + item.id, talentoSuperiorId: item.id, name: item.name, desc: item.desc });
       }
     });
+    // Feitiço Lendário escolhido no passo 5 do wizard de criação (só
+    // disponível se o personagem já nasce Conjurador no Nível 5+ ou já
+    // escolheu o Talento Superior "Transcendência Mental" no wizard).
+    wizardFeiticosLendariosEscolhidos.forEach(itemId => {
+      const item = FEITICOS_LENDARIOS.find(f => f.id === itemId);
+      if (item && !novo.skills.some(sk => sk.lendario && sk.id === 'sk_lendario_' + item.id)) {
+        novo.skills.push(construirSkillLendaria(item));
+      }
+    });
+    // Ritual Macabro escolhido no passo 5 do wizard de criação (só
+    // disponível se o personagem já escolheu o Talento Superior "Vínculo
+    // Místico" no wizard).
+    wizardRituaisMacabrosEscolhidos.forEach(itemId => {
+      const item = RITUAIS_MACABROS.find(r => r.id === itemId);
+      if (item && !novo.skills.some(sk => sk.ritualMacabro && sk.id === 'sk_ritual_' + item.id)) {
+        novo.skills.push(construirSkillRitualMacabro(item));
+      }
+    });
     PLAYERS.push(novo);
     modalCharId = newId;
   }
@@ -6229,6 +6773,8 @@ function saveCharacter() {
   wizardSkillsClasseSnapshot = null;
   wizardTalentosEscolhidos = [];
   wizardTalentosSuperioresEscolhidos = [];
+  wizardFeiticosLendariosEscolhidos = [];
+  wizardRituaisMacabrosEscolhidos = [];
 
   saveState();
   renderAll();
