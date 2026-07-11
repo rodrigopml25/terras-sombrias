@@ -993,10 +993,19 @@ function getTalentosInferioresEscolhidos(p) {
   return (p.passivas || []).filter(pas => pas.talentoInferiorId);
 }
 
+// Verifica se o personagem possui um Talento Superior específico (por id).
+function temTalentoSuperior(p, talentoSuperiorId) {
+  return getTalentosSuperioresEscolhidos(p).some(pas => pas.talentoSuperiorId === talentoSuperiorId);
+}
+
 // Quantos Talentos Inferiores o personagem tem direito de escolher. Regra
-// atual: recebe 1 ao chegar no Nível 2 (não escala com Níveis futuros).
+// base: recebe 1 ao chegar no Nível 2 (não escala com Níveis futuros). O
+// Talento Superior "Base Sólida" concede +2 Talentos Inferiores adicionais
+// (podendo repetir um que já possui — ver adicionarTalentoInferior).
 function getLimiteTalentosInferiores(p) {
-  return (p.level || 1) >= 2 ? 1 : 0;
+  let limite = (p.level || 1) >= 2 ? 1 : 0;
+  if (temTalentoSuperior(p, 'base_solida')) limite += 2;
+  return limite;
 }
 
 // Quantas escolhas de Talento Inferior ainda faltam ser feitas — usado para
@@ -1013,19 +1022,24 @@ function adicionarTalentoInferior(pid, talentoId) {
   const item = TALENTOS_INFERIORES.find(t => t.id === talentoId);
   if (!item) return;
   if (!Array.isArray(p.passivas)) p.passivas = [];
-  const jaTem = p.passivas.some(pas => pas.talentoInferiorId === item.id);
-  if (jaTem) return;
+
+  // "Base Sólida" permite repetir um Talento Inferior já possuído; sem ela,
+  // cada Talento Inferior só pode ser escolhido uma vez.
+  const podeRepetir = temTalentoSuperior(p, 'base_solida');
+  const qtdDoMesmo = p.passivas.filter(pas => pas.talentoInferiorId === item.id).length;
+  if (qtdDoMesmo > 0 && !podeRepetir) return;
 
   const limite = getLimiteTalentosInferiores(p);
   const escolhidos = getTalentosInferioresEscolhidos(p).length;
   if (escolhidos >= limite) {
     alert(limite === 0
       ? 'Talentos Inferiores só ficam disponíveis a partir do Nível 2.'
-      : `Limite de Talentos Inferiores atingido (máx. ${limite}). Suba de Nível para desbloquear mais.`);
+      : `Limite de Talentos Inferiores atingido (máx. ${limite}). Suba de Nível (ou tenha "Base Sólida") para desbloquear mais.`);
     return;
   }
 
-  p.passivas.push({ id: 'pas_talento_' + item.id, talentoInferiorId: item.id, name: item.name, desc: item.desc });
+  const instanceId = qtdDoMesmo > 0 ? `pas_talento_${item.id}_${qtdDoMesmo + 1}` : 'pas_talento_' + item.id;
+  p.passivas.push({ id: instanceId, talentoInferiorId: item.id, name: item.name, desc: item.desc });
   saveState();
   renderAll();
   if (typeof renderTalentosModal === 'function') renderTalentosModal(pid);
@@ -1885,6 +1899,15 @@ function trocarAbaWizardBanco(subNome) {
 // Um personagem criado já no Nível 2 ou superior tem direito ao Talento
 // Inferior desde a criação — mesma regra de getLimiteTalentosInferiores,
 // só que usando o creationLevel escolhido no passo 4 em vez de p.level.
+// Limite de Talentos Inferiores no wizard: 1 a partir do Nível 2, +2 se o
+// Talento Superior "Base Sólida" já tiver sido escolhido neste mesmo wizard
+// (mesmo padrão de getLimiteWizardFeiticosLendarios / getLimiteWizardRituaisMacabros).
+function getLimiteWizardTalentosInferiores() {
+  let limite = creationLevel >= 2 ? 1 : 0;
+  if (wizardTalentosSuperioresEscolhidos.includes('base_solida')) limite += 2;
+  return limite;
+}
+
 function renderWizardTalentosStep() {
   const secao = document.getElementById('c-talentos-section');
   const aviso = document.getElementById('c-talentos-aviso');
@@ -1892,7 +1915,12 @@ function renderWizardTalentosStep() {
   const progressoEl = document.getElementById('c-talentos-progresso');
   if (!secao || !lista) return;
 
-  const limite = creationLevel >= 2 ? 1 : 0;
+  const limite = getLimiteWizardTalentosInferiores();
+  const podeRepetir = wizardTalentosSuperioresEscolhidos.includes('base_solida');
+
+  if (wizardTalentosEscolhidos.length > limite) {
+    wizardTalentosEscolhidos = wizardTalentosEscolhidos.slice(0, limite);
+  }
 
   if (limite === 0) {
     if (aviso) aviso.style.display = '';
@@ -1905,41 +1933,65 @@ function renderWizardTalentosStep() {
 
   if (progressoEl) {
     progressoEl.innerHTML = `Escolhidos: <strong style="color:var(--text)">${wizardTalentosEscolhidos.length}/${limite}</strong>`
-      + (wizardTalentosEscolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '');
+      + (wizardTalentosEscolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '')
+      + (podeRepetir ? ' <span style="color:var(--accent2)">· Base Sólida: pode repetir um já escolhido</span>' : '');
   }
 
   lista.innerHTML = TALENTOS_INFERIORES.map(item => {
-    const jaTem = wizardTalentosEscolhidos.includes(item.id);
-    const bloqueado = !jaTem && wizardTalentosEscolhidos.length >= limite;
+    const qtd = wizardTalentosEscolhidos.filter(id => id === item.id).length;
+    const jaTem = qtd > 0;
+    const limiteAtingido = wizardTalentosEscolhidos.length >= limite;
     let labelBtn = 'Escolher';
-    if (jaTem) labelBtn = '✓ Escolhido — clique para remover';
-    else if (bloqueado) labelBtn = `🔒 Limite atingido (${wizardTalentosEscolhidos.length}/${limite})`;
+    if (jaTem && !podeRepetir) labelBtn = '✓ Escolhido — clique para remover';
+    else if (limiteAtingido) labelBtn = `🔒 Limite atingido (${wizardTalentosEscolhidos.length}/${limite})`;
+    else if (jaTem && podeRepetir) labelBtn = `➕ Escolhido ${qtd}x — clique para repetir`;
+    const desabilitado = (jaTem && !podeRepetir) ? false : limiteAtingido;
+    const removerBtn = (jaTem && podeRepetir)
+      ? `<button class="btn" style="width:100%;justify-content:center;margin-top:6px" onclick="removerUmaCopiaWizardTalento('${item.id}')">− Remover uma cópia</button>`
+      : '';
     return `
     <div class="skill-card sk-gray" style="margin:0">
       <div class="sk-name">${item.name}</div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;max-height:110px;overflow-y:auto;padding-right:4px;">${item.desc}</div>
-      <button class="btn ${jaTem ? '' : (bloqueado ? '' : 'btn-primary')}" style="width:100%;justify-content:center" ${(bloqueado && !jaTem) ? 'disabled' : ''} onclick="toggleWizardTalento('${item.id}')">
+      <button class="btn ${(jaTem && !podeRepetir) ? '' : (desabilitado ? '' : 'btn-primary')}" style="width:100%;justify-content:center" ${desabilitado ? 'disabled' : ''} onclick="toggleWizardTalento('${item.id}')">
         ${labelBtn}
       </button>
+      ${removerBtn}
     </div>`;
   }).join('');
 }
 
-// Alterna a escolha de um Talento Inferior durante a criação (adiciona se
-// ainda não tinha, remove se já tinha). Limite de 1, só a partir do Nível 2.
+// Alterna a escolha de um Talento Inferior durante a criação. Sem "Base
+// Sólida": clique adiciona/remove (toggle), limite de 1. Com "Base Sólida":
+// clique sempre adiciona (permite repetir), respeitando o limite total;
+// remoção de uma cópia repetida é feita pelo botão "− Remover uma cópia".
 function toggleWizardTalento(talentoId) {
+  const podeRepetir = wizardTalentosSuperioresEscolhidos.includes('base_solida');
   const idx = wizardTalentosEscolhidos.indexOf(talentoId);
-  if (idx !== -1) {
+
+  if (idx !== -1 && !podeRepetir) {
     wizardTalentosEscolhidos.splice(idx, 1);
     renderWizardTalentosStep();
     return;
   }
-  if (creationLevel < 2) return;
-  if (wizardTalentosEscolhidos.length >= 1) {
-    alert('Limite de Talento Inferior atingido (máx. 1).');
+
+  const limite = getLimiteWizardTalentosInferiores();
+  if (limite === 0) return;
+  if (wizardTalentosEscolhidos.length >= limite) {
+    alert(`Limite de Talento Inferior atingido (máx. ${limite}).`);
     return;
   }
   wizardTalentosEscolhidos.push(talentoId);
+  renderWizardTalentosStep();
+}
+
+// Remove uma única cópia de um Talento Inferior repetido (usado só quando
+// "Base Sólida" permite repetição — o toggle normal não serve pra isso
+// porque, nesse caso, clicar no card sempre adiciona outra cópia).
+function removerUmaCopiaWizardTalento(talentoId) {
+  const idx = wizardTalentosEscolhidos.indexOf(talentoId);
+  if (idx === -1) return;
+  wizardTalentosEscolhidos.splice(idx, 1);
   renderWizardTalentosStep();
 }
 
@@ -1996,6 +2048,7 @@ function toggleWizardTalentoSuperior(talentoId) {
   if (idx !== -1) {
     wizardTalentosSuperioresEscolhidos.splice(idx, 1);
     renderWizardTalentosSuperioresStep();
+    if (typeof renderWizardTalentosStep === 'function') renderWizardTalentosStep();
     if (typeof renderWizardFeiticosLendariosStep === 'function') renderWizardFeiticosLendariosStep();
     if (typeof renderWizardRituaisMacabrosStep === 'function') renderWizardRituaisMacabrosStep();
     return;
@@ -2007,6 +2060,7 @@ function toggleWizardTalentoSuperior(talentoId) {
   }
   wizardTalentosSuperioresEscolhidos.push(talentoId);
   renderWizardTalentosSuperioresStep();
+  if (typeof renderWizardTalentosStep === 'function') renderWizardTalentosStep();
   if (typeof renderWizardFeiticosLendariosStep === 'function') renderWizardFeiticosLendariosStep();
   if (typeof renderWizardRituaisMacabrosStep === 'function') renderWizardRituaisMacabrosStep();
 }
@@ -5673,23 +5727,32 @@ function renderTalentosModal(pid) {
 
   const limite = getLimiteTalentosInferiores(p);
   const escolhidos = getTalentosInferioresEscolhidos(p);
+  const podeRepetir = temTalentoSuperior(p, 'base_solida');
 
   const progressoEl = document.getElementById('talentos-progresso');
   if (progressoEl) {
     progressoEl.innerHTML = limite > 0
-      ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}/${limite}</strong>` + (escolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '')
+      ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}/${limite}</strong>` + (escolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '') + (podeRepetir ? ' <span style="color:var(--accent2)">· Base Sólida: pode repetir um já escolhido</span>' : '')
       : `Disponível a partir do Nível 2 · Nível atual: ${p.level || 1}`;
   }
 
   const lista = document.getElementById('talentos-lista');
   if (!lista) return;
   lista.innerHTML = TALENTOS_INFERIORES.map(item => {
-    const jaTem = escolhidos.some(pas => pas.talentoInferiorId === item.id);
-    const bloqueado = !jaTem && escolhidos.length >= limite;
-    let labelBtn = 'Adicionar à ficha';
-    if (jaTem) labelBtn = '✓ Já adicionado';
-    else if (bloqueado) labelBtn = limite === 0 ? '🔒 Disponível no Nível 2' : `🔒 Limite atingido (${escolhidos.length}/${limite})`;
-    const desabilitado = jaTem || bloqueado;
+    const qtd = escolhidos.filter(pas => pas.talentoInferiorId === item.id).length;
+    const jaTem = qtd > 0;
+    const limiteAtingido = escolhidos.length >= limite;
+    const desabilitado = limiteAtingido || (jaTem && !podeRepetir);
+    let labelBtn;
+    if (desabilitado) {
+      labelBtn = (jaTem && !podeRepetir)
+        ? '✓ Já adicionado'
+        : (limite === 0 ? '🔒 Disponível no Nível 2' : `🔒 Limite atingido (${escolhidos.length}/${limite})`);
+    } else if (jaTem && podeRepetir) {
+      labelBtn = `➕ Repetir (já tem ${qtd}x)`;
+    } else {
+      labelBtn = 'Adicionar à ficha';
+    }
     return `
     <div class="skill-card sk-gray" style="margin:0">
       <div class="sk-name">${item.name}</div>
@@ -6734,9 +6797,10 @@ function saveCharacter() {
     // disponível se o personagem já nasce no Nível 2 ou superior).
     wizardTalentosEscolhidos.forEach(talentoId => {
       const item = TALENTOS_INFERIORES.find(t => t.id === talentoId);
-      if (item && !novo.passivas.some(pas => pas.talentoInferiorId === item.id)) {
-        novo.passivas.push({ id: 'pas_talento_' + item.id, talentoInferiorId: item.id, name: item.name, desc: item.desc });
-      }
+      if (!item) return;
+      const qtdDoMesmo = novo.passivas.filter(pas => pas.talentoInferiorId === item.id).length;
+      const instanceId = qtdDoMesmo > 0 ? `pas_talento_${item.id}_${qtdDoMesmo + 1}` : 'pas_talento_' + item.id;
+      novo.passivas.push({ id: instanceId, talentoInferiorId: item.id, name: item.name, desc: item.desc });
     });
     // Talento Superior escolhido no passo 5 do wizard de criação (só
     // disponível se o personagem já nasce no Nível 4 ou superior).
