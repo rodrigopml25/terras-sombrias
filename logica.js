@@ -6896,18 +6896,24 @@ function handleStep4Continue() {
   if (modalCharId) { saveCharacter(); return; }
   if (!validatePointBuyStep(creationLevel)) return;
   renderWizardBancoStep();
+  showWizardStep(5);
+}
+
+// Botão "Próximo" do passo 5 (Habilidades): avança para o passo 6
+// (Talentos/Feitiços/Rituais).
+function handleStep5Continue() {
   renderWizardTalentosStep();
   renderWizardTalentosSuperioresStep();
   renderWizardFeiticosLendariosStep();
   renderWizardRituaisMacabrosStep();
-  showWizardStep(5);
+  showWizardStep(6);
 }
 
-// Botão "Próximo" do passo 5 (Habilidades/Talentos/Feitiços/Rituais): avança
-// para o passo 6 (Armadura Inicial), a última etapa antes de criar o personagem.
-function handleStep5Continue() {
+// Botão "Próximo" do passo 6 (Talentos/Feitiços/Rituais): avança para o
+// passo 7 (Armadura Inicial), a última etapa antes de criar o personagem.
+function handleStep6Continue() {
   renderWizardArmaduraStep();
-  showWizardStep(6);
+  showWizardStep(7);
 }
 
 function saveCharacter() {
