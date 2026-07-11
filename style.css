@@ -931,12 +931,12 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 
 /* Assistente passo-a-passo de criação de personagem */
 .wizard-steps {
-  display: flex;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px 4px;
   margin-bottom: 20px;
 }
 .wstep {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -971,6 +971,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .modal.editmode .modal-step { display: block !important; }
 .modal.editmode .modal-step[data-step="5"] { display: none !important; }
 .modal.editmode .modal-step[data-step="6"] { display: none !important; }
+.modal.editmode .modal-step[data-step="7"] { display: none !important; }
 .modal.editmode .modal-step .step-nav { display: none; }
 .modal.editmode .modal-step[data-step="4"] .modal-btns { display: flex; }
 .modal.editmode #c-creation-level-container { display: none; }
