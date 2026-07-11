@@ -381,7 +381,8 @@
           <div class="wstep" data-step="3"><span class="wstep-num">3</span> Classe</div>
           <div class="wstep" data-step="4"><span class="wstep-num">4</span> Atributos</div>
           <div class="wstep" data-step="5"><span class="wstep-num">5</span> Habilidades</div>
-          <div class="wstep" data-step="6"><span class="wstep-num">6</span> Armadura</div>
+          <div class="wstep" data-step="6"><span class="wstep-num">6</span> Talentos</div>
+          <div class="wstep" data-step="7"><span class="wstep-num">7</span> Armadura</div>
         </div>
 
         <div class="modal-step active" data-step="1">
@@ -556,7 +557,14 @@
           <div id="c-skills-tabs" class="banco-tabs"></div>
           <div id="c-skills-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
 
-          <div id="c-talentos-section" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+          <div class="modal-btns step-nav">
+            <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
+            <button class="btn btn-primary" onclick="handleStep5Continue()">Próximo <i class="ti ti-arrow-right"></i></button>
+          </div>
+        </div>
+
+        <div class="modal-step" data-step="6">
+          <div id="c-talentos-section">
             <div class="group-title" style="margin-top:0">🎖 Talento Inferior</div>
             <p style="font-size:11px;color:var(--text3);margin:6px 0 12px;line-height:1.5;">Um personagem que já nasce no Nível 2 ou superior recebe o direito de escolher 1 Talento Inferior desde a criação.</p>
             <div id="c-talentos-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas para personagens criados no Nível 2 ou superior. Escolha o Nível no passo anterior para liberar.</div>
@@ -590,11 +598,11 @@
 
           <div class="modal-btns step-nav">
             <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
-            <button class="btn btn-primary" onclick="handleStep5Continue()">Próximo <i class="ti ti-arrow-right"></i></button>
+            <button class="btn btn-primary" onclick="handleStep6Continue()">Próximo <i class="ti ti-arrow-right"></i></button>
           </div>
         </div>
 
-        <div class="modal-step" data-step="6">
+        <div class="modal-step" data-step="7">
           <div id="c-armadura-section">
             <p style="font-size:11px;color:var(--text3);margin:0 0 10px;line-height:1.5;">As categorias de Armadura disponíveis dependem do atributo principal da sua Subclasse: Intelecto → Leve; Agilidade → Leve e Média; Força → Leve, Média e Pesada.</p>
             <div id="c-armadura-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;"></div>
