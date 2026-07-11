@@ -148,6 +148,30 @@
       </div>
     </div>
 
+    <div class="modal-overlay" id="modal-feiticos-lendarios-overlay">
+      <div class="modal" style="max-width:560px">
+        <h3>Feitiços Lendários</h3>
+        <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Concedido pela Passiva "Transcendência Intelectual" (Conjurador, Nível 5) ou pelo Talento Superior "Transcendência Mental". Usam maestria de Intelecto/2 (arredonda para cima), em vez da maestria cheia.</p>
+        <div id="feiticos-lendarios-progresso" style="font-size:11px;color:var(--text2);margin:-4px 0 12px;line-height:1.6;"></div>
+        <div id="feiticos-lendarios-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
+        <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
+          <button class="btn" onclick="closeFeiticosLendariosModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-rituais-macabros-overlay">
+      <div class="modal" style="max-width:560px">
+        <h3>Rituais Macabros</h3>
+        <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Concedido pelo Talento Superior "Vínculo Místico". Não possuem nenhuma maestria vinculada. Cada Ritual tem uma versão "Corromper": um efeito extra, mais poderoso, pago em dano direto na Sanidade.</p>
+        <div id="rituais-macabros-progresso" style="font-size:11px;color:var(--text2);margin:-4px 0 12px;line-height:1.6;"></div>
+        <div id="rituais-macabros-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
+        <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
+          <button class="btn" onclick="closeRituaisMacabrosModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="modal-passiva-overlay">
       <div class="modal">
         <h3 id="modal-passiva-title">Nova Passiva / Talento</h3>
@@ -528,6 +552,22 @@
             <div id="c-talentos-superiores-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas para personagens criados no Nível 4 ou superior. Escolha o Nível no passo anterior para liberar.</div>
             <div id="c-talentos-superiores-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
             <div id="c-talentos-superiores-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+          </div>
+
+          <div id="c-feiticos-lendarios-section" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+            <div class="group-title" style="margin-top:0">✨ Feitiço Lendário</div>
+            <p style="font-size:11px;color:var(--text3);margin:6px 0 12px;line-height:1.5;">Concedido a um Conjurador que já nasce no Nível 5 ou superior, ou a quem escolheu o Talento Superior "Transcendência Mental" acima (as fontes se somam).</p>
+            <div id="c-feiticos-lendarios-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas se o personagem for Conjurador criado no Nível 5+, ou tiver escolhido "Transcendência Mental" acima.</div>
+            <div id="c-feiticos-lendarios-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
+            <div id="c-feiticos-lendarios-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+          </div>
+
+          <div id="c-rituais-macabros-section" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+            <div class="group-title" style="margin-top:0">🌀 Ritual Macabro</div>
+            <p style="font-size:11px;color:var(--text3);margin:6px 0 12px;line-height:1.5;">Concedido a quem escolheu o Talento Superior "Vínculo Místico" acima. Não possui nenhuma maestria vinculada.</p>
+            <div id="c-rituais-macabros-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas se tiver escolhido o Talento Superior "Vínculo Místico" acima.</div>
+            <div id="c-rituais-macabros-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
+            <div id="c-rituais-macabros-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
           </div>
 
           <div class="modal-btns step-nav">
