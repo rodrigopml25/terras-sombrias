@@ -237,6 +237,7 @@
               <button class="inv-peso-btn"        data-peso="pesada" onclick="invSelectPeso('pesada')">Pesada</button>
               <button class="inv-peso-btn"        data-peso="exotica" onclick="invSelectPeso('exotica')">Exótica</button>
               <button class="inv-peso-btn"        data-peso="mega"   onclick="invSelectPeso('mega')">Mega Pesada</button>
+              <button class="inv-peso-btn"        data-peso="encantada" onclick="invSelectPeso('encantada')">Encantada</button>
             </div>
           </div>
           <div class="form-row">
@@ -255,6 +256,7 @@
               <button class="inv-peso-btn"        data-peso="pesada"  onclick="invSelectPeso('pesada')">Pesada</button>
               <button class="inv-peso-btn"        data-peso="exotica" onclick="invSelectPeso('exotica')">Exótica</button>
               <button class="inv-peso-btn"        data-peso="mega"    onclick="invSelectPeso('mega')">Mega Pesada</button>
+              <button class="inv-peso-btn"        data-peso="encantada" onclick="invSelectPeso('encantada')">Encantada</button>
             </div>
           </div>
           <div class="form-row">
@@ -299,6 +301,7 @@
               <button class="inv-peso-btn"        data-peso="pesada"  onclick="invSelectPeso('pesada')">Pesada</button>
               <button class="inv-peso-btn"        data-peso="exotica" onclick="invSelectPeso('exotica')">Exótica</button>
               <button class="inv-peso-btn"        data-peso="mega"    onclick="invSelectPeso('mega')">Mega Pesada</button>
+              <button class="inv-peso-btn" id="inv-peso-btn-encantada-protecao" data-peso="encantada" onclick="invSelectPeso('encantada')">Encantada</button>
             </div>
           </div>
           <div class="form-row">
@@ -620,6 +623,7 @@
     <!-- Escolha obrigatória de Forma Sombria (Pandaren · Caminho Lun'fan, Nv 3) -->
     <!-- Sem botão de fechar / X: a escolha é obrigatória para poder continuar jogando. -->
     <div class="modal-overlay" id="modal-forma-overlay"></div>
+    <div class="modal-overlay" id="modal-encantamento-estilo-overlay"></div>
 
     <!-- Escolha de Teste ao usar a habilidade "Teste Mental" -->
     <div class="modal-overlay" id="modal-teste-mental-overlay"></div>
