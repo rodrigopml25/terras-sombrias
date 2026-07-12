@@ -1318,6 +1318,192 @@ function adicionarRitualMacabro(pid, itemId) {
 }
 
 // ═══════════════════════════════════════
+// ENCANTAMENTOS DE EQUIPAMENTO (Armadura/Elmo/Arma/Instrumento Encantados)
+// ═══════════════════════════════════════
+// Requerem o Talento Inferior "Equipamento Encantado" e são aplicados
+// diretamente a um item de Inventário com peso 'encantada' (mesmo espírito
+// dos itens Exóticos: uma categoria de peso a mais, tratada dentro do
+// próprio modal de Inventário — ver _updateInvModalSections/saveInvItem).
+// Cada item encantado tem espaço para 1 Encantamento: uma Passiva (guardada
+// em item.encantamento) + um Feitiço (estilo 'arcano') ou Ritual Místico
+// (estilo 'mistico'). O Feitiço/Ritual concedido é empurrado pra p.skills
+// (mesmo padrão dos Feitiços Lendários/Rituais Macabros), marcado com
+// `encantamentoItemId` apontando pro item de inventário que o concedeu —
+// assim ele é substituído/removido junto quando o Encantamento muda ou o
+// item é excluído (ver saveInvItem/deleteInvItem).
+// Regra importante: um mesmo personagem só pode ter um ESTILO de
+// Encantamento (Arcano OU Místico) em todos os seus equipamentos ao mesmo
+// tempo — ver getEstiloEncantamentoAtual/getEncantamentosDisponiveis.
+const ENCANTAMENTOS_EQUIPAMENTO = [
+  {
+    id: 'cartomante_arcano', name: 'Cartomante Arcano', estilo: 'arcano', custo: 75,
+    passivaDesc: 'Nos seus braceletes existe uma escrita arcana que se manifesta como carta. Assim, no início do seu turno, lance 1d6 — cada número representa uma carta diferente. Ao ter seis cartas diferentes, poderá gastá-las: seu próximo Feitiço lançado possuirá crítico garantido.',
+    concede: {
+      tipoConcedido: 'feitico', name: 'Embaralhamento Arcano',
+      desc: 'Troque uma carta repetida por uma carta que você ainda não possui.',
+      cost: 1, tipo: 'turno_N', turnosRecarga: 0, usosMax: 1,
+    },
+  },
+  {
+    id: 'arcano_unificado', name: 'Arcano Unificado', estilo: 'arcano', custo: 75,
+    passivaDesc: 'As escritas arcanas da sua armadura encantada emanam um vínculo mágico poderoso entre você e o ambiente: toda vez que lançar um Feitiço, restaura apenas 3 de Vida.',
+    concede: {
+      tipoConcedido: 'feitico', name: 'Cisão Arcana',
+      desc: 'As escritas arcanas concentram tanto poder que você recebe 1d10 de dano na Vida, mas seu próximo Feitiço será lançado 2 vezes (não acumula). Pode ser usada 2 vezes por sessão e não consome Ação.',
+      cost: 0, tipo: 'sessao', usosMax: 2,
+    },
+  },
+  {
+    id: 'receptaculo_caotico', name: 'Receptáculo Caótico', estilo: 'mistico', custo: 75,
+    passivaDesc: 'Sua armadura encantada possui escritas místicas vazias: toda vez que você corromper um Ritual Místico ou Arma, pode sacrificar 1 de Armadura para não receber a Insanidade. Porém, quando sua armadura encantada quebrar, você receberá a insanidade acumulada como dano.',
+    concede: {
+      tipoConcedido: 'ritual', name: 'Loucura Acumulada',
+      desc: 'Esvazie uma escrita mística: receba o quanto quiser da insanidade acumulada como dano e restaure 1 de Armadura da armadura encantada. Pode ser usada 4 vezes por armadura e não consome Ação.',
+      corromper: { dado: '1d8', desc: 'Não recebe o dano — mas, se corromper, essa escrita não pode ser mandada para uma escrita mística vazia.' },
+      cost: 0, tipo: 'sessao', usosMax: 4, resetSessao: false,
+    },
+  },
+  {
+    id: 'cartomante_mistico', name: 'Cartomante Místico', estilo: 'mistico', custo: 75,
+    passivaDesc: 'Nos seus braceletes existe uma escrita mística que se manifesta como carta. Assim, no início do seu turno, lance 1d6 — cada número representa uma carta diferente. Ao ter seis cartas diferentes, poderá gastá-las: você possuirá um turno extra.',
+    concede: {
+      tipoConcedido: 'ritual', name: 'Baralho Maldito',
+      desc: 'Troque uma carta por uma que você ainda não possui, ou gaste uma carta para ativar um efeito conforme o valor: 1 — causa 1d8 de dano (garantido) em um alvo até 6 casas; 2 — restaure 1d8 de Vida; 3 — receba uma Ação de Movimento; 4 — recarregue um turno de recarga de um Feitiço; 5 — seu próximo teste não consome Ação; 6 — seu próximo Feitiço não consome Ação.',
+      corromper: { dado: '1d4', desc: 'Receba uma carta à sua escolha e ative o efeito dela.' },
+      cost: 1, tipo: 'turno_N', turnosRecarga: 0, usosMax: 1,
+    },
+  },
+];
+
+// O personagem tem o Talento Inferior "Equipamento Encantado"? Sem ele, não
+// pode aplicar (nem manter) Encantamentos em seus equipamentos.
+function temAcessoEquipamentoEncantado(p) {
+  return getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'equipamento_encantado');
+}
+
+// O personagem tem o Talento Inferior "Equipamento Exótico"? Sem ele, não
+// tem acesso à compra de armaduras/elmos/armas exóticas no catálogo.
+function temAcessoEquipamentoExotico(p) {
+  return getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'equipamento_exotico');
+}
+
+// Retorna true se o personagem precisa escolher o Estilo de Encantamento
+// agora (tem o Talento Inferior "Equipamento Encantado" mas ainda não
+// escolheu Arcano ou Místico) — ver renderEscolhaEstiloEncantamentoModal.
+function precisaEscolherEstiloEncantamento(p) {
+  return temAcessoEquipamentoEncantado(p) && !p.estiloEncantamentoId;
+}
+
+// Define o Estilo de Encantamento do personagem (Arcano ou Místico) — escolha
+// permanente feita assim que o Talento Inferior "Equipamento Encantado" é
+// adquirido. Vale para TODOS os equipamentos encantados do personagem.
+function escolherEstiloEncantamento(pid, estilo) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || (estilo !== 'arcano' && estilo !== 'mistico')) return;
+  p.estiloEncantamentoId = estilo;
+  saveState();
+  renderAll();
+}
+
+// Estilo de Encantamento (arcano/mistico) do personagem — escolhido uma vez
+// (ver escolherEstiloEncantamento) e válido para todos os seus equipamentos.
+function getEstiloEncantamentoAtual(p) {
+  return p.estiloEncantamentoId || null;
+}
+
+// Encantamentos do catálogo ainda disponíveis pro item em edição: exclui os
+// já aplicados em outro item do mesmo personagem (não podem repetir) e
+// restringe ao Estilo de Encantamento já escolhido pelo personagem.
+function getEncantamentosDisponiveis(p, itemId) {
+  const estiloAtual = getEstiloEncantamentoAtual(p);
+  const idsUsados = (p.inventario || [])
+    .filter(i => i.encantamento && i.id !== itemId)
+    .map(i => i.encantamento.id);
+  return ENCANTAMENTOS_EQUIPAMENTO.filter(e => !idsUsados.includes(e.id) && (!estiloAtual || e.estilo === estiloAtual));
+}
+
+// Constrói a Habilidade (skill) do Feitiço/Ritual concedido por um
+// Encantamento, pronta para entrar em p.skills — reaproveita a mesma UI de
+// uso/recarga/corromper das Habilidades normais (cor azul pra Feitiço,
+// cinza pra Ritual, mesmo esquema dos Feitiços Lendários/Rituais Macabros).
+function construirSkillEncantamento(encantamentoItem, itemInventarioId) {
+  const c = encantamentoItem.concede;
+  return {
+    id: 'sk_encant_' + itemInventarioId,
+    encantamentoItemId: itemInventarioId,
+    encantamentoCatalogId: encantamentoItem.id,
+    name: c.name,
+    desc: c.desc,
+    color: c.tipoConcedido === 'ritual' ? 'gray' : 'blue',
+    cost: c.cost,
+    tipo: c.tipo,
+    usosMax: c.usosMax,
+    usosAtuais: c.usosMax,
+    cdRestante: 0,
+    turnosRecarga: c.turnosRecarga || 0,
+    corromper: c.corromper || null,
+    // false = usos "por armadura" (não recarrega em Reset de Sessão, só se
+    // ajusta manualmente ou quando a armadura é trocada/recriada) — ver
+    // resetSessao() e o comentário no catálogo ENCANTAMENTOS_EQUIPAMENTO.
+    resetSessao: c.resetSessao !== false,
+  };
+}
+
+// ═══════════════════════════════════════
+// APRIMORAMENTOS DE ARMADURA (Leve/Média/Pesada/Exótica — subtipo 'armadura')
+// ═══════════════════════════════════════
+// Catálogo próprio de Aprimoramentos de Armadura, no mesmo espaço/UI dos
+// Aprimoramentos Dourado/Exótico das armas (ver _renderInvAprimos), mas com
+// regras específicas de slot e custo:
+//  - Armadura Exótica (peso 'exotica'): até 2 Aprimoramentos, custo normal (50 cada).
+//  - Armaduras "normais" (Leve/Média/Pesada): até 1 Aprimoramento, custando 5x
+//    o valor normal (250) por não serem Exóticas.
+// Elmo não é afetado por este catálogo (mantém o sistema Dourado/Exótico de
+// armas, sem opções específicas por ora).
+const APRIMORAMENTOS_ARMADURA = [
+  {
+    id: 'mini_escudo', name: 'Mini Escudo', custoBase: 50,
+    desc: 'Adicione em seu bracelete um mini escudo que fica escondido. Assim, ao receber um ataque, pode realizar um Aparar com maestria de Agilidade/2, ao invés de maestria de Força.',
+  },
+  {
+    id: 'caixa_de_som', name: 'Caixa de Som', custoBase: 50,
+    desc: 'Coloque uma caixa de som no seu peitoral. Assim, ao ser atacado, recebe qualquer Nota (Bardo). Funciona uma vez por turno.',
+  },
+  {
+    id: 'socorro', name: 'Aprimoramento de Socorro', custoBase: 50,
+    desc: 'Ao receber um ataque crítico, pode gastar um Cristal Elétrico para reduzir o dano pela metade (arredondando pra cima).',
+  },
+  {
+    id: 'ligeirinho', name: 'Ligeirinho', custoBase: 50,
+    desc: 'Suas botas recebem energia mágica: você possui +maestria de Agilidade/2 em Passos, +Vantagem em Acrobacia e é imune a efeitos de Lentidão.',
+  },
+  {
+    id: 'carapaca_antimagia', name: 'Carapaça Antimagia', custoBase: 50,
+    desc: 'Sua armadura ganha um atributo secundário chamado "Armadura Anti-Magia", com valor igual à sua maestria de Agilidade/2. Funciona como uma armadura, mas exclusiva contra Feitiços, e se restaura no final da Jornada/Aventura/Campanha. Sua Armadura normal e a Armadura Anti-Magia reduzem dano de Feitiços — a Armadura normal recebe o dano primeiro.',
+  },
+];
+
+// Quantos Aprimoramentos de Armadura o item pode ter, conforme o peso.
+function limiteAprimorosArmadura(peso) {
+  return peso === 'exotica' ? 2 : 1;
+}
+
+// Custo (em Dinheiro) de 1 Aprimoramento de Armadura, conforme o peso —
+// armaduras não-Exóticas custam 5x o valor normal.
+function custoAprimoramentoArmadura(peso) {
+  const base = 50;
+  return peso === 'exotica' ? base : base * 5;
+}
+
+// Algum aliado (qualquer personagem da campanha) tem a passiva racial
+// "Tecnologia Draenei"? Armaduras/Elmos Comuns (não-Exóticos) só têm acesso
+// aos Aprimoramentos de Armadura Exóticos se isso for verdade — ver a
+// descrição da passiva em RACAS.Draenei.
+function algumAliadoTemTecnologiaDraenei() {
+  return PLAYERS.some(p => getRacePassivas(p).some(pas => pas.id === 'draenei_tecnologia'));
+}
+
+// ═══════════════════════════════════════
 // BANCO DE HABILIDADES DE SUBCLASSE
 // ═══════════════════════════════════════
 // Diferente de SUBCLASSES_SKILLS (habilidades fixas, injetadas automaticamente),
@@ -2681,6 +2867,29 @@ function getPesosArmaduraPermitidos(subclasseName) {
   return PESO_ARMADURA_POR_ATRIBUTO[attr] || ['leve'];
 }
 
+const ORDEM_PESO_ARMADURA = ['leve', 'media', 'pesada', 'mega'];
+
+// Peso máximo de Armadura que o personagem pode comprar/vestir, considerando
+// o atributo primário da subclasse (getPesosArmaduraPermitidos) e, se tiver,
+// o Talento Inferior "Maestria de Peso Aprimorada" — sobe 1 grau: quem só
+// tinha Leve passa a ter Média, quem tinha Média passa a ter Pesada, e quem
+// tinha Pesada passa a ter Mega Pesada. É o único jeito de chegar em Mega.
+// Por ora isso só vale pra Armadura — Elmo/Arma/Instrumento ficam como estão.
+function getPesoMaximoArmaduraPersonagem(p) {
+  const base = getPesosArmaduraPermitidos(p.cls);
+  let maxIdx = base.reduce((max, peso) => Math.max(max, ORDEM_PESO_ARMADURA.indexOf(peso)), 0);
+  const temMaestriaAprimorada = getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'maestria_de_peso_aprimorada');
+  if (temMaestriaAprimorada) maxIdx = Math.min(maxIdx + 1, ORDEM_PESO_ARMADURA.length - 1);
+  return ORDEM_PESO_ARMADURA[maxIdx];
+}
+
+// O personagem pode comprar/vestir Armadura Mega Pesada no catálogo? Só quem
+// já tinha Pesada como teto (atributo Força) e melhorou com "Maestria de
+// Peso Aprimorada" chega em Mega.
+function temAcessoArmaduraMegaPesada(p) {
+  return getPesoMaximoArmaduraPersonagem(p) === 'mega';
+}
+
 // Retorna a classe-base (Guerreiro, Ladino…) dado o nome de uma subclasse
 function getBaseClass(subclasseName) {
   for (const cls of CLASSES) {
@@ -3261,7 +3470,7 @@ function tipoLabel(sk) {
   if (sk.tipo==='infinite') return '∞ livre';
   if (sk.tipo==='perturn')  return '1/turno';
   if (sk.tipo==='luta')     return sk.usosMax + 'x/luta';
-  if (sk.tipo==='sessao')   return sk.usosMax + 'x/sessão';
+  if (sk.tipo==='sessao')   return sk.usosMax + (sk.resetSessao === false ? 'x/armadura' : 'x/sessão');
   if (sk.tipo==='turno_N')  return sk.turnosRecarga + '⏳ turnos';
   if (sk.tipo==='notas')    return '7 Notas';
   return '';
@@ -3401,7 +3610,13 @@ function resetLuta() {
 function resetSessao() {
   if (!confirm('Resetar todos os usos por sessão?')) return;
   PLAYERS.forEach(p => {
-    p.skills.forEach(sk => { sk.usosAtuais = sk.usosMax; sk.cdRestante = 0; });
+    p.skills.forEach(sk => {
+      sk.cdRestante = 0;
+      // resetSessao === false: usos "por armadura" (ex: Loucura Acumulada) —
+      // não recarrega automaticamente num Reset de Sessão.
+      if (sk.resetSessao === false) return;
+      sk.usosAtuais = sk.usosMax;
+    });
     // Notas do Bardo: resetar também no reset de sessão
     if (p.classeBase === 'Bardo' && p.notasBardo) {
       NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
@@ -3703,7 +3918,7 @@ function renderNarrador() {
         const efeitoSecIcone = (sk.efeitoSecundario && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo] && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo].icone) || '✨';
         const efeitoSecBadge = efeitoSecTxt ? `<span class="chip-badge" style="background:rgba(124,92,191,0.25);color:#b89aff;border-color:rgba(155,125,224,0.45)">${efeitoSecIcone}</span>` : '';
         return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}
+          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
@@ -4113,6 +4328,47 @@ function renderFormaSombriaModal(p) {
   overlay.classList.add('open');
 }
 
+// Renderiza (e mostra/esconde) a tela obrigatória de escolha do Estilo de
+// Encantamento (Arcano ou Místico). Recebe o personagem pendente (ou null
+// para esconder o modal) — ver precisaEscolherEstiloEncantamento.
+function renderEscolhaEstiloEncantamentoModal(p) {
+  const overlay = document.getElementById('modal-encantamento-estilo-overlay');
+  if (!overlay) return;
+  if (!p) { overlay.classList.remove('open'); return; }
+
+  const listaHtml = (lista) => lista.map(e => {
+    const c = e.concede;
+    return `<div class="forma-sombria-skill">
+      <span class="forma-sombria-skill-tag ${c.tipoConcedido === 'ritual' ? 'tag-gray' : 'tag-blue'}">${e.name}</span>
+      <div class="forma-sombria-skill-desc">${c.tipoConcedido === 'ritual' ? 'Ritual' : 'Feitiço'}: <strong>${c.name}</strong> — ${c.desc}</div>
+    </div>`;
+  }).join('');
+
+  const arcanos  = ENCANTAMENTOS_EQUIPAMENTO.filter(e => e.estilo === 'arcano');
+  const misticos = ENCANTAMENTOS_EQUIPAMENTO.filter(e => e.estilo === 'mistico');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:560px">
+      <h3><i class="ti ti-wand"></i> Escolha o Estilo de Encantamento</h3>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:16px">
+        <strong>${p.name}</strong> adquiriu o Talento Inferior "Equipamento Encantado". Escolha permanentemente o Estilo de Encantamento — Arcano ou Místico — que valerá para todos os seus equipamentos encantados. Cada equipamento encantado tem espaço para apenas 1 Encantamento.
+      </div>
+      <div class="forma-sombria-grid">
+        <div class="forma-sombria-card forma-blue" onclick="escolherEstiloEncantamento(${p.id}, 'arcano')">
+          <div class="forma-sombria-name">Arcano</div>
+          <div class="forma-sombria-tagline">Concede Feitiços</div>
+          ${listaHtml(arcanos)}
+        </div>
+        <div class="forma-sombria-card forma-gray" onclick="escolherEstiloEncantamento(${p.id}, 'mistico')">
+          <div class="forma-sombria-name">Místico</div>
+          <div class="forma-sombria-tagline">Concede Rituais Místicos</div>
+          ${listaHtml(misticos)}
+        </div>
+      </div>
+    </div>`;
+  overlay.classList.add('open');
+}
+
 function renderJogador() {
   const content = document.getElementById('jog-content');
   const psel = document.getElementById('psel');
@@ -4137,6 +4393,14 @@ function renderJogador() {
     psel.value = pendente.id;
   }
   renderFormaSombriaModal(pendente || null);
+
+  // Mesma lógica para quem acabou de escolher o Talento Inferior "Equipamento
+  // Encantado" e ainda não definiu o Estilo de Encantamento (Arcano/Místico).
+  const pendenteEncantamento = myPlayers.find(precisaEscolherEstiloEncantamento);
+  if (pendenteEncantamento && parseInt(psel.value) !== pendenteEncantamento.id) {
+    psel.value = pendenteEncantamento.id;
+  }
+  renderEscolhaEstiloEncantamentoModal(pendenteEncantamento || null);
 
   const pid = parseInt(psel.value) || myPlayers[0].id;
   const p = myPlayers.find(x => x.id === pid) || myPlayers[0];
@@ -4195,6 +4459,7 @@ function renderJogador() {
           ${mstTagCard}
           ${sk.lendario ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">✨ Feitiço Lendário</span>` : ''}
           ${sk.ritualMacabro ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🌀 Ritual Macabro</span>` : ''}
+          ${sk.encantamentoItemId ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🔮 Encantamento</span>` : ''}
           ${sk.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${sk.concedeNota === 'qualquer' ? 'escolha uma nota' : sk.concedeNota}</span>` : ''}
         </div>
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
@@ -4628,10 +4893,10 @@ function saveJogNota(pid, tag, value) {
   }
   saveState();
 }
-const INV_PESO_LABEL = { leve:'Leve', media:'Média', pesada:'Pesada', exotica:'Exótica', mega:'Mega Pesada' };
-const INV_PESO_COLOR = { leve:'var(--blue)', media:'var(--green)', pesada:'var(--red)', exotica:'var(--green-dim)', mega:'#8b1f1f' };
-const INV_PESO_BG    = { leve:'var(--blue-bg)', media:'var(--green-bg)', pesada:'var(--red-bg)', exotica:'var(--green-bg)', mega:'rgba(139,31,31,0.12)' };
-const INV_PESO_BD    = { leve:'var(--blue-bd)', media:'var(--green-bd)', pesada:'var(--red-bd)', exotica:'var(--green-bd)', mega:'rgba(139,31,31,0.4)' };
+const INV_PESO_LABEL = { leve:'Leve', media:'Média', pesada:'Pesada', exotica:'Exótica', mega:'Mega Pesada', encantada:'Encantada' };
+const INV_PESO_COLOR = { leve:'var(--blue)', media:'var(--green)', pesada:'var(--red)', exotica:'var(--green-dim)', mega:'#8b1f1f', encantada:'#3a5fc0' };
+const INV_PESO_BG    = { leve:'var(--blue-bg)', media:'var(--green-bg)', pesada:'var(--red-bg)', exotica:'var(--green-bg)', mega:'rgba(139,31,31,0.12)', encantada:'rgba(20,32,74,0.55)' };
+const INV_PESO_BD    = { leve:'var(--blue-bd)', media:'var(--green-bd)', pesada:'var(--red-bd)', exotica:'var(--green-bd)', mega:'rgba(139,31,31,0.4)', encantada:'rgba(58,95,192,0.5)' };
 const INV_ALCANCE_LABEL = { curto: 'Curto Alcance', longo: 'Longo Alcance' };
 
 function renderInventarioArea(p) {
@@ -4743,6 +5008,9 @@ function renderInventarioArea(p) {
       if (item.preco == null) return '';
       return `<div class="inv-dano"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val">${item.preco}</span></div>`;
     }
+    const encantamentoBox = item.encantamento
+      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>`
+      : '';
 
     if (isInstrumento) {
       // Instrumentos: título + botão editar na primeira linha; tags na segunda
@@ -4760,7 +5028,7 @@ function renderInventarioArea(p) {
         ${precoRow()}
         ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
         ${municaoRow(item)}
-        ${aprimoramentos}${ativas}
+        ${aprimoramentos}${ativas}${encantamentoBox}
       </div>`;
     }
 
@@ -4777,7 +5045,7 @@ function renderInventarioArea(p) {
       ${precoRow()}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
       ${municaoRow(item)}
-      ${aprimoramentos}${ativas}
+      ${aprimoramentos}${ativas}${encantamentoBox}
     </div>`;
   }
 
@@ -4807,6 +5075,7 @@ function renderInventarioArea(p) {
           const label = isDourado ? (a.dourado ? (a.name || 'Aprimoramento Dourado') : 'Dourado') : a.name;
           return `<div class="inv-aprimo-item"><span class="inv-aprimo-name"${isDourado?' style="color:#e8c53a"':''}>${isDourado?'✨ ':''}${label}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`;
         }).join('')}</div>` : ''}
+      ${item.encantamento ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>` : ''}
     </div>`;
   }
 
@@ -4897,6 +5166,13 @@ const CATALOGO_ITENS = {
     { id: 'cat_armadura_leve',    name: 'Armadura Leve',    subtipo: 'armadura', peso: 'leve',  valor: 6,  preco: 40, passosPenalidade: 3, efeito: 'Reduz 3 de Passos.' },
     { id: 'cat_armadura_media',   name: 'Armadura Média',   subtipo: 'armadura', peso: 'media', valor: 8,  preco: 60, passosPenalidade: 5, efeito: 'Reduz 5 de Passos. Concede -1d4 de Desvantagem em testes de Furtividade.' },
     { id: 'cat_armadura_pesada',  name: 'Armadura Pesada',  subtipo: 'armadura', peso: 'pesada', valor: 12, preco: 80, passosPenalidade: 7, efeito: 'Reduz 7 de Passos. Concede Mega Desvantagem em testes de Furtividade.' },
+    { id: 'cat_armadura_encantada', name: 'Armadura Encantada', subtipo: 'armadura', peso: 'encantada', valor: 7, preco: 50, passosPenalidade: 4, efeito: 'Reduz 4 de Passos. Concede -1d2 de Desvantagem em testes de Furtividade. Possui 1 espaço de Encantamento (requer o Talento Inferior "Equipamento Encantado").' },
+    { id: 'cat_armadura_exotica', name: 'Armadura Exótica', subtipo: 'armadura', peso: 'exotica', valor: 10, preco: 75, passosPenalidade: 6, efeito: 'Reduz 6 de Passos. Concede -1d6 de Desvantagem em testes de Furtividade. Ativa (3x por luta, gasta 1 Cristal): até o final da luta, quem te atacar corpo a corpo recebe 1d6 de dano que atravessa Armadura (podendo ser usada diversas vezes por turno). Pode receber até 2 Aprimoramentos de Armadura.' },
+    { id: 'cat_armadura_mega', name: 'Armadura Mega Pesada', subtipo: 'armadura', peso: 'mega', valor: 16, preco: 100, passosPenalidade: 8, efeito: 'Reduz 8 de Passos. Não pode realizar testes de Furtividade.' },
+    { id: 'cat_elmo_capuz',  name: 'Capuz',       subtipo: 'elmo', peso: 'leve',  valor: 2, preco: 20, efeito: 'Concede +1d2 de Vantagem em testes de Furtividade.' },
+    { id: 'cat_elmo_chapeu', name: 'Chapéu',      subtipo: 'elmo', peso: 'leve',  valor: 5, preco: 40, efeito: '' },
+    { id: 'cat_elmo_medio',  name: 'Elmo Médio',  subtipo: 'elmo', peso: 'media', valor: 6, preco: 60, efeito: 'Concede -1d2 de Desvantagem em testes de Furtividade.' },
+    { id: 'cat_elmo_pesado', name: 'Elmo Pesado', subtipo: 'elmo', peso: 'pesada', valor: 8, preco: 80, efeito: 'Concede -1d6 de Desvantagem em testes de Furtividade.' },
   ],
   arma: [],
   instrumento: [],
@@ -4991,10 +5267,14 @@ function _buildInvModal(data) {
   invAprimos = data.aprimoramentos ? JSON.parse(JSON.stringify(data.aprimoramentos)) : [];
   // ativas
   invAtivas  = data.ativas ? JSON.parse(JSON.stringify(data.ativas)) : [];
+  // encantamento (Armadura/Elmo/Arma/Instrumento Encantados — peso 'encantada')
+  invEncantamentoEscolhido = (data.encantamento && data.encantamento.id) || null;
   // Detecta invAprimoTipo ao editar item existente
   const _peso = data.peso || 'leve';
   if (_peso === 'exotica') {
     invAprimoTipo = 'nenhum'; // exótica não usa o seletor (campos livres via hint)
+  } else if (_peso === 'encantada') {
+    invAprimoTipo = 'encantado';
   } else if (invAprimos.some(a => a.dourado || a.name === 'Dourado')) {
     invAprimoTipo = 'dourado';
   } else if (invAprimos.length) {
@@ -5008,8 +5288,11 @@ function _buildInvModal(data) {
 
 let invAprimos = [];
 let invAtivas  = [];
-// 'nenhum' | 'dourado' | 'exotico'  — estado do seletor de tipo de aprimoramento
+// 'nenhum' | 'dourado' | 'exotico' | 'encantado'  — estado do seletor de tipo de aprimoramento
 let invAprimoTipo = 'nenhum';
+// id do ENCANTAMENTOS_EQUIPAMENTO escolhido no modal (ou null) — só se aplica
+// quando peso === 'encantada'; vira item.encantamento ao salvar (ver saveInvItem).
+let invEncantamentoEscolhido = null;
 
 function _updateInvModalSections(tipo) {
   const ehArmaOuInstrumento = (tipo === 'arma' || tipo === 'instrumento');
@@ -5029,7 +5312,7 @@ function _updateInvModalSections(tipo) {
   renderInvCatalogo();
 
   const peso = _invSelectedPeso();
-  // Aprimoramentos: disponíveis para armas, instrumentos e proteções
+  // Aprimoramentos (inclui Encantamento Arcano/Místico): disponíveis para armas, instrumentos e proteções
   document.getElementById('inv-sec-exotica').style.display = (ehArmaOuInstrumento || tipo === 'protecao') ? '' : 'none';
   document.getElementById('inv-sec-mega').style.display    = (tipo === 'arma' && peso === 'mega') ? '' : 'none';
 
@@ -5097,20 +5380,47 @@ function invSelectTipo(tipo) {
 }
 function invSelectPeso(peso) {
   document.querySelectorAll('.inv-peso-btn').forEach(b => b.classList.toggle('active', b.dataset.peso === peso));
+  const tipoAtual = _invSelectedTipo();
+  const isArmaduraProtecao = tipoAtual === 'protecao' && _invSelectedSub() === 'armadura';
+
+  if (isArmaduraProtecao) {
+    // Armaduras usam o catálogo próprio de Aprimoramentos de Armadura (Mini
+    // Escudo/Caixa de Som/Socorro/Ligeirinho) — o limite e o custo por peso
+    // são reaplicados a cada render em _buildAprimoArmaduraListHtml, então
+    // não mexemos em invAprimos aqui.
+    if (peso !== 'encantada') invEncantamentoEscolhido = null;
+    _updateInvModalSections(tipoAtual);
+    return;
+  }
+
   // Ao trocar o peso, limpa aprimoramentos incompatíveis
   if (peso === 'exotica') {
     // Exótica: remove Dourado se existir, mantém livres
     invAprimos = invAprimos.filter(a => !a.dourado && a.name !== 'Dourado');
     invAprimoTipo = 'nenhum';
+  } else if (peso === 'encantada') {
+    // Encantada: o slot passa a ser o de Encantamento (Arcano/Místico)
+    invAprimoTipo = 'encantado';
+    invAprimos = [];
   } else {
     // Arma comum: se havia Dourado, mantém; se havia exótico livre, mantém; se havia nada, mantém nada
-    if (invAprimoTipo === 'nenhum') invAprimos = [];
+    if (invAprimoTipo === 'nenhum' || invAprimoTipo === 'encantado') invAprimos = [];
+    if (invAprimoTipo === 'encantado') invAprimoTipo = 'nenhum';
   }
+  // Saindo de 'encantada': o Encantamento escolhido não se aplica mais
+  if (peso !== 'encantada') invEncantamentoEscolhido = null;
   _updateInvModalSections(_invSelectedTipo());
 }
+
 function invSelectSub(sub) {
   document.querySelectorAll('.inv-subtipo-btn').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
   renderInvCatalogo();
+
+  // Armadura x Elmo têm regras diferentes de Aprimoramento (ver APRIMORAMENTOS_ARMADURA);
+  // saindo de 'armadura', os Aprimoramentos de Armadura escolhidos não se aplicam mais.
+  if (sub !== 'armadura') invAprimos = invAprimos.filter(a => !a.catalogId);
+  _updateAprimoUI();
+  _renderInvAprimos();
 }
 function invSelectEquip(equipado) {
   document.querySelectorAll('.inv-equip-btn').forEach(b => b.classList.toggle('active', (b.dataset.equip === '1') === equipado));
@@ -5134,8 +5444,19 @@ function renderInvCatalogo() {
   const termo = (document.getElementById('inv-catalogo-search') || {}).value || '';
   const termoNorm = termo.trim().toLowerCase();
   const subAtivo = tipo === 'protecao' ? _invSelectedSub() : null;
+  const pOwner = modalInvPid != null ? PLAYERS.find(x => x.id === modalInvPid) : null;
+  const temEncantado = pOwner ? temAcessoEquipamentoEncantado(pOwner) : false;
+  const temExotico   = pOwner ? temAcessoEquipamentoExotico(pOwner) : false;
+  const temMegaArmadura = pOwner ? temAcessoArmaduraMegaPesada(pOwner) : false;
 
   const filtrados = banco.filter(item => {
+    // Itens de peso 'encantada' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Encantado"
+    if (item.peso === 'encantada' && !temEncantado) return false;
+    // Itens de peso 'exotica' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Exótico"
+    if (item.peso === 'exotica' && !temExotico) return false;
+    // Armadura Mega Pesada só aparece pra quem tem a Maestria de Peso (Força + Talento
+    // Inferior "Maestria de Peso Aprimorada"). Elmo/Arma/Instrumento não são afetados por ora.
+    if (item.subtipo === 'armadura' && item.peso === 'mega' && !temMegaArmadura) return false;
     if (subAtivo && item.subtipo !== subAtivo) return false;
     if (!termoNorm) return true;
     return item.name.toLowerCase().includes(termoNorm);
@@ -5186,14 +5507,114 @@ function selecionarCatalogoItem(itemId) {
   }
 }
 
+// Monta o HTML do catálogo de Aprimoramentos de Armadura (Mini Escudo, Caixa
+// de Som, Socorro, Ligeirinho), no mesmo espaço do seletor Dourado/Exótico.
+// Reaplica o limite/custo por peso a cada render (Exótica: até 2, custo
+// normal; demais pesos: até 1, custando 5x) e poda seleções acima do limite
+// se o peso tiver mudado para um com menos slots.
+function _buildAprimoArmaduraListHtml(peso) {
+  const limite = limiteAprimorosArmadura(peso);
+  const custo  = custoAprimoramentoArmadura(peso);
+  const isExotica = peso === 'exotica';
+
+  // Armaduras Comuns (não-Exóticas) só recebem os Aprimoramentos de Armadura
+  // Exóticos se algum aliado da campanha tiver a passiva racial "Tecnologia
+  // Draenei" — ver algumAliadoTemTecnologiaDraenei.
+  if (!isExotica && !algumAliadoTemTecnologiaDraenei()) {
+    return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Armaduras Comuns só recebem Aprimoramentos de Armadura Exóticos se algum aliado tiver a passiva racial <strong>"Tecnologia Draenei"</strong> (Draenei).</div>`;
+  }
+
+  // Poda seleções em excesso (ex: veio de Exótica com 2 e o peso virou Leve)
+  // e remove Aprimoramentos exclusivos de Armadura Exótica se o peso não for mais Exótica.
+  const catalogoPorId = {};
+  APRIMORAMENTOS_ARMADURA.forEach(a => { catalogoPorId[a.id] = a; });
+  if (!isExotica) {
+    invAprimos = invAprimos.filter(a => !a.catalogId || !(catalogoPorId[a.catalogId] && catalogoPorId[a.catalogId].exoticoApenas));
+  }
+  const jaEscolhidos = invAprimos.filter(a => a.catalogId);
+  if (jaEscolhidos.length > limite) {
+    const manterIds = jaEscolhidos.slice(0, limite).map(a => a.catalogId);
+    invAprimos = invAprimos.filter(a => !a.catalogId || manterIds.includes(a.catalogId));
+  }
+  // Resincroniza o custo exibido/salvo conforme o peso atual
+  invAprimos.forEach(a => { if (a.catalogId) a.custo = custo; });
+
+  const idsAtivos = invAprimos.filter(a => a.catalogId).map(a => a.catalogId);
+  const aviso = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Essa armadura pode ter até <strong>${limite}</strong> Aprimoramento${limite > 1 ? 's' : ''} de Armadura (💰 ${custo} cada${isExotica ? '' : ' — 5x o custo normal, por não ser Exótica'}).</div>`;
+
+  const cards = APRIMORAMENTOS_ARMADURA
+    .filter(a => !a.exoticoApenas || isExotica)
+    .map(a => {
+      const ativo = idsAtivos.includes(a.id);
+      return `<div class="skill-card sk-gray" style="margin:0;cursor:pointer" onclick="toggleAprimoArmadura('${a.id}')">
+      <div class="sk-name">${a.name}${a.exoticoApenas ? ' <span style="font-size:10px;font-weight:400;color:var(--text3)">(exclusivo de Armadura Exótica)</span>' : ''}</div>
+      <div class="sk-tags"><span class="sk-tag">💰 ${custo}</span></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5">${a.desc}</div>
+      <button class="btn ${ativo ? '' : 'btn-primary'}" style="width:100%;justify-content:center;margin-top:8px" onclick="event.stopPropagation();toggleAprimoArmadura('${a.id}')">
+        ${ativo ? '✓ Escolhido — clique para remover' : 'Escolher'}
+      </button>
+    </div>`;
+  }).join('');
+
+  return aviso + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`;
+}
+
+// Alterna a escolha de um Aprimoramento de Armadura no modal, respeitando o
+// limite de slots do peso atual (ver limiteAprimorosArmadura).
+function toggleAprimoArmadura(catalogId) {
+  const peso = _invSelectedPeso();
+  const limite = limiteAprimorosArmadura(peso);
+  const cat0 = APRIMORAMENTOS_ARMADURA.find(a => a.id === catalogId);
+  if (cat0 && cat0.exoticoApenas && peso !== 'exotica') {
+    alert(`"${cat0.name}" é exclusivo de Armadura Exótica.`);
+    return;
+  }
+  if (peso !== 'exotica' && !algumAliadoTemTecnologiaDraenei()) {
+    alert('Armaduras Comuns só recebem Aprimoramentos de Armadura Exóticos se algum aliado tiver a passiva racial "Tecnologia Draenei" (Draenei).');
+    return;
+  }
+  const idx = invAprimos.findIndex(a => a.catalogId === catalogId);
+  if (idx !== -1) {
+    invAprimos.splice(idx, 1);
+  } else {
+    const jaEscolhidos = invAprimos.filter(a => a.catalogId).length;
+    if (jaEscolhidos >= limite) {
+      alert(`Essa armadura só pode ter ${limite} Aprimoramento${limite > 1 ? 's' : ''} de Armadura.`);
+      return;
+    }
+    const cat = APRIMORAMENTOS_ARMADURA.find(a => a.id === catalogId);
+    if (!cat) return;
+    invAprimos.push({ catalogId: cat.id, name: cat.name, desc: cat.desc, custo: custoAprimoramentoArmadura(peso) });
+  }
+  _renderInvAprimos();
+}
+
 function _renderInvAprimos() {
   const el = document.getElementById('inv-aprimos-list');
   if (!el) return;
+  const tipo = _invSelectedTipo();
   const peso = _invSelectedPeso();
+  const isArmaduraProtecao = tipo === 'protecao' && _invSelectedSub() === 'armadura';
+
+  // Armadura Encantada (peso 'encantada'): catálogo de Encantamentos (Arcano/Místico)
+  // — checado antes do catálogo de Aprimoramentos de Armadura, já que só a
+  // Armadura (não Elmo/Arma/Instrumento) pode ser Encantada.
+  if (isArmaduraProtecao && peso === 'encantada') {
+    el.innerHTML = _buildEncantamentoListHtml();
+    return;
+  }
+
+  // Armadura (Leve/Média/Pesada/Exótica): catálogo próprio de Aprimoramentos
+  // de Armadura, no lugar do seletor Dourado/Exótico (ver APRIMORAMENTOS_ARMADURA).
+  if (isArmaduraProtecao) {
+    el.innerHTML = _buildAprimoArmaduraListHtml(peso);
+    return;
+  }
+
   const isExotica = peso === 'exotica';
 
   if (isExotica) {
-    // Armas exóticas: campos livres, sem Dourado
+    // Armas/Elmos exóticos: campos livres, sem Dourado
     el.innerHTML = invAprimos.map((a,i) => `
       <div class="inv-extra-item">
         <div style="flex:1">
@@ -5202,6 +5623,15 @@ function _renderInvAprimos() {
         </div>
         <button onclick="invAprimos.splice(${i},1);_renderInvAprimos()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
       </div>`).join('');
+    return;
+  }
+
+  // Categoria "Encantada" existe para Elmo/Arma/Instrumento também, mas ainda
+  // sem catálogo de Encantamentos próprio cadastrado (só a Armadura tem, por
+  // enquanto) — mostra um aviso no lugar do seletor Dourado/Exótico.
+  if (peso === 'encantada') {
+    const rotulo = tipo === 'arma' ? 'Armas' : tipo === 'instrumento' ? 'Instrumentos' : 'Elmos';
+    el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 2px">${rotulo} Encantados ainda não têm um catálogo de Encantamentos próprio cadastrado — em breve.</div>`;
     return;
   }
 
@@ -5232,6 +5662,52 @@ function _renderInvAprimos() {
   }
 }
 
+// Monta o HTML do catálogo de Encantamentos pro mesmo slot dos Aprimoramentos
+// Dourado/Exótico — filtra pelo estilo (Arcano/Místico) já comprometido pelo
+// personagem em outro equipamento e pelos Encantamentos já usados em outro item.
+function _buildEncantamentoListHtml() {
+  const p = PLAYERS.find(x => x.id === modalInvPid);
+  if (!p) return '';
+
+  if (!temAcessoEquipamentoEncantado(p)) {
+    return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Requer o Talento Inferior <strong>"Equipamento Encantado"</strong>.</div>`;
+  }
+
+  const estiloAtual = getEstiloEncantamentoAtual(p);
+  const aviso = estiloAtual
+    ? `Estilo comprometido: <strong>${estiloAtual === 'arcano' ? 'Arcano' : 'Místico'}</strong> — só um estilo de Encantamento por personagem.`
+    : 'Escolha o Encantamento deste equipamento. O estilo escolhido (Arcano ou Místico) valerá para todos os seus equipamentos encantados.';
+
+  const opcoes = getEncantamentosDisponiveis(p, modalInvId);
+  const cards = opcoes.map(e => {
+    const ativo = invEncantamentoEscolhido === e.id;
+    const c = e.concede;
+    return `<div class="skill-card sk-gray" style="margin:0;cursor:pointer" onclick="selectEncantamento('${e.id}')">
+      <div class="sk-name">${e.name} <span style="font-size:10px;font-weight:400;color:var(--text3)">(${e.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div>
+      <div class="sk-tags"><span class="sk-tag">💰 ${e.custo}</span><span class="sk-tag">${c.tipoConcedido === 'ritual' ? '🌀 Ritual: ' : '✨ Feitiço: '}${c.name}</span></div>
+      <div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5"><strong>Passiva:</strong> ${e.passivaDesc}</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.5"><strong>${c.name}:</strong> ${c.desc}</div>
+      <button class="btn ${ativo ? '' : 'btn-primary'}" style="width:100%;justify-content:center;margin-top:8px" onclick="event.stopPropagation();selectEncantamento('${e.id}')">
+        ${ativo ? '✓ Escolhido — clique para remover' : 'Escolher'}
+      </button>
+    </div>`;
+  }).join('');
+
+  const foraDeOpcoes = invEncantamentoEscolhido && !opcoes.some(o => o.id === invEncantamentoEscolhido)
+    ? `<div style="font-size:11px;color:var(--text3);padding:6px 2px">O Encantamento atual não está mais disponível para esse estilo — escolha outro.</div>`
+    : '';
+
+  return `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${aviso}</div>`
+    + foraDeOpcoes
+    + (cards || `<div style="font-size:11px;color:var(--text3);padding:6px 2px">Nenhum Encantamento disponível.</div>`);
+}
+
+// Alterna a escolha de Encantamento no modal (clicar no já escolhido remove).
+function selectEncantamento(id) {
+  invEncantamentoEscolhido = (invEncantamentoEscolhido === id) ? null : id;
+  _renderInvAprimos();
+}
+
 function _renderInvAtivas() {
   const el = document.getElementById('inv-ativas-list');
   if (!el) return;
@@ -5248,15 +5724,21 @@ function _renderInvAtivas() {
 function selectAprimoTipo(tipo) {
   invAprimoTipo = tipo;
   if (tipo === 'dourado') {
+    invEncantamentoEscolhido = null;
     // Dourado é um slot único — nome e efeito ficam livres para o usuário definir
     const existente = invAprimos.find(a => a.dourado || a.name === 'Dourado');
     invAprimos = [ existente ? { name: existente.name === 'Dourado' ? '' : existente.name, desc: existente.desc || '', dourado: true } : { name: '', desc: '', dourado: true } ];
   } else if (tipo === 'exotico') {
+    invEncantamentoEscolhido = null;
     // Remove qualquer Dourado existente e inicia lista vazia para preenchimento livre
     invAprimos = invAprimos.filter(a => !a.dourado && a.name !== 'Dourado');
     if (!invAprimos.length) invAprimos.push({name:'',desc:''});
+  } else if (tipo === 'encantado') {
+    // Encantamento usa invEncantamentoEscolhido, não invAprimos
+    invAprimos = [];
   } else {
     invAprimos = [];
+    invEncantamentoEscolhido = null;
   }
   _updateAprimoUI();
   _renderInvAprimos();
@@ -5273,15 +5755,20 @@ function _updateAprimoUI() {
   if (!suportaAprimo) { seletor.style.display = 'none'; hint.style.display = 'none'; return; }
 
   const isExotica = peso === 'exotica';
-  seletor.style.display = isExotica ? 'none' : 'flex';
-  hint.style.display    = isExotica ? ''     : 'none';
+  const isEncantada = peso === 'encantada';
+  const isArmaduraProtecao = tipo === 'protecao' && _invSelectedSub() === 'armadura';
+  // Encantada: só existe 1 slot possível (o Encantamento) — sem seletor, igual à Exótica.
+  // Armadura (Leve/Média/Pesada/Exótica): usa o catálogo próprio de
+  // Aprimoramentos de Armadura em qualquer peso — também sem este seletor.
+  seletor.style.display = (isExotica || isEncantada || isArmaduraProtecao) ? 'none' : 'flex';
+  hint.style.display    = (isExotica && !isArmaduraProtecao) ? '' : 'none';
 
-  // Atualiza o texto do hint para proteções exóticas
-  if (isExotica && tipo === 'protecao') {
-    hint.innerHTML = '⚠ Armaduras e Elmos Exóticos não podem receber Aprimoramento Dourado. <button class="btn" style="padding:3px 9px;font-size:11px;margin-left:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar Aprimoramento</button>';
+  // Atualiza o texto do hint para Elmos exóticos (Armadura usa catálogo próprio, sem hint)
+  if (isExotica && tipo === 'protecao' && !isArmaduraProtecao) {
+    hint.innerHTML = '⚠ Elmos Exóticos não podem receber Aprimoramento Dourado. <button class="btn" style="padding:3px 9px;font-size:11px;margin-left:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar Aprimoramento</button>';
   }
 
-  // Highlight do botão ativo (armas/instrumentos comuns)
+  // Highlight do botão ativo (armas/instrumentos/elmos comuns)
   ['dourado','exotico','nenhum'].forEach(t => {
     const btn = document.getElementById('inv-aprimo-btn-' + t);
     if (btn) btn.style.fontWeight = (invAprimoTipo === t) ? '700' : '';
@@ -5370,6 +5857,18 @@ function saveInvItem() {
   // Preço (dinheiro): armas, instrumentos e proteções (armaduras/elmos)
   if (tipo !== 'item') base.preco = preco;
 
+  // Encantamento (Armadura/Elmo/Arma/Instrumento Encantados — peso 'encantada')
+  if (tipo !== 'item') {
+    if (peso === 'encantada' && invEncantamentoEscolhido) {
+      const catEnc = ENCANTAMENTOS_EQUIPAMENTO.find(e => e.id === invEncantamentoEscolhido);
+      base.encantamento = catEnc
+        ? { id: catEnc.id, name: catEnc.name, estilo: catEnc.estilo, passivaDesc: catEnc.passivaDesc, custo: catEnc.custo }
+        : null;
+    } else {
+      base.encantamento = null;
+    }
+  }
+
   let savedId;
   if (modalInvId) {
     const idx = p.inventario.findIndex(x => x.id === modalInvId);
@@ -5390,6 +5889,16 @@ function saveInvItem() {
 
   if (tipo === 'protecao') recomputeProtMax(p);
 
+  // Sincroniza a Habilidade (Feitiço/Ritual) concedida pelo Encantamento —
+  // remove a anterior deste item (se houver) e adiciona a nova.
+  if (!Array.isArray(p.skills)) p.skills = [];
+  p.skills = p.skills.filter(sk => sk.encantamentoItemId !== savedId);
+  const itemSalvo = p.inventario.find(x => x.id === savedId);
+  if (itemSalvo && itemSalvo.encantamento) {
+    const catEnc = ENCANTAMENTOS_EQUIPAMENTO.find(e => e.id === itemSalvo.encantamento.id);
+    if (catEnc) p.skills.push(construirSkillEncantamento(catEnc, savedId));
+  }
+
   saveState();
   renderJogador();
   closeInvModal();
@@ -5403,6 +5912,8 @@ function deleteInvItem() {
     const removido = (p.inventario || []).find(x => x.id === modalInvId);
     p.inventario = p.inventario.filter(x => x.id !== modalInvId);
     if (removido && removido.tipo === 'protecao') recomputeProtMax(p);
+    // Remove também a Habilidade (Feitiço/Ritual) concedida por um eventual Encantamento deste item
+    p.skills = (p.skills || []).filter(sk => sk.encantamentoItemId !== modalInvId);
   }
   saveState();
   renderJogador();
