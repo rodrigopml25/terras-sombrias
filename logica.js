@@ -1375,6 +1375,59 @@ const ENCANTAMENTOS_EQUIPAMENTO = [
   },
 ];
 
+// Encantamentos exclusivos de Elmo Encantado — mesmo esquema da Armadura
+// (Passiva + Feitiço Arcano ou Ritual Místico concedido), mas com catálogo
+// próprio (ver ENCANTAMENTOS_EQUIPAMENTO acima). Respeitam o mesmo Estilo de
+// Encantamento (Arcano/Místico) já escolhido pelo personagem — ver
+// getEstiloEncantamentoAtual/getEncantamentosDisponiveis.
+const ENCANTAMENTOS_ELMO = [
+  {
+    id: 'cabeca_fria', name: 'Cabeça Fria', estilo: 'arcano', custo: 75,
+    passivaDesc: 'Escritos gélidos e arcanos são adicionados ao seu elmo encantado: ao receber um ataque corpo a corpo, o atacante perde 1 de Passo pelo resto da luta/cena.',
+    concede: {
+      tipoConcedido: 'feitico', name: 'Sopro Gélido',
+      desc: 'Remova todos os Passos de um alvo a até 6 casas por 1 turno — para cada Passo removido, você recebe +1 de Vantagem no seu próximo Feitiço nesse turno. Se o alvo ficar sem Passos, ele congela até o início do seu próximo turno; o próximo dano que ele receber é cheio (integral), mas remove o congelamento.',
+      cost: 1, tipo: 'turno_N', turnosRecarga: 4, usosMax: 1,
+    },
+  },
+  {
+    id: 'fortalecimento_arcano', name: 'Fortalecimento Arcano', estilo: 'arcano', custo: 75,
+    passivaDesc: 'Seu elmo encantado possui escritos arcanos que concedem sua maestria de Intelecto/2 como Armadura de Elmo adicional, que não reduz a Armadura do próprio Elmo Encantado.',
+    concede: {
+      tipoConcedido: 'feitico', name: 'Olho Violeta',
+      desc: 'Seu elmo encantado cria um símbolo pelas escritas arcanas: você passa a ver coisas invisíveis e enxerga o arcano do lugar e das pessoas sem precisar de teste. Dura até o final da luta/cena.',
+      cost: 1, tipo: 'sessao', usosMax: 1,
+    },
+  },
+  {
+    id: 'alquimia_sombria', name: 'Alquimia Sombria', estilo: 'mistico', custo: 75,
+    passivaDesc: 'Seu elmo encantado possui escritos à base de uma alquimia sombria: ao entrar em estado de Beira da Morte, restaure imediatamente 1d20 de Vida e se adapte à situação. Funciona uma vez por luta/cena.',
+    concede: {
+      tipoConcedido: 'ritual', name: 'Observador Adaptativo',
+      desc: 'Evoque um olho dos deuses antigos em sua testa: seu próximo Feitiço mirado na cabeça recebe +1d6 de Vantagem, dano/cura, e uma adaptação contra a defesa do alvo.',
+      corromper: { dado: '1d6', desc: 'O bônus do 1d6 passa a ser máximo.' },
+      cost: 1, tipo: 'turno_N', turnosRecarga: 3, usosMax: 1,
+    },
+  },
+  {
+    id: 'percepcao_mistica', name: 'Percepção Mística', estilo: 'mistico', custo: 75,
+    passivaDesc: 'Seu elmo encantado possui escritas amaldiçoadas: você enxerga no escuro natural e mágico, e pode fazer teste Místico no lugar de Percepção.',
+    concede: {
+      tipoConcedido: 'ritual', name: 'Face Distorcida',
+      desc: 'Seu rosto se transforma por um momento em algo assustador: por dois turnos você não pode ser mirado na cabeça, não pode ficar cego, e pode gastar uma Ação para gritar — um som distorcido que causa Medo nos inimigos.',
+      corromper: { dado: '1d6', desc: 'A transformação se mantém pelo resto da luta/cena.' },
+      cost: 1, tipo: 'sessao', usosMax: 1,
+    },
+  },
+];
+
+// Busca um Encantamento pelo id em qualquer catálogo (Armadura ou Elmo) —
+// usado onde não se sabe de antemão de qual catálogo o id escolhido veio
+// (ex: saveInvItem, sincronização da Habilidade concedida).
+function buscarEncantamentoPorId(id) {
+  return ENCANTAMENTOS_EQUIPAMENTO.find(e => e.id === id) || ENCANTAMENTOS_ELMO.find(e => e.id === id) || null;
+}
+
 // O personagem tem o Talento Inferior "Equipamento Encantado"? Sem ele, não
 // pode aplicar (nem manter) Encantamentos em seus equipamentos.
 function temAcessoEquipamentoEncantado(p) {
@@ -1411,15 +1464,13 @@ function getEstiloEncantamentoAtual(p) {
   return p.estiloEncantamentoId || null;
 }
 
-// Encantamentos do catálogo ainda disponíveis pro item em edição: exclui os
-// já aplicados em outro item do mesmo personagem (não podem repetir) e
-// restringe ao Estilo de Encantamento já escolhido pelo personagem.
-function getEncantamentosDisponiveis(p, itemId) {
+// Encantamentos do catálogo (Armadura ou Elmo, conforme `catalogo`) ainda
+// disponíveis pro item em edição: mesmo Encantamento pode ser repetido em
+// mais de um equipamento — a única restrição é o Estilo de Encantamento
+// (Arcano/Místico) já escolhido pelo personagem, que vale pra tudo.
+function getEncantamentosDisponiveis(p, itemId, catalogo) {
   const estiloAtual = getEstiloEncantamentoAtual(p);
-  const idsUsados = (p.inventario || [])
-    .filter(i => i.encantamento && i.id !== itemId)
-    .map(i => i.encantamento.id);
-  return ENCANTAMENTOS_EQUIPAMENTO.filter(e => !idsUsados.includes(e.id) && (!estiloAtual || e.estilo === estiloAtual));
+  return (catalogo || ENCANTAMENTOS_EQUIPAMENTO).filter(e => !estiloAtual || e.estilo === estiloAtual);
 }
 
 // Constrói a Habilidade (skill) do Feitiço/Ritual concedido por um
@@ -1458,8 +1509,7 @@ function construirSkillEncantamento(encantamentoItem, itemInventarioId) {
 //  - Armadura Exótica (peso 'exotica'): até 2 Aprimoramentos, custo normal (50 cada).
 //  - Armaduras "normais" (Leve/Média/Pesada): até 1 Aprimoramento, custando 5x
 //    o valor normal (250) por não serem Exóticas.
-// Elmo não é afetado por este catálogo (mantém o sistema Dourado/Exótico de
-// armas, sem opções específicas por ora).
+// Elmo tem seu próprio catálogo equivalente — ver APRIMORAMENTOS_ELMO, mais abaixo.
 const APRIMORAMENTOS_ARMADURA = [
   {
     id: 'mini_escudo', name: 'Mini Escudo', custoBase: 50,
@@ -1497,11 +1547,57 @@ function custoAprimoramentoArmadura(peso) {
 
 // Algum aliado (qualquer personagem da campanha) tem a passiva racial
 // "Tecnologia Draenei"? Armaduras/Elmos Comuns (não-Exóticos) só têm acesso
-// aos Aprimoramentos de Armadura Exóticos se isso for verdade — ver a
+// aos Aprimoramentos de Armadura/Elmo Exóticos se isso for verdade — ver a
 // descrição da passiva em RACAS.Draenei.
 function algumAliadoTemTecnologiaDraenei() {
   return PLAYERS.some(p => getRacePassivas(p).some(pas => pas.id === 'draenei_tecnologia'));
 }
+
+// ═══════════════════════════════════════
+// APRIMORAMENTOS DE ELMO (Leve/Média/Pesada/Exótico — subtipo 'elmo')
+// ═══════════════════════════════════════
+// Mesmo esquema dos Aprimoramentos de Armadura (ver acima), catálogo próprio:
+//  - Elmo Exótico (peso 'exotica'): até 2 Aprimoramentos, custo normal (50 cada).
+//  - Elmos "normais" (Leve/Média/Pesada): até 1 Aprimoramento, custando 5x
+//    (250), e só aparecem se algum aliado tiver "Tecnologia Draenei" (mesma
+//    trava da Armadura — ver algumAliadoTemTecnologiaDraenei).
+//  - Elmo Exótico só aparece no catálogo pra quem tem o Talento Inferior
+//    "Equipamento Exótico" (gating já genérico em renderInvCatalogo, por peso).
+const APRIMORAMENTOS_ELMO = [
+  {
+    id: 'defesa', name: 'Aprimoramento de Defesa', custoBase: 50,
+    desc: 'Seu elmo possui um mecanismo de defesa: ao falhar em um teste de Desviar ou Aparar, pode gastar 1 Cristal Elétrico para causar 1d6 de dano na cabeça do atacante.',
+  },
+  {
+    id: 'fone', name: 'Aprimoramento de Fone', custoBase: 50,
+    desc: 'Seu elmo possui uma pequena caixa de som que toca uma música: gaste 1 Cristal Elétrico para receber qualquer Nota Musical, remover um Tormento Emocional, ou passar automaticamente em um teste de Emoção.',
+  },
+  {
+    id: 'lente', name: 'Aprimoramento de Lente', custoBase: 50,
+    desc: 'Seu elmo possui uma lente: +1 de Alcance para ações de longo alcance. Pode gastar 1 Cristal Elétrico para deixar a lente "inteligente", concedendo Mega Vantagem ao mirar na cabeça na sua próxima ação.',
+  },
+  {
+    id: 'sobrevivencia', name: 'Aprimoramento de Sobrevivência', custoBase: 50,
+    desc: 'Seu elmo ganha uma máscara de oxigênio: quando quiser, sacrifique 1 Cristal Elétrico para que ela reaja com o meio externo e produza oxigênio puro só para você. Dura uma cena/lua.',
+  },
+  {
+    id: 'mascara_arcana', name: 'Aprimoramento Máscara Arcana', custoBase: 50,
+    desc: 'Seu elmo ou chapéu exótico recebe uma máscara arcana: você enxerga no escuro natural e mágico.',
+  },
+];
+
+// Quantos Aprimoramentos de Elmo o item pode ter, conforme o peso.
+function limiteAprimorosElmo(peso) {
+  return peso === 'exotica' ? 2 : 1;
+}
+
+// Custo (em Dinheiro) de 1 Aprimoramento de Elmo, conforme o peso — elmos
+// não-Exóticos custam 5x o valor normal.
+function custoAprimoramentoElmo(peso) {
+  const base = 50;
+  return peso === 'exotica' ? base : base * 5;
+}
+
 
 // ═══════════════════════════════════════
 // BANCO DE HABILIDADES DE SUBCLASSE
@@ -2463,6 +2559,60 @@ function toggleWizardArmadura(itemId) {
   renderWizardArmaduraStep();
 }
 
+// Repinta a escolha de Elmo inicial (passo 8 do wizard de criação) — mesma
+// lógica da Armadura (ver renderWizardArmaduraStep): opções filtradas pelas
+// categorias de peso liberadas pelo atributo principal da subclasse.
+function renderWizardElmoStep() {
+  const lista = document.getElementById('c-elmo-lista');
+  const aviso = document.getElementById('c-elmo-aviso');
+  if (!lista) return;
+
+  const cls = getSelectedSubclasse();
+  if (!cls) {
+    lista.innerHTML = '';
+    if (aviso) { aviso.style.display = ''; aviso.textContent = 'Escolha uma Classe no passo anterior para liberar as opções de Elmo.'; }
+    return;
+  }
+
+  const pesosPermitidos = getPesosArmaduraPermitidos(cls);
+  const opcoes = CATALOGO_ITENS.protecao.filter(item => item.subtipo === 'elmo' && pesosPermitidos.includes(item.peso));
+
+  // Descarta uma escolha antiga que não seja mais válida (ex.: trocou de subclasse/atributo).
+  if (wizardElmoEscolhidaId && !opcoes.some(o => o.id === wizardElmoEscolhidaId)) {
+    wizardElmoEscolhidaId = null;
+  }
+
+  if (aviso) {
+    aviso.style.display = '';
+    aviso.textContent = `Categorias liberadas por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
+  }
+
+  if (!opcoes.length) {
+    lista.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:6px 2px">Nenhum elmo disponível no catálogo para essas categorias ainda.</div>`;
+    return;
+  }
+
+  lista.innerHTML = opcoes.map(item => {
+    const jaEscolhido = wizardElmoEscolhidaId === item.id;
+    return `
+    <div class="skill-card sk-gray" style="margin:0">
+      <div class="sk-name">${item.name}</div>
+      <div class="sk-tags"><span class="sk-tag">${INV_PESO_LABEL[item.peso] || item.peso}</span><span class="sk-tag">🛡 ${item.valor}</span><span class="sk-tag">💰 ${item.preco}</span></div>
+      ${item.efeito ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 12px;line-height:1.5">${item.efeito}</div>` : ''}
+      <button class="btn ${jaEscolhido ? '' : 'btn-primary'}" style="width:100%;justify-content:center;margin-top:6px" onclick="toggleWizardElmo('${item.id}')">
+        ${jaEscolhido ? '✓ Escolhido — clique para remover' : 'Escolher'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// Alterna a escolha de Elmo inicial durante a criação — escolha única
+// (selecionar um novo substitui o anterior; clicar no já escolhido remove).
+function toggleWizardElmo(itemId) {
+  wizardElmoEscolhidaId = (wizardElmoEscolhidaId === itemId) ? null : itemId;
+  renderWizardElmoStep();
+}
+
 // Alterna a escolha de uma Habilidade do banco durante a criação (adiciona
 // se ainda não tinha, remove se já tinha). Respeita os mesmos limites de
 // Nível usados no jogo já formado (getBancoLimites/contarBancoEscolhas).
@@ -2869,12 +3019,13 @@ function getPesosArmaduraPermitidos(subclasseName) {
 
 const ORDEM_PESO_ARMADURA = ['leve', 'media', 'pesada', 'mega'];
 
-// Peso máximo de Armadura que o personagem pode comprar/vestir, considerando
-// o atributo primário da subclasse (getPesosArmaduraPermitidos) e, se tiver,
-// o Talento Inferior "Maestria de Peso Aprimorada" — sobe 1 grau: quem só
-// tinha Leve passa a ter Média, quem tinha Média passa a ter Pesada, e quem
-// tinha Pesada passa a ter Mega Pesada. É o único jeito de chegar em Mega.
-// Por ora isso só vale pra Armadura — Elmo/Arma/Instrumento ficam como estão.
+// Peso máximo de Armadura/Elmo que o personagem pode comprar/vestir,
+// considerando o atributo primário da subclasse (getPesosArmaduraPermitidos)
+// e, se tiver, o Talento Inferior "Maestria de Peso Aprimorada" — sobe 1
+// grau: quem só tinha Leve passa a ter Média, quem tinha Média passa a ter
+// Pesada, e quem tinha Pesada passa a ter Mega Pesada. É o único jeito de
+// chegar em Mega. Vale igualmente pra Armadura e Elmo (mesma lógica de
+// categorias de peso) — Arma/Instrumento ficam como estão por ora.
 function getPesoMaximoArmaduraPersonagem(p) {
   const base = getPesosArmaduraPermitidos(p.cls);
   let maxIdx = base.reduce((max, peso) => Math.max(max, ORDEM_PESO_ARMADURA.indexOf(peso)), 0);
@@ -2883,9 +3034,9 @@ function getPesoMaximoArmaduraPersonagem(p) {
   return ORDEM_PESO_ARMADURA[maxIdx];
 }
 
-// O personagem pode comprar/vestir Armadura Mega Pesada no catálogo? Só quem
-// já tinha Pesada como teto (atributo Força) e melhorou com "Maestria de
-// Peso Aprimorada" chega em Mega.
+// O personagem pode comprar/vestir Armadura ou Elmo Mega Pesado no catálogo?
+// Só quem já tinha Pesada como teto (atributo Força) e melhorou com
+// "Maestria de Peso Aprimorada" chega em Mega.
 function temAcessoArmaduraMegaPesada(p) {
   return getPesoMaximoArmaduraPersonagem(p) === 'mega';
 }
@@ -3161,6 +3312,8 @@ let wizardRituaisMacabrosEscolhidos = [];
 // disponíveis dependem do atributo principal da subclasse escolhida (ver
 // getPesosArmaduraPermitidos). Mesmo ciclo de vida das outras escolhas do wizard.
 let wizardArmaduraEscolhidaId = null;
+// Elmo inicial escolhido no passo 8 do wizard (mesma lógica da Armadura, ver renderWizardElmoStep).
+let wizardElmoEscolhidaId = null;
 let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
@@ -4344,8 +4497,9 @@ function renderEscolhaEstiloEncantamentoModal(p) {
     </div>`;
   }).join('');
 
-  const arcanos  = ENCANTAMENTOS_EQUIPAMENTO.filter(e => e.estilo === 'arcano');
-  const misticos = ENCANTAMENTOS_EQUIPAMENTO.filter(e => e.estilo === 'mistico');
+  const todosEncantamentos = [...ENCANTAMENTOS_EQUIPAMENTO, ...ENCANTAMENTOS_ELMO];
+  const arcanos  = todosEncantamentos.filter(e => e.estilo === 'arcano');
+  const misticos = todosEncantamentos.filter(e => e.estilo === 'mistico');
 
   overlay.innerHTML = `
     <div class="modal" style="max-width:560px">
@@ -5173,6 +5327,10 @@ const CATALOGO_ITENS = {
     { id: 'cat_elmo_chapeu', name: 'Chapéu',      subtipo: 'elmo', peso: 'leve',  valor: 5, preco: 40, efeito: '' },
     { id: 'cat_elmo_medio',  name: 'Elmo Médio',  subtipo: 'elmo', peso: 'media', valor: 6, preco: 60, efeito: 'Concede -1d2 de Desvantagem em testes de Furtividade.' },
     { id: 'cat_elmo_pesado', name: 'Elmo Pesado', subtipo: 'elmo', peso: 'pesada', valor: 8, preco: 80, efeito: 'Concede -1d6 de Desvantagem em testes de Furtividade.' },
+    { id: 'cat_elmo_encantado', name: 'Elmo Encantado', subtipo: 'elmo', peso: 'encantada', valor: 6, preco: 60, efeito: 'Concede -1 de Desvantagem em testes de Furtividade. Possui 1 espaço de Encantamento (requer o Talento Inferior "Equipamento Encantado").' },
+    { id: 'cat_elmo_chapeu_exotico', name: 'Chapéu Exótico', subtipo: 'elmo', peso: 'exotica', valor: 5, preco: 50, efeito: 'Concede +1d2 de Vantagem em testes de Furtividade. Ativa (3x por luta, gasta 1 Cristal, 1 uso por turno): restaura a Armadura do Chapéu. Pode receber até 2 Aprimoramentos de Elmo.' },
+    { id: 'cat_elmo_exotico', name: 'Elmo Exótico', subtipo: 'elmo', peso: 'exotica', valor: 7, preco: 75, efeito: 'Concede -1d4 de Desvantagem em testes de Furtividade. Ativa (3x por luta, gasta 1 Cristal, 1 uso por turno): remova sua Cegueira, ou crie uma barreira na sua cabeça que a torna impossível de ser mirada por 1 turno. Pode receber até 2 Aprimoramentos de Elmo.' },
+    { id: 'cat_elmo_mega', name: 'Elmo Mega Pesado', subtipo: 'elmo', peso: 'mega', valor: 10, preco: 100, efeito: 'Concede -1d10 de Desvantagem em testes de Furtividade.' },
   ],
   arma: [],
   instrumento: [],
@@ -5290,8 +5448,9 @@ let invAprimos = [];
 let invAtivas  = [];
 // 'nenhum' | 'dourado' | 'exotico' | 'encantado'  — estado do seletor de tipo de aprimoramento
 let invAprimoTipo = 'nenhum';
-// id do ENCANTAMENTOS_EQUIPAMENTO escolhido no modal (ou null) — só se aplica
-// quando peso === 'encantada'; vira item.encantamento ao salvar (ver saveInvItem).
+// id de ENCANTAMENTOS_EQUIPAMENTO (Armadura) ou ENCANTAMENTOS_ELMO (Elmo)
+// escolhido no modal (ou null) — só se aplica quando peso === 'encantada';
+// vira item.encantamento ao salvar (ver saveInvItem/buscarEncantamentoPorId).
 let invEncantamentoEscolhido = null;
 
 function _updateInvModalSections(tipo) {
@@ -5413,12 +5572,17 @@ function invSelectPeso(peso) {
 }
 
 function invSelectSub(sub) {
+  const subAnterior = _invSelectedSub();
   document.querySelectorAll('.inv-subtipo-btn').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
   renderInvCatalogo();
 
-  // Armadura x Elmo têm regras diferentes de Aprimoramento (ver APRIMORAMENTOS_ARMADURA);
-  // saindo de 'armadura', os Aprimoramentos de Armadura escolhidos não se aplicam mais.
-  if (sub !== 'armadura') invAprimos = invAprimos.filter(a => !a.catalogId);
+  // Armadura x Elmo têm catálogos de Aprimoramento (e Encantamento) próprios
+  // e não-intercambiáveis (ver APRIMORAMENTOS_ARMADURA/APRIMORAMENTOS_ELMO) —
+  // ao trocar de subtipo de fato, as escolhas feitas pro subtipo anterior não se aplicam mais.
+  if (sub !== subAnterior) {
+    invAprimos = invAprimos.filter(a => !a.catalogId);
+    invEncantamentoEscolhido = null;
+  }
   _updateAprimoUI();
   _renderInvAprimos();
 }
@@ -5454,9 +5618,9 @@ function renderInvCatalogo() {
     if (item.peso === 'encantada' && !temEncantado) return false;
     // Itens de peso 'exotica' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Exótico"
     if (item.peso === 'exotica' && !temExotico) return false;
-    // Armadura Mega Pesada só aparece pra quem tem a Maestria de Peso (Força + Talento
-    // Inferior "Maestria de Peso Aprimorada"). Elmo/Arma/Instrumento não são afetados por ora.
-    if (item.subtipo === 'armadura' && item.peso === 'mega' && !temMegaArmadura) return false;
+    // Armadura/Elmo Mega Pesado só aparecem pra quem tem a Maestria de Peso (Força +
+    // Talento Inferior "Maestria de Peso Aprimorada"). Arma/Instrumento não são afetados por ora.
+    if ((item.subtipo === 'armadura' || item.subtipo === 'elmo') && item.peso === 'mega' && !temMegaArmadura) return false;
     if (subAtivo && item.subtipo !== subAtivo) return false;
     if (!termoNorm) return true;
     return item.name.toLowerCase().includes(termoNorm);
@@ -5589,18 +5753,87 @@ function toggleAprimoArmadura(catalogId) {
   _renderInvAprimos();
 }
 
+// Monta o HTML do catálogo de Aprimoramentos de Elmo (Defesa, Fone, Lente,
+// Sobrevivência, Máscara Arcana), no mesmo espaço do seletor Dourado/Exótico
+// — mesmo esquema de _buildAprimoArmaduraListHtml (ver comentários lá).
+function _buildAprimoElmoListHtml(peso) {
+  const limite = limiteAprimorosElmo(peso);
+  const custo  = custoAprimoramentoElmo(peso);
+  const isExotica = peso === 'exotica';
+
+  // Elmos Comuns (não-Exóticos) só recebem os Aprimoramentos de Elmo Exóticos
+  // se algum aliado da campanha tiver a passiva racial "Tecnologia Draenei".
+  if (!isExotica && !algumAliadoTemTecnologiaDraenei()) {
+    return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Elmos Comuns só recebem Aprimoramentos de Elmo Exóticos se algum aliado tiver a passiva racial <strong>"Tecnologia Draenei"</strong> (Draenei).</div>`;
+  }
+
+  // Poda seleções em excesso (ex: veio de Exótico com 2 e o peso virou Leve)
+  const jaEscolhidos = invAprimos.filter(a => a.catalogId);
+  if (jaEscolhidos.length > limite) {
+    const manterIds = jaEscolhidos.slice(0, limite).map(a => a.catalogId);
+    invAprimos = invAprimos.filter(a => !a.catalogId || manterIds.includes(a.catalogId));
+  }
+  // Resincroniza o custo exibido/salvo conforme o peso atual
+  invAprimos.forEach(a => { if (a.catalogId) a.custo = custo; });
+
+  const idsAtivos = invAprimos.filter(a => a.catalogId).map(a => a.catalogId);
+  const aviso = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Esse elmo pode ter até <strong>${limite}</strong> Aprimoramento${limite > 1 ? 's' : ''} de Elmo (💰 ${custo} cada${isExotica ? '' : ' — 5x o custo normal, por não ser Exótico'}).</div>`;
+
+  const cards = APRIMORAMENTOS_ELMO.map(a => {
+    const ativo = idsAtivos.includes(a.id);
+    return `<div class="skill-card sk-gray" style="margin:0;cursor:pointer" onclick="toggleAprimoElmo('${a.id}')">
+      <div class="sk-name">${a.name}</div>
+      <div class="sk-tags"><span class="sk-tag">💰 ${custo}</span></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5">${a.desc}</div>
+      <button class="btn ${ativo ? '' : 'btn-primary'}" style="width:100%;justify-content:center;margin-top:8px" onclick="event.stopPropagation();toggleAprimoElmo('${a.id}')">
+        ${ativo ? '✓ Escolhido — clique para remover' : 'Escolher'}
+      </button>
+    </div>`;
+  }).join('');
+
+  return aviso + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`;
+}
+
+// Alterna a escolha de um Aprimoramento de Elmo no modal, respeitando o
+// limite de slots do peso atual (ver limiteAprimorosElmo).
+function toggleAprimoElmo(catalogId) {
+  const peso = _invSelectedPeso();
+  const limite = limiteAprimorosElmo(peso);
+  if (peso !== 'exotica' && !algumAliadoTemTecnologiaDraenei()) {
+    alert('Elmos Comuns só recebem Aprimoramentos de Elmo Exóticos se algum aliado tiver a passiva racial "Tecnologia Draenei" (Draenei).');
+    return;
+  }
+  const idx = invAprimos.findIndex(a => a.catalogId === catalogId);
+  if (idx !== -1) {
+    invAprimos.splice(idx, 1);
+  } else {
+    const jaEscolhidos = invAprimos.filter(a => a.catalogId).length;
+    if (jaEscolhidos >= limite) {
+      alert(`Esse elmo só pode ter ${limite} Aprimoramento${limite > 1 ? 's' : ''} de Elmo.`);
+      return;
+    }
+    const cat = APRIMORAMENTOS_ELMO.find(a => a.id === catalogId);
+    if (!cat) return;
+    invAprimos.push({ catalogId: cat.id, name: cat.name, desc: cat.desc, custo: custoAprimoramentoElmo(peso) });
+  }
+  _renderInvAprimos();
+}
+
 function _renderInvAprimos() {
   const el = document.getElementById('inv-aprimos-list');
   if (!el) return;
   const tipo = _invSelectedTipo();
   const peso = _invSelectedPeso();
-  const isArmaduraProtecao = tipo === 'protecao' && _invSelectedSub() === 'armadura';
+  const sub  = tipo === 'protecao' ? _invSelectedSub() : null;
+  const isArmaduraProtecao = tipo === 'protecao' && sub === 'armadura';
+  const isElmoProtecao     = tipo === 'protecao' && sub === 'elmo';
 
-  // Armadura Encantada (peso 'encantada'): catálogo de Encantamentos (Arcano/Místico)
-  // — checado antes do catálogo de Aprimoramentos de Armadura, já que só a
-  // Armadura (não Elmo/Arma/Instrumento) pode ser Encantada.
-  if (isArmaduraProtecao && peso === 'encantada') {
-    el.innerHTML = _buildEncantamentoListHtml();
+  // Armadura/Elmo Encantados (peso 'encantada'): catálogo de Encantamentos
+  // (Arcano/Místico) — cada um com seu próprio catálogo (ENCANTAMENTOS_EQUIPAMENTO
+  // pra Armadura, ENCANTAMENTOS_ELMO pra Elmo) — checado antes do catálogo de
+  // Aprimoramentos de Armadura, já que só Armadura e Elmo podem ser Encantados por ora.
+  if ((isArmaduraProtecao || isElmoProtecao) && peso === 'encantada') {
+    el.innerHTML = _buildEncantamentoListHtml(isElmoProtecao ? 'elmo' : 'armadura');
     return;
   }
 
@@ -5611,10 +5844,18 @@ function _renderInvAprimos() {
     return;
   }
 
+  // Elmo (Leve/Média/Pesada/Exótico): catálogo próprio de Aprimoramentos de
+  // Elmo, no lugar do seletor Dourado/Exótico (ver APRIMORAMENTOS_ELMO).
+  if (isElmoProtecao) {
+    el.innerHTML = _buildAprimoElmoListHtml(peso);
+    return;
+  }
+
   const isExotica = peso === 'exotica';
 
   if (isExotica) {
-    // Armas/Elmos exóticos: campos livres, sem Dourado
+    // Armas exóticas (Elmo exótico já tem seu próprio catálogo acima):
+    // campos livres, sem Dourado
     el.innerHTML = invAprimos.map((a,i) => `
       <div class="inv-extra-item">
         <div style="flex:1">
@@ -5626,11 +5867,11 @@ function _renderInvAprimos() {
     return;
   }
 
-  // Categoria "Encantada" existe para Elmo/Arma/Instrumento também, mas ainda
-  // sem catálogo de Encantamentos próprio cadastrado (só a Armadura tem, por
-  // enquanto) — mostra um aviso no lugar do seletor Dourado/Exótico.
+  // Categoria "Encantada" existe para Arma/Instrumento também, mas ainda sem
+  // catálogo de Encantamentos próprio cadastrado (Armadura e Elmo já têm) —
+  // mostra um aviso no lugar do seletor Dourado/Exótico.
   if (peso === 'encantada') {
-    const rotulo = tipo === 'arma' ? 'Armas' : tipo === 'instrumento' ? 'Instrumentos' : 'Elmos';
+    const rotulo = tipo === 'arma' ? 'Armas' : 'Instrumentos';
     el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 2px">${rotulo} Encantados ainda não têm um catálogo de Encantamentos próprio cadastrado — em breve.</div>`;
     return;
   }
@@ -5665,7 +5906,7 @@ function _renderInvAprimos() {
 // Monta o HTML do catálogo de Encantamentos pro mesmo slot dos Aprimoramentos
 // Dourado/Exótico — filtra pelo estilo (Arcano/Místico) já comprometido pelo
 // personagem em outro equipamento e pelos Encantamentos já usados em outro item.
-function _buildEncantamentoListHtml() {
+function _buildEncantamentoListHtml(subtipoAlvo) {
   const p = PLAYERS.find(x => x.id === modalInvPid);
   if (!p) return '';
 
@@ -5673,12 +5914,13 @@ function _buildEncantamentoListHtml() {
     return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Requer o Talento Inferior <strong>"Equipamento Encantado"</strong>.</div>`;
   }
 
+  const catalogo = subtipoAlvo === 'elmo' ? ENCANTAMENTOS_ELMO : ENCANTAMENTOS_EQUIPAMENTO;
   const estiloAtual = getEstiloEncantamentoAtual(p);
   const aviso = estiloAtual
     ? `Estilo comprometido: <strong>${estiloAtual === 'arcano' ? 'Arcano' : 'Místico'}</strong> — só um estilo de Encantamento por personagem.`
     : 'Escolha o Encantamento deste equipamento. O estilo escolhido (Arcano ou Místico) valerá para todos os seus equipamentos encantados.';
 
-  const opcoes = getEncantamentosDisponiveis(p, modalInvId);
+  const opcoes = getEncantamentosDisponiveis(p, modalInvId, catalogo);
   const cards = opcoes.map(e => {
     const ativo = invEncantamentoEscolhido === e.id;
     const c = e.concede;
@@ -5757,18 +5999,19 @@ function _updateAprimoUI() {
   const isExotica = peso === 'exotica';
   const isEncantada = peso === 'encantada';
   const isArmaduraProtecao = tipo === 'protecao' && _invSelectedSub() === 'armadura';
+  const isElmoProtecao     = tipo === 'protecao' && _invSelectedSub() === 'elmo';
   // Encantada: só existe 1 slot possível (o Encantamento) — sem seletor, igual à Exótica.
-  // Armadura (Leve/Média/Pesada/Exótica): usa o catálogo próprio de
-  // Aprimoramentos de Armadura em qualquer peso — também sem este seletor.
-  seletor.style.display = (isExotica || isEncantada || isArmaduraProtecao) ? 'none' : 'flex';
-  hint.style.display    = (isExotica && !isArmaduraProtecao) ? '' : 'none';
+  // Armadura e Elmo (Leve/Média/Pesada/Exótica): cada um usa seu próprio
+  // catálogo de Aprimoramentos em qualquer peso — também sem este seletor.
+  seletor.style.display = (isExotica || isEncantada || isArmaduraProtecao || isElmoProtecao) ? 'none' : 'flex';
+  hint.style.display    = (isExotica && !isArmaduraProtecao && !isElmoProtecao) ? '' : 'none';
 
-  // Atualiza o texto do hint para Elmos exóticos (Armadura usa catálogo próprio, sem hint)
-  if (isExotica && tipo === 'protecao' && !isArmaduraProtecao) {
-    hint.innerHTML = '⚠ Elmos Exóticos não podem receber Aprimoramento Dourado. <button class="btn" style="padding:3px 9px;font-size:11px;margin-left:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar Aprimoramento</button>';
+  // Atualiza o texto do hint pra Armas/Instrumentos exóticos (Armadura e Elmo usam catálogo próprio, sem hint)
+  if (isExotica && !isArmaduraProtecao && !isElmoProtecao) {
+    hint.innerHTML = '⚠ Armas/Instrumentos Exóticos não podem receber Aprimoramento Dourado. <button class="btn" style="padding:3px 9px;font-size:11px;margin-left:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar Aprimoramento</button>';
   }
 
-  // Highlight do botão ativo (armas/instrumentos/elmos comuns)
+  // Highlight do botão ativo (armas/instrumentos comuns)
   ['dourado','exotico','nenhum'].forEach(t => {
     const btn = document.getElementById('inv-aprimo-btn-' + t);
     if (btn) btn.style.fontWeight = (invAprimoTipo === t) ? '700' : '';
@@ -5857,10 +6100,10 @@ function saveInvItem() {
   // Preço (dinheiro): armas, instrumentos e proteções (armaduras/elmos)
   if (tipo !== 'item') base.preco = preco;
 
-  // Encantamento (Armadura/Elmo/Arma/Instrumento Encantados — peso 'encantada')
+  // Encantamento (Armadura/Elmo Encantados — peso 'encantada')
   if (tipo !== 'item') {
     if (peso === 'encantada' && invEncantamentoEscolhido) {
-      const catEnc = ENCANTAMENTOS_EQUIPAMENTO.find(e => e.id === invEncantamentoEscolhido);
+      const catEnc = buscarEncantamentoPorId(invEncantamentoEscolhido);
       base.encantamento = catEnc
         ? { id: catEnc.id, name: catEnc.name, estilo: catEnc.estilo, passivaDesc: catEnc.passivaDesc, custo: catEnc.custo }
         : null;
@@ -5895,7 +6138,7 @@ function saveInvItem() {
   p.skills = p.skills.filter(sk => sk.encantamentoItemId !== savedId);
   const itemSalvo = p.inventario.find(x => x.id === savedId);
   if (itemSalvo && itemSalvo.encantamento) {
-    const catEnc = ENCANTAMENTOS_EQUIPAMENTO.find(e => e.id === itemSalvo.encantamento.id);
+    const catEnc = buscarEncantamentoPorId(itemSalvo.encantamento.id);
     if (catEnc) p.skills.push(construirSkillEncantamento(catEnc, savedId));
   }
 
@@ -7297,6 +7540,7 @@ function openCharModal() {
   wizardFeiticosLendariosEscolhidos = [];
   wizardRituaisMacabrosEscolhidos = [];
   wizardArmaduraEscolhidaId = null;
+  wizardElmoEscolhidaId = null;
   setModalMode(false);
   showWizardStep(1);
   setTimeout(() => document.getElementById('c-name').focus(), 50);
@@ -7421,10 +7665,17 @@ function handleStep5Continue() {
 }
 
 // Botão "Próximo" do passo 6 (Talentos/Feitiços/Rituais): avança para o
-// passo 7 (Armadura Inicial), a última etapa antes de criar o personagem.
+// passo 7 (Armadura Inicial).
 function handleStep6Continue() {
   renderWizardArmaduraStep();
   showWizardStep(7);
+}
+
+// Botão "Próximo" do passo 7 (Armadura Inicial): avança para o passo 8
+// (Elmo Inicial), a última etapa antes de criar o personagem.
+function handleStep7Continue() {
+  renderWizardElmoStep();
+  showWizardStep(8);
 }
 
 function saveCharacter() {
@@ -7554,7 +7805,7 @@ function saveCharacter() {
         novo.skills.push(construirSkillRitualMacabro(item));
       }
     });
-    // Armadura inicial escolhida no passo 5 do wizard de criação (opções
+    // Armadura inicial escolhida no passo 7 do wizard de criação (opções
     // filtradas pelo atributo principal da subclasse — ver getPesosArmaduraPermitidos).
     if (wizardArmaduraEscolhidaId) {
       const catItem = CATALOGO_ITENS.protecao.find(x => x.id === wizardArmaduraEscolhidaId);
@@ -7565,6 +7816,19 @@ function saveCharacter() {
           efeito: catItem.efeito || '', valor: catItem.valor != null ? catItem.valor : null,
           preco: catItem.preco != null ? catItem.preco : null,
           passosPenalidade: catItem.passosPenalidade || 0, equipado: true, aprimoramentos: [],
+        });
+      }
+    }
+    // Elmo inicial escolhido no passo 8 do wizard de criação (mesma lógica da Armadura).
+    if (wizardElmoEscolhidaId) {
+      const catItemElmo = CATALOGO_ITENS.protecao.find(x => x.id === wizardElmoEscolhidaId);
+      if (catItemElmo) {
+        novo.inventario.push({
+          id: 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          tipo: 'protecao', subtipo: catItemElmo.subtipo, peso: catItemElmo.peso, name: catItemElmo.name,
+          efeito: catItemElmo.efeito || '', valor: catItemElmo.valor != null ? catItemElmo.valor : null,
+          preco: catItemElmo.preco != null ? catItemElmo.preco : null,
+          passosPenalidade: catItemElmo.passosPenalidade || 0, equipado: true, aprimoramentos: [],
         });
       }
     }
@@ -7581,6 +7845,7 @@ function saveCharacter() {
   wizardFeiticosLendariosEscolhidos = [];
   wizardRituaisMacabrosEscolhidos = [];
   wizardArmaduraEscolhidaId = null;
+  wizardElmoEscolhidaId = null;
 
   saveState();
   renderAll();
