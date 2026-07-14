@@ -1501,6 +1501,56 @@ function construirSkillEncantamento(encantamentoItem, itemInventarioId) {
 }
 
 // ═══════════════════════════════════════
+// USOS DE ARMA ("Usar (Nx)") — contador de uso livre em qualquer Arma
+// ═══════════════════════════════════════
+// Diferente dos Encantamentos/Aprimoramentos (catálogos fixos), aqui o
+// jogador escreve livremente nome + efeito de cada "Usar (Nx)" da arma (ver
+// seção "Usos" no modal de Inventário — _renderInvUsos/addInvUso). Fica
+// GUARDADO NO PRÓPRIO ITEM (item.usos), não vira Habilidade — o contador
+// aparece direto no card da arma no Inventário (ver usarArmaUso/resetArmaUso
+// e o bloco `usosBox` em renderArmaCard). Escopo de recarga (4 opções):
+//  - 'arma'   : usos "pela Arma" — nunca recarrega sozinho (só reset manual).
+//  - 'sessao' : usos por Sessão — recarrega no Reset de Sessão.
+//  - 'luta'   : usos por Luta/Cena — recarrega no Reset de Luta (nova luta).
+//  - 'turno'  : usos por Turno — recarrega automaticamente a cada turno.
+// Ver resetUsosArmaPorEscopo, chamada em resetSessao/resetLuta/nextTurnGlobal.
+const ESCOPO_USO_ARMA_LABEL = { arma: 'Por Arma', sessao: 'Por Sessão', luta: 'Por Luta', turno: 'Por Turno' };
+
+// Reseta pra usosMax todos os Usos de Arma do personagem cujo escopo esteja
+// na lista `escopos` — usado pelos resets globais (sessão/luta/turno).
+// Escopo 'arma' nunca é passado aqui (não reseta sozinho, só manualmente).
+function resetUsosArmaPorEscopo(p, escopos) {
+  (p.inventario || []).forEach(item => {
+    if (item.tipo === 'arma' && Array.isArray(item.usos)) {
+      item.usos.forEach(u => { if (escopos.includes(u.escopo)) u.usosAtuais = u.usosMax; });
+    }
+  });
+}
+
+// Consome 1 uso de um "Usar (Nx)" da arma (clique no card). Não faz nada se
+// já estiver esgotado — use resetArmaUso para restaurar manualmente.
+function usarArmaUso(pid, itemId, usoIdx) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  const uso = item && item.usos && item.usos[usoIdx];
+  if (!uso || uso.usosAtuais <= 0) return;
+  uso.usosAtuais -= 1;
+  saveState();
+  renderJogador();
+}
+
+// Restaura manualmente os usos de um "Usar (Nx)" da arma pro máximo.
+function resetArmaUso(pid, itemId, usoIdx) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  const uso = item && item.usos && item.usos[usoIdx];
+  if (!uso) return;
+  uso.usosAtuais = uso.usosMax;
+  saveState();
+  renderJogador();
+}
+
+// ═══════════════════════════════════════
 // APRIMORAMENTOS DE ARMADURA (Leve/Média/Pesada/Exótica — subtipo 'armadura')
 // ═══════════════════════════════════════
 // Catálogo próprio de Aprimoramentos de Armadura, no mesmo espaço/UI dos
@@ -3041,6 +3091,18 @@ function temAcessoArmaduraMegaPesada(p) {
   return getPesoMaximoArmaduraPersonagem(p) === 'mega';
 }
 
+// O personagem pode comprar/vestir uma peça de peso `peso` (leve/media/pesada/
+// mega), considerando o teto calculado em getPesoMaximoArmaduraPersonagem
+// (atributo da subclasse + "Maestria de Peso Aprimorada")? Não se aplica a
+// Exótica/Encantada, que têm suas próprias travas por Talento — ver
+// temAcessoEquipamentoExotico/temAcessoEquipamentoEncantado.
+function temAcessoPesoArmaduraOuElmo(p, peso) {
+  const idx = ORDEM_PESO_ARMADURA.indexOf(peso);
+  if (idx === -1) return true;
+  const maxIdx = ORDEM_PESO_ARMADURA.indexOf(getPesoMaximoArmaduraPersonagem(p));
+  return idx <= maxIdx;
+}
+
 // Retorna a classe-base (Guerreiro, Ladino…) dado o nome de uma subclasse
 function getBaseClass(subclasseName) {
   for (const cls of CLASSES) {
@@ -3621,9 +3683,9 @@ function maestriaDe(p, campoAttr) {
 }
 function tipoLabel(sk) {
   if (sk.tipo==='infinite') return '∞ livre';
-  if (sk.tipo==='perturn')  return '1/turno';
+  if (sk.tipo==='perturn')  return sk.usosMax + 'x/turno';
   if (sk.tipo==='luta')     return sk.usosMax + 'x/luta';
-  if (sk.tipo==='sessao')   return sk.usosMax + (sk.resetSessao === false ? 'x/armadura' : 'x/sessão');
+  if (sk.tipo==='sessao')   return sk.usosMax + (sk.resetSessao === false ? 'x/item' : 'x/sessão');
   if (sk.tipo==='turno_N')  return sk.turnosRecarga + '⏳ turnos';
   if (sk.tipo==='notas')    return '7 Notas';
   return '';
@@ -3732,6 +3794,8 @@ function nextTurnGlobal() {
         if (sk.cdRestante === 0) sk.usosAtuais = sk.usosMax;
       }
     });
+    // Usos de Arma ("Usar Nx") com escopo "Por Turno"
+    resetUsosArmaPorEscopo(p, ['turno']);
   });
   saveState();
   renderAll();
@@ -3751,6 +3815,8 @@ function resetLuta() {
         sk.cdRestante = 0;
       }
     });
+    // Usos de Arma ("Usar Nx") com escopo "Por Luta" ou "Por Turno"
+    resetUsosArmaPorEscopo(p, ['luta','turno']);
     // Notas do Bardo: resetar no início de cada luta
     if (p.classeBase === 'Bardo' && p.notasBardo) {
       NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
@@ -3765,11 +3831,13 @@ function resetSessao() {
   PLAYERS.forEach(p => {
     p.skills.forEach(sk => {
       sk.cdRestante = 0;
-      // resetSessao === false: usos "por armadura" (ex: Loucura Acumulada) —
+      // resetSessao === false: usos "por item" (ex: Loucura Acumulada) —
       // não recarrega automaticamente num Reset de Sessão.
       if (sk.resetSessao === false) return;
       sk.usosAtuais = sk.usosMax;
     });
+    // Usos de Arma ("Usar Nx") com escopo "Por Sessão"
+    resetUsosArmaPorEscopo(p, ['sessao']);
     // Notas do Bardo: resetar também no reset de sessão
     if (p.classeBase === 'Bardo' && p.notasBardo) {
       NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
@@ -5165,6 +5233,27 @@ function renderInventarioArea(p) {
     const encantamentoBox = item.encantamento
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>`
       : '';
+    const usosBox = (item.usos && item.usos.length)
+      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-target-arrow" style="color:var(--accent2)"></i> Usos</div>${item.usos.map((u, ui) => {
+          const usosMax = u.usosMax || 1;
+          const usosAtuais = u.usosAtuais != null ? u.usosAtuais : usosMax;
+          const spent = usosMax - usosAtuais;
+          const pronto = usosAtuais > 0;
+          const dots = Array.from({length: usosMax}, (_, di) => `<div class="sdot ${di < spent ? 'spent' : ''}"></div>`).join('');
+          return `<div class="skill-card sk-gray ${pronto ? 'ready' : 'exhausted'}" style="margin:6px 0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div class="sk-name">${u.name}</div>
+              <button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
+            </div>
+            <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span></div>
+            ${u.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${u.desc}</div>` : ''}
+            <div class="sk-bottom">
+              <button class="sk-btn" onclick="usarArmaUso(${p.id},'${item.id}',${ui})" ${!pronto?'disabled':''}>Usar</button>
+              <div class="sk-dots">${dots}</div>
+            </div>
+          </div>`;
+        }).join('')}</div>`
+      : '';
 
     if (isInstrumento) {
       // Instrumentos: título + botão editar na primeira linha; tags na segunda
@@ -5182,7 +5271,7 @@ function renderInventarioArea(p) {
         ${precoRow()}
         ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
         ${municaoRow(item)}
-        ${aprimoramentos}${ativas}${encantamentoBox}
+        ${aprimoramentos}${ativas}${encantamentoBox}${usosBox}
       </div>`;
     }
 
@@ -5199,7 +5288,7 @@ function renderInventarioArea(p) {
       ${precoRow()}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
       ${municaoRow(item)}
-      ${aprimoramentos}${ativas}${encantamentoBox}
+      ${aprimoramentos}${ativas}${encantamentoBox}${usosBox}
     </div>`;
   }
 
@@ -5332,8 +5421,117 @@ const CATALOGO_ITENS = {
     { id: 'cat_elmo_exotico', name: 'Elmo Exótico', subtipo: 'elmo', peso: 'exotica', valor: 7, preco: 75, efeito: 'Concede -1d4 de Desvantagem em testes de Furtividade. Ativa (3x por luta, gasta 1 Cristal, 1 uso por turno): remova sua Cegueira, ou crie uma barreira na sua cabeça que a torna impossível de ser mirada por 1 turno. Pode receber até 2 Aprimoramentos de Elmo.' },
     { id: 'cat_elmo_mega', name: 'Elmo Mega Pesado', subtipo: 'elmo', peso: 'mega', valor: 10, preco: 100, efeito: 'Concede -1d10 de Desvantagem em testes de Furtividade.' },
   ],
-  arma: [],
-  instrumento: [],
+  arma: [
+    {
+      id: 'cat_arma_amuleto', name: 'Amuleto', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
+      efeito: 'Um pingente aparentemente comum, sem função ofensiva evidente.',
+      usos: [{ name: 'Restauração do Amuleto', desc: 'Restaure 1d8 de Vida. Pode ser usado diversas vezes no mesmo turno. Ao usar a 5ª vez, o amuleto se quebra.', escopo: 'arma', usosMax: 5 }],
+    },
+    {
+      id: 'cat_arma_adagas_magicas', name: 'Adagas Mágicas', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
+      efeito: 'Munição (Runas): as adagas guardam até 2 Runas. Ao gastar uma Runa, recarregue pagando 10 de Dinheiro no final da luta.',
+      usos: [{ name: 'Invisibilidade da Runa', desc: 'Gaste 1 Runa: as adagas ficam invisíveis até acertarem um alvo — o alvo não consegue Desviar nem Aparar. 1 uso por Ação.', escopo: 'arma', usosMax: 2 }],
+    },
+    {
+      id: 'cat_arma_cajado', name: 'Cajado', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
+      efeito: 'Passiva: ataques corpo a corpo com o cajado têm +1 de Alcance. O cajado também dispara feixes mágicos, com +2 de Alcance.',
+      usos: [{ name: 'Recarga Arcana', desc: 'Recarregue um turno de recarga de um Feitiço seu. Pode ser usado diversas vezes no mesmo turno. Ao usar a 10ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 10 }],
+    },
+    {
+      id: 'cat_arma_grimorio_conhecimento', name: 'Grimório do Conhecimento', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
+      efeito: 'Passiva: escolha um Feitiço — pode lançá-lo uma vez por luta. Escolha também um elemento: seus disparos passam a ser baseados nele.',
+    },
+    {
+      id: 'cat_arma_orbe_tecnologico', name: 'Orbe Tecnológico', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
+      efeito: 'Munição (Cápsulas de Energia): o orbe guarda até 2 Cápsulas. Ao gastar uma, recarregue pagando 10 de Dinheiro no final da luta.',
+      usos: [{ name: 'Disparo de Energia', desc: 'Sacrifique 1 Cápsula de Energia e libere um disparo de energia — o dano é um teste de Arcano ou Místico (não pode mirar na cabeça).', escopo: 'arma', usosMax: 2 }],
+    },
+    {
+      id: 'cat_arma_varinha', name: 'Varinha', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
+      efeito: 'Passiva: a varinha possui magia, permitindo lançar feixes mágicos a Longo Alcance.',
+      usos: [{ name: 'Impulso Arcano', desc: 'Ao lançar um Feitiço, conceda +1 de Vantagem para ele. Pode ser usado diversas vezes no mesmo turno. Ao usar a 10ª vez, a varinha se quebra.', escopo: 'arma', usosMax: 10 }],
+    },
+    {
+      id: 'cat_arma_adagas', name: 'Adagas', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
+      efeito: 'Passiva: se você estiver Furtivo, seu teste de Arremesso possui +1d6 de Vantagem.',
+      usos: [{ name: 'Bolsa de Adagas', desc: 'Consome 1 uso a cada Arremesso com as adagas. Recarregue pagando 5 de Dinheiro no final da luta (até 2 bolsas por vez).', escopo: 'arma', usosMax: 2 }],
+    },
+    {
+      id: 'cat_arma_arco', name: 'Arco', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
+      efeito: 'Passiva: possui +6 de Alcance.',
+      usos: [{ name: 'Aljava', desc: 'Consome 1 uso a cada disparo com o arco. Recarregue pagando 5 de Dinheiro no final da luta (até 2 conjuntos de flechas por vez).', escopo: 'arma', usosMax: 2 }],
+    },
+    {
+      id: 'cat_arma_espada_uma_mao', name: 'Espada de Uma Mão', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
+      efeito: 'Passiva: ao Desviar, pode fazer um Contra-Ataque. Funciona apenas uma vez por turno.',
+    },
+    {
+      id: 'cat_arma_foice', name: 'Foice', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
+      efeito: 'Passiva: ataques corpo a corpo possuem +2 de Alcance.',
+    },
+    {
+      id: 'cat_arma_katana', name: 'Katana', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
+      efeito: 'Passiva: causa +1d6 de dano quando o alvo já está sem Armadura.',
+    },
+    {
+      id: 'cat_arma_revolver', name: 'Revólver', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
+      efeito: 'Passiva: ao acertar um alvo, retire 1d2 de Armadura dele.',
+      usos: [{ name: 'Pente de Balas', desc: 'Consome 1 uso a cada disparo com o revólver. Recarregue pagando 10 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
+    },
+    {
+      id: 'cat_arma_conjunto_glaives', name: 'Conjunto de Glaives', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
+      efeito: 'Passiva: as glaives são como bumerangues — ao arremessar uma delas, ela retorna para sua mão no final do turno.',
+    },
+    {
+      id: 'cat_arma_escudo_pesado', name: 'Escudo Pesado', peso: 'pesada', dano: '', preco: 75, alcance: 'curto',
+      efeito: 'Passiva: fora do seu turno, o dado de dano é convertido em +1d6 de Vantagem em Aparar. No seu turno, o dado de dano é 1d4.',
+    },
+    {
+      id: 'cat_arma_espada_pesada', name: 'Espada Pesada', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
+      efeito: 'Passiva: ao atacar com uma mão, possui +2 de Vantagem; ao atacar com as duas mãos, causa +2 de dano.',
+    },
+    {
+      id: 'cat_arma_espingarda', name: 'Espingarda', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
+      efeito: 'Passiva: possui +2 de Alcance e causa +2 de dano perfurante (atravessa a Armadura).',
+      usos: [{ name: 'Pente de Cartuchos', desc: 'Consome 1 uso a cada disparo com a espingarda. Recarregue pagando 10 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
+    },
+    {
+      id: 'cat_arma_machado_arremesso', name: 'Machado de Arremesso', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
+      efeito: 'Passiva: no Arremesso, causa +2 de dano e possui +2 de Vantagem no Arremesso.',
+    },
+    {
+      id: 'cat_arma_marreta', name: 'Marreta', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
+      efeito: 'Passiva: causa o dobro de dano em objetos, e o alvo possui -1d4 de Desvantagem em Aparar contra a marreta.',
+    },
+  ],
+  instrumento: [
+    {
+      id: 'cat_instrumento_violino_amuleto', name: 'Violino-Amuleto', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Aparenta ser apenas um bijuteria decorativa em forma de violino.',
+      usos: [{ name: 'Restauração do Violino-Amuleto', desc: 'Restaure 1d4 de Vida e receba qualquer Nota Musical. Pode ser usado diversas vezes no mesmo turno. Ao usar a 5ª vez, o violino-amuleto se quebra.', escopo: 'arma', usosMax: 5 }],
+    },
+    {
+      id: 'cat_instrumento_harpa_grimorio', name: 'Harpa-Grimório', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: escolha um Feitiço — pode lançá-lo uma vez por luta, concedendo qualquer Nota Musical ao fazê-lo.',
+    },
+    {
+      id: 'cat_instrumento_microfone_adaga', name: 'Microfone-Adaga', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: se o alvo estiver te encarando de longe, seu teste de Arremesso possui +1d4 de Vantagem, e ao acertá-lo no arremesso, receba qualquer Nota Musical.',
+      usos: [{ name: 'Bolsa de Microfone-Adaga', desc: 'Consome 1 uso a cada Arremesso com o microfone-adaga. Recarregue pagando 5 de Dinheiro no final da luta (até 2 bolsas por vez).', escopo: 'arma', usosMax: 2 }],
+    },
+    {
+      id: 'cat_instrumento_sousafone_foice', name: 'Sousafone-Foice', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: seu sopro é tão potente que seus ataques corpo a corpo possuem +2 de Alcance.',
+    },
+    {
+      id: 'cat_instrumento_baixo_glaive', name: 'Baixo-Glaive', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: receba qualquer Nota Musical ao arremessar esse instrumento. No final do turno, ele retorna para sua mão.',
+    },
+    {
+      id: 'cat_instrumento_guitarra_machado', name: 'Guitarra-Machado', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: no Arremesso, causa +2 de dano e possui +2 de Vantagem no Arremesso.',
+    },
+  ],
 };
 
 // ─── Modal Inventário ───
@@ -5425,6 +5623,8 @@ function _buildInvModal(data) {
   invAprimos = data.aprimoramentos ? JSON.parse(JSON.stringify(data.aprimoramentos)) : [];
   // ativas
   invAtivas  = data.ativas ? JSON.parse(JSON.stringify(data.ativas)) : [];
+  // usos ("Usar (Nx)" — só se aplica a Armas)
+  invUsos = data.usos ? JSON.parse(JSON.stringify(data.usos)) : [];
   // encantamento (Armadura/Elmo/Arma/Instrumento Encantados — peso 'encantada')
   invEncantamentoEscolhido = (data.encantamento && data.encantamento.id) || null;
   // Detecta invAprimoTipo ao editar item existente
@@ -5446,6 +5646,8 @@ function _buildInvModal(data) {
 
 let invAprimos = [];
 let invAtivas  = [];
+// Lista de "Usos" (Usar Nx) da Arma em edição — ver ESCOPO_USO_ARMA_LABEL/resetUsosArmaPorEscopo.
+let invUsos = [];
 // 'nenhum' | 'dourado' | 'exotico' | 'encantado'  — estado do seletor de tipo de aprimoramento
 let invAprimoTipo = 'nenhum';
 // id de ENCANTAMENTOS_EQUIPAMENTO (Armadura) ou ENCANTAMENTOS_ELMO (Elmo)
@@ -5474,6 +5676,13 @@ function _updateInvModalSections(tipo) {
   // Aprimoramentos (inclui Encantamento Arcano/Místico): disponíveis para armas, instrumentos e proteções
   document.getElementById('inv-sec-exotica').style.display = (ehArmaOuInstrumento || tipo === 'protecao') ? '' : 'none';
   document.getElementById('inv-sec-mega').style.display    = (tipo === 'arma' && peso === 'mega') ? '' : 'none';
+
+  // Usos ("Usar (Nx)"): disponível pra Armas e Instrumentos, em qualquer peso
+  const secUsos = document.getElementById('inv-sec-usos');
+  if (secUsos) {
+    secUsos.style.display = ehArmaOuInstrumento ? '' : 'none';
+    if (ehArmaOuInstrumento) _renderInvUsos();
+  }
 
   // Munição (armas/instrumentos de longo alcance) ou Cristais (itens exóticos ou com aprimo exótico)
   const alcance = _invSelectedAlcance();
@@ -5611,16 +5820,17 @@ function renderInvCatalogo() {
   const pOwner = modalInvPid != null ? PLAYERS.find(x => x.id === modalInvPid) : null;
   const temEncantado = pOwner ? temAcessoEquipamentoEncantado(pOwner) : false;
   const temExotico   = pOwner ? temAcessoEquipamentoExotico(pOwner) : false;
-  const temMegaArmadura = pOwner ? temAcessoArmaduraMegaPesada(pOwner) : false;
 
   const filtrados = banco.filter(item => {
     // Itens de peso 'encantada' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Encantado"
     if (item.peso === 'encantada' && !temEncantado) return false;
     // Itens de peso 'exotica' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Exótico"
     if (item.peso === 'exotica' && !temExotico) return false;
-    // Armadura/Elmo Mega Pesado só aparecem pra quem tem a Maestria de Peso (Força +
-    // Talento Inferior "Maestria de Peso Aprimorada"). Arma/Instrumento não são afetados por ora.
-    if ((item.subtipo === 'armadura' || item.subtipo === 'elmo') && item.peso === 'mega' && !temMegaArmadura) return false;
+    // Armadura e Elmo: TODAS as categorias de peso (Leve/Média/Pesada/Mega) são
+    // travadas pelo atributo da subclasse + Talento Inferior "Maestria de Peso
+    // Aprimorada" (ver getPesoMaximoArmaduraPersonagem/temAcessoPesoArmaduraOuElmo).
+    if ((item.subtipo === 'armadura' || item.subtipo === 'elmo') && pOwner && !temAcessoPesoArmaduraOuElmo(pOwner, item.peso)) return false;
+    if ((item.subtipo === 'armadura' || item.subtipo === 'elmo') && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
     if (subAtivo && item.subtipo !== subAtivo) return false;
     if (!termoNorm) return true;
     return item.name.toLowerCase().includes(termoNorm);
@@ -5663,11 +5873,21 @@ function selecionarCatalogoItem(itemId) {
     if (inputPassosPenalidade) inputPassosPenalidade.value = item.passosPenalidade != null ? item.passosPenalidade : '';
   } else if (tipo === 'instrumento') {
     invSelectPeso(item.peso);
+    if (item.alcance) invSelectAlcance(item.alcance);
     const inputDanoInst = document.getElementById('inv-m-dano-inst');
     if (inputDanoInst) inputDanoInst.value = item.dano || '';
+    const inputMunicaoInst = document.getElementById('inv-m-municao');
+    if (inputMunicaoInst) inputMunicaoInst.value = item.municao != null ? item.municao : '';
+    invUsos = item.usos ? JSON.parse(JSON.stringify(item.usos)) : [];
+    _renderInvUsos();
   } else {
     invSelectPeso(item.peso);
+    if (item.alcance) invSelectAlcance(item.alcance);
     document.getElementById('inv-m-dano').value = item.dano || '';
+    const inputMunicaoArma = document.getElementById('inv-m-municao');
+    if (inputMunicaoArma) inputMunicaoArma.value = item.municao != null ? item.municao : '';
+    invUsos = item.usos ? JSON.parse(JSON.stringify(item.usos)) : [];
+    _renderInvUsos();
   }
 }
 
@@ -5963,6 +6183,34 @@ function _renderInvAtivas() {
     </div>`).join('');
 }
 
+// Repinta a lista de "Usos" (Usar Nx) da Arma em edição — cada linha tem
+// nome, efeito livre, escopo de recarga (Arma/Sessão/Luta/Turno) e a
+// quantidade de usos (Nx). Fica guardado no próprio item (item.usos) ao
+// salvar — ver saveInvItem e o contador interativo em renderArmaCard.
+function _renderInvUsos() {
+  const el = document.getElementById('inv-usos-list');
+  if (!el) return;
+  const ESCOPO_LABEL = { arma: 'Usar (Nx) pela Arma', sessao: 'Usar (Nx) por Sessão', luta: 'Usar (Nx) por Luta', turno: 'Usar (Nx) por Turno' };
+  el.innerHTML = invUsos.map((u,i) => `
+    <div class="inv-extra-item" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <input class="inv-extra-input" style="flex:1" value="${u.name||''}" placeholder="Nome do Uso" oninput="invUsos[${i}].name=this.value">
+        <button onclick="invUsos.splice(${i},1);_renderInvUsos()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
+      </div>
+      <input class="inv-extra-input" style="font-size:11px;color:var(--text2)" value="${u.desc||''}" placeholder="Efeito" oninput="invUsos[${i}].desc=this.value">
+      <div style="display:flex;gap:6px">
+        <select class="inv-extra-input" style="flex:1" onchange="invUsos[${i}].escopo=this.value">
+          ${Object.keys(ESCOPO_LABEL).map(esc => `<option value="${esc}" ${u.escopo===esc?'selected':''}>${ESCOPO_LABEL[esc]}</option>`).join('')}
+        </select>
+        <input type="number" min="1" class="inv-extra-input" style="width:64px" value="${u.usosMax||1}" oninput="invUsos[${i}].usosMax=Math.max(1,parseInt(this.value)||1)">
+      </div>
+    </div>`).join('');
+}
+
+function addInvAprimo() { invAprimos.push({name:'',desc:''}); _renderInvAprimos(); }
+function addInvAtiva()  { invAtivas.push({name:'',desc:''});  _renderInvAtivas();  }
+function addInvUso()    { invUsos.push({name:'',desc:'',escopo:'luta',usosMax:1}); _renderInvUsos(); }
+
 function selectAprimoTipo(tipo) {
   invAprimoTipo = tipo;
   if (tipo === 'dourado') {
@@ -6019,9 +6267,6 @@ function _updateAprimoUI() {
   });
 }
 
-function addInvAprimo() { invAprimos.push({name:'',desc:''}); _renderInvAprimos(); }
-function addInvAtiva()  { invAtivas.push({name:'',desc:''});  _renderInvAtivas();  }
-
 function closeInvModal() {
   document.getElementById('modal-inv-overlay').classList.remove('open');
 }
@@ -6067,6 +6312,8 @@ function saveInvItem() {
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Armas exóticas: cristais ficam em p.cristais (pool do personagem), não no item
     if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
+    // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Arma
+    base.usos = invUsos.filter(u => u.name);
   } else if (tipo === 'instrumento') {
     const danoInst = (document.getElementById('inv-m-dano-inst') || {}).value || '';
     Object.assign(base, { peso, dano: danoInst.trim(), alcance });
@@ -6081,6 +6328,8 @@ function saveInvItem() {
     }
     // Aprimoramentos disponíveis para todos os instrumentos
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
+    // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Instrumento
+    base.usos = invUsos.filter(u => u.name);
     // Instrumentos exóticos: cristais ficam em p.cristais (pool do personagem), não no item
   } else if (tipo === 'protecao') {
     Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, passosPenalidade, equipado });
@@ -6112,6 +6361,10 @@ function saveInvItem() {
     }
   }
 
+  // Usos de Arma ("Usar Nx") já existentes — guardado antes de sobrescrever,
+  // pra preservar usosAtuais dos usos que continuam iguais (ver abaixo).
+  const usosAntigos = (modalInvId && (p.inventario.find(x => x.id === modalInvId) || {}).usos) || [];
+
   let savedId;
   if (modalInvId) {
     const idx = p.inventario.findIndex(x => x.id === modalInvId);
@@ -6140,6 +6393,15 @@ function saveInvItem() {
   if (itemSalvo && itemSalvo.encantamento) {
     const catEnc = buscarEncantamentoPorId(itemSalvo.encantamento.id);
     if (catEnc) p.skills.push(construirSkillEncantamento(catEnc, savedId));
+  }
+
+  // Usos de Arma ("Usar Nx") — preserva usosAtuais dos usos que continuam
+  // com o mesmo nome/escopo/quantidade; usos novos começam cheios.
+  if (itemSalvo && itemSalvo.usos && itemSalvo.usos.length) {
+    itemSalvo.usos = itemSalvo.usos.map(u => {
+      const antigo = usosAntigos.find(a => a.name === u.name && a.escopo === u.escopo && a.usosMax === u.usosMax);
+      return { ...u, usosAtuais: antigo ? antigo.usosAtuais : u.usosMax };
+    });
   }
 
   saveState();
