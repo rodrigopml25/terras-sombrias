@@ -1421,11 +1421,59 @@ const ENCANTAMENTOS_ELMO = [
   },
 ];
 
-// Busca um Encantamento pelo id em qualquer catálogo (Armadura ou Elmo) —
-// usado onde não se sabe de antemão de qual catálogo o id escolhido veio
-// (ex: saveInvItem, sincronização da Habilidade concedida).
+// Encantamentos exclusivos de Arma/Instrumento Encantados — mesmo esquema da
+// Armadura/Elmo (Passiva + Feitiço Arcano ou Ritual Místico concedido), com
+// catálogo próprio. Respeitam o mesmo Estilo de Encantamento (Arcano/Místico)
+// já escolhido pelo personagem — ver getEstiloEncantamentoAtual.
+const ENCANTAMENTOS_ARMA = [
+  {
+    id: 'armamento_arcano', name: 'Armamento Arcano', estilo: 'arcano', custo: 75,
+    passivaDesc: 'Sua arma encantada possui escritos matemáticos que produzem uma "arma perfeita": ao usar o "Usar" da sua arma encantada, receba por um turno +3 de Vantagem em ações com ela.',
+    concede: {
+      tipoConcedido: 'feitico', name: 'Armas Perfeitas',
+      desc: 'Sua arma encantada se torna 2 lâminas arcanas que causam 1d4+3+maestria de Intelecto/2 de dano até o final da luta/cena; todos os testes com ela utilizam a maestria de Intelecto/2; pode Aparar Feitiço; atravessa Armadura, Escudo, Imunidade e Adaptações; e não pode ser quebrada.',
+      cost: 0, tipo: 'sessao', usosMax: 1,
+    },
+  },
+  {
+    id: 'escritos_interativos', name: 'Escritos Interativos', estilo: 'arcano', custo: 75,
+    passivaDesc: 'Sua arma encantada possui escritos arcanos que interagem com sua magia: toda vez que lançar um Feitiço que invoca algo, pode substituir essa invocação por um círculo arcano.',
+    concede: {
+      tipoConcedido: 'feitico', name: 'Feitiço Encantado',
+      desc: 'Em até 8 casas, evoque um círculo arcano que ocupa 1x1 casas — toda vez que você usar outro Feitiço (sem ser esse), o círculo explode em uma casa ao redor dele e causa 1d4+3 de dano na Vida. Cada círculo pode se mover até 5 Passos no seu turno (só explode 1 por vez).',
+      cost: 0, tipo: 'sessao', usosMax: 4,
+    },
+  },
+  {
+    id: 'arma_dos_deuses_antigos', name: 'Arma dos Deuses Antigos', estilo: 'mistico', custo: 75,
+    passivaDesc: 'O encantamento carrega um escrito antigo com a alma de Orr Kalyth, o Obelisco, uma antiga arma dos deuses antigos: quando você usar o "Usar" da sua arma encantada, conceda +1 de todas as maestrias para Orr Kalyth e +1 de Armadura corporal e do Elmo, que não podem ser reduzidos, para Orr Kalyth (os bônus só chegam a 5). Sua arma encantada não quebra quando os usos chegarem a zero.',
+    concede: {
+      tipoConcedido: 'ritual', name: 'Invocação do Obelisco',
+      desc: 'Com um círculo de invocação, traga Orr Kalyth! Ele fica até o final da luta/cena no seu lugar. Possui Imunidade contra Feitiço, Golpe ou Técnica (escolha); Ataque 1d4+3; Vida 15×Nível; 5 Passos. No início dos turnos, sacrifique 1d6 de Sanidade — Orr Kalyth recebe +1d4 de Ataque, +2 Passos, +2 em testes, restaura 15 de Vida e mantém o controle sobre ele. Se não quiser, faça teste de Emoção para manter o controle (fica cada vez mais difícil).',
+      corromper: { dado: '2d10', desc: 'No início de cada turno, pode trocar a Imunidade de Orr Kalyth.' },
+      cost: 0, tipo: 'sessao', usosMax: 1,
+    },
+  },
+  {
+    id: 'metamorfose_sombria', name: 'Metamorfose Sombria', estilo: 'mistico', custo: 75,
+    passivaDesc: 'O encantamento possui sangue dos deuses antigos: quando você ficar em estado de Beira da Morte, o Aprimoramento Bizarro é lançado (querendo ou não) e ativa a corrupção — o resultado também te cura. Se já estiver com o Aprimoramento Bizarro ativo, a corrupção é relançada e dobra o 1d10 (vira 2d10). Funciona uma vez por luta/cena.',
+    concede: {
+      tipoConcedido: 'ritual', name: 'Aprimoramento Bizarro',
+      desc: 'Até o final da luta/cena, pegue emprestado o poder dos deuses antigos: um dos seus braços vira um tentáculo — usando ele, os Feitiços possuem Alcance igual ao tabuleiro, até mesmo os de corpo a corpo. Ao lançar um Feitiço com ele, sacrifique 1d10 de Sanidade e o resultado será +dano/cura e Vantagem.',
+      corromper: { dado: '3d6', desc: 'Não precisa sacrificar a Sanidade para ter o 1d10.' },
+      cost: 0, tipo: 'sessao', usosMax: 1,
+    },
+  },
+];
+
+// Busca um Encantamento pelo id em qualquer catálogo (Armadura, Elmo ou
+// Arma/Instrumento) — usado onde não se sabe de antemão de qual catálogo o
+// id escolhido veio (ex: saveInvItem, sincronização da Habilidade concedida).
 function buscarEncantamentoPorId(id) {
-  return ENCANTAMENTOS_EQUIPAMENTO.find(e => e.id === id) || ENCANTAMENTOS_ELMO.find(e => e.id === id) || null;
+  return ENCANTAMENTOS_EQUIPAMENTO.find(e => e.id === id)
+    || ENCANTAMENTOS_ELMO.find(e => e.id === id)
+    || ENCANTAMENTOS_ARMA.find(e => e.id === id)
+    || null;
 }
 
 // O personagem tem o Talento Inferior "Equipamento Encantado"? Sem ele, não
@@ -1546,6 +1594,30 @@ function resetArmaUso(pid, itemId, usoIdx) {
   const uso = item && item.usos && item.usos[usoIdx];
   if (!uso) return;
   uso.usosAtuais = uso.usosMax;
+  saveState();
+  renderJogador();
+}
+
+// ═══════════════════════════════════════
+// VIDA DO ITEM — atributo de vida opcional em Armas/Instrumentos frágeis
+// ═══════════════════════════════════════
+// Alguns itens (ex: Clarinete Encantado) têm um "atributo de vida" próprio,
+// separado da Vida do personagem: recebe dano, pode ser curado, e o item se
+// considera quebrado ao chegar a 0. Guardado em item.vidaMax/item.vidaAtual
+// — ver campo "Vida do Item" no modal de Inventário e o contador em
+// renderArmaCard (`vidaBox`).
+// delta pode ser um número (+1/-1, clampado entre 0 e vidaMax) ou a string
+// 'max' (restaura tudo de uma vez).
+function ajustarVidaItem(pid, itemId, delta) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  if (!item || item.vidaMax == null) return;
+  if (delta === 'max') {
+    item.vidaAtual = item.vidaMax;
+  } else {
+    const atual = item.vidaAtual != null ? item.vidaAtual : item.vidaMax;
+    item.vidaAtual = Math.max(0, Math.min(item.vidaMax, atual + delta));
+  }
   saveState();
   renderJogador();
 }
@@ -4565,7 +4637,7 @@ function renderEscolhaEstiloEncantamentoModal(p) {
     </div>`;
   }).join('');
 
-  const todosEncantamentos = [...ENCANTAMENTOS_EQUIPAMENTO, ...ENCANTAMENTOS_ELMO];
+  const todosEncantamentos = [...ENCANTAMENTOS_EQUIPAMENTO, ...ENCANTAMENTOS_ELMO, ...ENCANTAMENTOS_ARMA];
   const arcanos  = todosEncantamentos.filter(e => e.estilo === 'arcano');
   const misticos = todosEncantamentos.filter(e => e.estilo === 'mistico');
 
@@ -5216,6 +5288,10 @@ function renderInventarioArea(p) {
         const v = Math.ceil(maestriaDe(p,'forca') / 2);
         return { val: v, attr: 'FOR/2', color: '#8b1f1f' };
       }
+      if (peso === 'encantada') {
+        const v = Math.ceil(maestriaDe(p,'intel') / 2);
+        return { val: v, attr: 'INT/2', color: 'var(--accent2)' };
+      }
       return null;
     }
     function danoRow(peso) {
@@ -5254,6 +5330,22 @@ function renderInventarioArea(p) {
           </div>`;
         }).join('')}</div>`
       : '';
+    const vidaBox = (item.vidaMax != null && item.vidaMax > 0)
+      ? (() => {
+          const vidaMax = item.vidaMax;
+          const vidaAtual = item.vidaAtual != null ? item.vidaAtual : vidaMax;
+          const quebrado = vidaAtual <= 0;
+          return `<div class="inv-sub-section">
+            <div class="inv-sub-label"><i class="ti ti-heart" style="color:${quebrado ? 'var(--red)' : 'var(--accent2)'}"></i> Vida do Item ${quebrado ? '<span style="color:var(--red);font-weight:600">(Quebrado)</span>' : ''}</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+              <button onclick="ajustarVidaItem(${p.id},'${item.id}',-1)" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;width:26px;height:26px;cursor:pointer">−</button>
+              <span style="font-size:13px;font-weight:600;min-width:50px;text-align:center">${vidaAtual} / ${vidaMax}</span>
+              <button onclick="ajustarVidaItem(${p.id},'${item.id}',1)" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;width:26px;height:26px;cursor:pointer">+</button>
+              <button onclick="ajustarVidaItem(${p.id},'${item.id}','max')" title="Restaurar" style="background:none;border:none;color:var(--text3);cursor:pointer;margin-left:4px"><i class="ti ti-refresh" style="font-size:15px"></i></button>
+            </div>
+          </div>`;
+        })()
+      : '';
 
     if (isInstrumento) {
       // Instrumentos: título + botão editar na primeira linha; tags na segunda
@@ -5271,7 +5363,7 @@ function renderInventarioArea(p) {
         ${precoRow()}
         ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
         ${municaoRow(item)}
-        ${aprimoramentos}${ativas}${encantamentoBox}${usosBox}
+        ${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}
       </div>`;
     }
 
@@ -5288,7 +5380,7 @@ function renderInventarioArea(p) {
       ${precoRow()}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
       ${municaoRow(item)}
-      ${aprimoramentos}${ativas}${encantamentoBox}${usosBox}
+      ${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}
     </div>`;
   }
 
@@ -5503,6 +5595,21 @@ const CATALOGO_ITENS = {
       id: 'cat_arma_marreta', name: 'Marreta', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
       efeito: 'Passiva: causa o dobro de dano em objetos, e o alvo possui -1d4 de Desvantagem em Aparar contra a marreta.',
     },
+    {
+      id: 'cat_arma_alianca_encantada', name: 'Aliança Encantada', peso: 'encantada', dano: '', preco: 50, alcance: 'curto',
+      efeito: 'Passiva: seus Feitiços causam +1d4 de dano/cura — porém não há como atacar com a aliança, e ela ocupa o lugar de uma arma.',
+      usos: [{ name: 'Explosão Mágica', desc: 'A aliança libera muita magia: seus Feitiços também possuem +3 de dano/cura nesse turno. Um uso por turno. Ao usar a 5ª vez, a aliança se quebra.', escopo: 'arma', usosMax: 5 }],
+    },
+    {
+      id: 'cat_arma_cajado_encantado', name: 'Cajado Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'curto',
+      efeito: 'Passiva: seus ataques corpo a corpo com o cajado possuem +1 de Alcance; o cajado também dispara feixes mágicos, com +2 de Alcance.',
+      usos: [{ name: 'Duplicata Arcana', desc: 'O cajado encanta sua próxima invocação/evocação surgida de um Feitiço: ela cria uma duplicata dela pelo mesmo tempo de duração. Um uso por turno. Ao usar a 5ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 5 }],
+    },
+    {
+      id: 'cat_arma_garras_encantadas', name: 'Garras Encantadas', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'curto',
+      efeito: '',
+      usos: [{ name: 'Absorção de Poder', desc: 'A magia das garras absorve poder: no seu próximo Feitiço que conceder um bônus para arma, esse bônus fica até o final da luta (só pode ter 3 bônus ao mesmo tempo nas garras). Um uso por turno. Ao usar a 5ª vez, as garras se quebram.', escopo: 'arma', usosMax: 5 }],
+    },
   ],
   instrumento: [
     {
@@ -5530,6 +5637,11 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_instrumento_guitarra_machado', name: 'Guitarra-Machado', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: no Arremesso, causa +2 de dano e possui +2 de Vantagem no Arremesso.',
+    },
+    {
+      id: 'cat_instrumento_clarinete_encantado', name: 'Clarinete Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'longo', vidaMax: 15,
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva 1: ao usar um Feitiço e receber dano dele, pode transmiti-lo para a Vida do instrumento (ver Vida do Item). Passiva 2: o instrumento possui uma carga mágica, podendo lançar pequenos feixes mágicos até 5 casas que causam dano.',
+      usos: [{ name: 'Restauração do Clarinete', desc: 'Restaure 1d8 de Vida do instrumento musical. Diversos usos por turno. Se a Vida do instrumento chegar a 0, ele se quebra.', escopo: 'arma', usosMax: 5 }],
     },
   ],
 };
@@ -5625,6 +5737,9 @@ function _buildInvModal(data) {
   invAtivas  = data.ativas ? JSON.parse(JSON.stringify(data.ativas)) : [];
   // usos ("Usar (Nx)" — só se aplica a Armas)
   invUsos = data.usos ? JSON.parse(JSON.stringify(data.usos)) : [];
+  // Vida do Item (opcional — Armas/Instrumentos)
+  const inputVidaMax = document.getElementById('inv-m-vida-max');
+  if (inputVidaMax) inputVidaMax.value = data.vidaMax != null ? data.vidaMax : '';
   // encantamento (Armadura/Elmo/Arma/Instrumento Encantados — peso 'encantada')
   invEncantamentoEscolhido = (data.encantamento && data.encantamento.id) || null;
   // Detecta invAprimoTipo ao editar item existente
@@ -5880,6 +5995,8 @@ function selecionarCatalogoItem(itemId) {
     if (inputMunicaoInst) inputMunicaoInst.value = item.municao != null ? item.municao : '';
     invUsos = item.usos ? JSON.parse(JSON.stringify(item.usos)) : [];
     _renderInvUsos();
+    const inputVidaMaxInst = document.getElementById('inv-m-vida-max');
+    if (inputVidaMaxInst) inputVidaMaxInst.value = item.vidaMax != null ? item.vidaMax : '';
   } else {
     invSelectPeso(item.peso);
     if (item.alcance) invSelectAlcance(item.alcance);
@@ -5888,6 +6005,8 @@ function selecionarCatalogoItem(itemId) {
     if (inputMunicaoArma) inputMunicaoArma.value = item.municao != null ? item.municao : '';
     invUsos = item.usos ? JSON.parse(JSON.stringify(item.usos)) : [];
     _renderInvUsos();
+    const inputVidaMaxArma = document.getElementById('inv-m-vida-max');
+    if (inputVidaMaxArma) inputVidaMaxArma.value = item.vidaMax != null ? item.vidaMax : '';
   }
 }
 
@@ -6087,12 +6206,10 @@ function _renderInvAprimos() {
     return;
   }
 
-  // Categoria "Encantada" existe para Arma/Instrumento também, mas ainda sem
-  // catálogo de Encantamentos próprio cadastrado (Armadura e Elmo já têm) —
-  // mostra um aviso no lugar do seletor Dourado/Exótico.
+  // Arma/Instrumento Encantados (peso 'encantada'): catálogo próprio de
+  // Encantamentos (Arcano/Místico) — ver ENCANTAMENTOS_ARMA.
   if (peso === 'encantada') {
-    const rotulo = tipo === 'arma' ? 'Armas' : 'Instrumentos';
-    el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 2px">${rotulo} Encantados ainda não têm um catálogo de Encantamentos próprio cadastrado — em breve.</div>`;
+    el.innerHTML = _buildEncantamentoListHtml('arma');
     return;
   }
 
@@ -6134,7 +6251,9 @@ function _buildEncantamentoListHtml(subtipoAlvo) {
     return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Requer o Talento Inferior <strong>"Equipamento Encantado"</strong>.</div>`;
   }
 
-  const catalogo = subtipoAlvo === 'elmo' ? ENCANTAMENTOS_ELMO : ENCANTAMENTOS_EQUIPAMENTO;
+  const catalogo = subtipoAlvo === 'elmo' ? ENCANTAMENTOS_ELMO
+    : subtipoAlvo === 'arma' ? ENCANTAMENTOS_ARMA
+    : ENCANTAMENTOS_EQUIPAMENTO;
   const estiloAtual = getEstiloEncantamentoAtual(p);
   const aviso = estiloAtual
     ? `Estilo comprometido: <strong>${estiloAtual === 'arcano' ? 'Arcano' : 'Místico'}</strong> — só um estilo de Encantamento por personagem.`
@@ -6314,6 +6433,9 @@ function saveInvItem() {
     if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
     // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Arma
     base.usos = invUsos.filter(u => u.name);
+    // Vida do Item (opcional)
+    const vidaMaxRaw = (document.getElementById('inv-m-vida-max') || {}).value || '';
+    base.vidaMax = vidaMaxRaw !== '' ? Math.max(0, parseInt(vidaMaxRaw)) : null;
   } else if (tipo === 'instrumento') {
     const danoInst = (document.getElementById('inv-m-dano-inst') || {}).value || '';
     Object.assign(base, { peso, dano: danoInst.trim(), alcance });
@@ -6330,6 +6452,9 @@ function saveInvItem() {
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Instrumento
     base.usos = invUsos.filter(u => u.name);
+    // Vida do Item (opcional)
+    const vidaMaxRawInst = (document.getElementById('inv-m-vida-max') || {}).value || '';
+    base.vidaMax = vidaMaxRawInst !== '' ? Math.max(0, parseInt(vidaMaxRawInst)) : null;
     // Instrumentos exóticos: cristais ficam em p.cristais (pool do personagem), não no item
   } else if (tipo === 'protecao') {
     Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, passosPenalidade, equipado });
@@ -6364,6 +6489,11 @@ function saveInvItem() {
   // Usos de Arma ("Usar Nx") já existentes — guardado antes de sobrescrever,
   // pra preservar usosAtuais dos usos que continuam iguais (ver abaixo).
   const usosAntigos = (modalInvId && (p.inventario.find(x => x.id === modalInvId) || {}).usos) || [];
+  // Vida do Item já existente — guardado antes de sobrescrever, pra preservar
+  // vidaAtual se a Vida Máxima continuar a mesma (ver abaixo).
+  const itemAntigo = modalInvId ? p.inventario.find(x => x.id === modalInvId) : null;
+  const vidaAtualAntiga = itemAntigo ? itemAntigo.vidaAtual : null;
+  const vidaMaxAntiga = itemAntigo ? itemAntigo.vidaMax : null;
 
   let savedId;
   if (modalInvId) {
@@ -6402,6 +6532,14 @@ function saveInvItem() {
       const antigo = usosAntigos.find(a => a.name === u.name && a.escopo === u.escopo && a.usosMax === u.usosMax);
       return { ...u, usosAtuais: antigo ? antigo.usosAtuais : u.usosMax };
     });
+  }
+
+  // Vida do Item — preserva vidaAtual se a Vida Máxima não mudou; se mudou
+  // (ou é novo), começa cheia. Clampa pro novo máximo se ele diminuiu.
+  if (itemSalvo && itemSalvo.vidaMax != null) {
+    itemSalvo.vidaAtual = (vidaAtualAntiga != null && vidaMaxAntiga === itemSalvo.vidaMax)
+      ? Math.min(vidaAtualAntiga, itemSalvo.vidaMax)
+      : itemSalvo.vidaMax;
   }
 
   saveState();
