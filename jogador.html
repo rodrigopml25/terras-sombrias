@@ -348,14 +348,11 @@
           <!-- Seletor de tipo: somente para armas comuns (Leve/Media/Pesada/Mega) -->
           <div id="inv-aprimo-tipo-selector" style="display:none;gap:6px;margin-bottom:8px;flex-wrap:wrap">
             <button id="inv-aprimo-btn-dourado" class="btn" style="font-size:11px;padding:4px 10px" onclick="selectAprimoTipo('dourado')">&#10024; Dourado</button>
-            <button id="inv-aprimo-btn-exotico" class="btn" style="font-size:11px;padding:4px 10px" onclick="selectAprimoTipo('exotico')"><i class="ti ti-plus"></i> Exotico</button>
+            <button id="inv-aprimo-btn-exotico" class="btn" style="font-size:11px;padding:4px 10px" onclick="selectAprimoTipo('exotico')"><i class="ti ti-plus"></i> Aprimoramento</button>
             <button id="inv-aprimo-btn-nenhum"  class="btn" style="font-size:11px;padding:4px 10px" onclick="selectAprimoTipo('nenhum')">Nenhum</button>
           </div>
           <!-- Aviso para armas/instrumentos/proteções exóticos: apenas aprimoramentos livres, sem Dourado -->
-          <div id="inv-aprimo-exotica-hint" style="display:none;font-size:11px;color:var(--text3);margin-bottom:6px">
-            ⚠ Armas e Instrumentos Exóticos não podem receber Aprimoramento Dourado.
-            <button class="btn" style="padding:3px 9px;font-size:11px;margin-left:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar Aprimoramento</button>
-          </div>
+          <div id="inv-aprimo-exotica-hint" style="display:none;font-size:11px;color:var(--text3);margin-bottom:6px"></div>
           <div id="inv-aprimos-list"></div>
         </div>
 
