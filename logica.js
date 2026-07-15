@@ -1675,6 +1675,15 @@ function algumAliadoTemTecnologiaDraenei() {
   return PLAYERS.some(p => getRacePassivas(p).some(pas => pas.id === 'draenei_tecnologia'));
 }
 
+// Algum aliado (qualquer personagem da campanha) tem a passiva de Origem
+// "draenei_origem_comum"? Armas/Instrumentos Comuns (não-Exóticos) só têm
+// acesso aos Aprimoramentos de Arma/Instrumento Exóticos se isso for
+// verdade — passiva diferente da "Tecnologia Draenei" (que é só pra
+// Armadura/Elmo) — ver a descrição em RACAS.Draenei.
+function algumAliadoTemOrigemComumDraenei() {
+  return PLAYERS.some(p => getRacePassivas(p).some(pas => pas.id === 'draenei_origem_comum'));
+}
+
 // ═══════════════════════════════════════
 // APRIMORAMENTOS DE ELMO (Leve/Média/Pesada/Exótico — subtipo 'elmo')
 // ═══════════════════════════════════════
@@ -1720,8 +1729,55 @@ function custoAprimoramentoElmo(peso) {
   return peso === 'exotica' ? base : base * 5;
 }
 
-
 // ═══════════════════════════════════════
+// APRIMORAMENTOS DE ARMA/INSTRUMENTO (Exótico + Comum, via Origem Comum Draenei)
+// ═══════════════════════════════════════
+// Catálogo próprio de Aprimoramentos de Arma/Instrumento, no mesmo espaço/UI
+// do antigo seletor Dourado/Exótico (ver _renderInvAprimos):
+//  - Arma/Instrumento Exótico (peso 'exotica'): 1 Aprimoramento, custo normal (50).
+//  - Arma/Instrumento Comum (Leve/Média/Pesada/Mega): 1 Aprimoramento, custando
+//    5x o valor normal (250), e só disponível se algum aliado tiver a passiva
+//    de Origem "draenei_origem_comum" (diferente da "Tecnologia Draenei", que
+//    é a trava de Armadura/Elmo — ver algumAliadoTemOrigemComumDraenei).
+// "Dourado" (Talento Inferior do Anão) continua sendo uma opção à parte,
+// independente deste catálogo — ver invAprimoTipo === 'dourado'.
+const APRIMORAMENTOS_ARMA = [
+  {
+    id: 'combo', name: 'Aprimoramento de Combo', custoBase: 50,
+    desc: 'Após usar um Cristal Elétrico da sua arma/instrumento musical, faça um teste de Percepção (10) — no sucesso, pode trocar de arma gratuitamente, Engajar gratuitamente, Correr gratuitamente ou fazer uma Acrobacia gratuitamente.',
+  },
+  {
+    id: 'encantamento', name: 'Aprimoramento de Encantamento', custoBase: 50,
+    desc: 'Concede um Feitiço à sua arma ou instrumento musical, que consome 1 Cristal Elétrico para ser lançado. Caso tenha acesso a Feitiços Lendários, deverá sacrificar a arma ou instrumento para lançá-los. No lançamento e no cálculo de dano/cura, o Feitiço usa metade da sua maestria de Agilidade.',
+  },
+  {
+    id: 'fusao', name: 'Aprimoramento de Fusão', custoBase: 50,
+    desc: 'Sacrifique uma arma/instrumento musical Exótico e conceda os Cristais Elétricos dele para uma arma/instrumento Comum — só você saberá como usá-la (não pode ter Aprimoramento Dourado).',
+  },
+  {
+    id: 'pente', name: 'Aprimoramento de Pente', custoBase: 50,
+    desc: 'Possui +1 de Munição.',
+  },
+  {
+    id: 'ritmo', name: 'Aprimoramento de Ritmo', custoBase: 50,
+    desc: 'Ao gastar 1 Cristal Elétrico da sua arma/instrumento musical, receba uma Ação a mais neste turno.',
+  },
+];
+
+// Quantos Aprimoramentos de Arma/Instrumento o item pode ter — sempre 1,
+// seja Exótico ou Comum.
+function limiteAprimorosArma(peso) {
+  return 1;
+}
+
+// Custo (em Dinheiro) de 1 Aprimoramento de Arma/Instrumento, conforme o
+// peso — armas/instrumentos comuns custam 5x o valor normal.
+function custoAprimoramentoArma(peso) {
+  const base = 50;
+  return peso === 'exotica' ? base : base * 5;
+}
+
+
 // BANCO DE HABILIDADES DE SUBCLASSE
 // ═══════════════════════════════════════
 // Diferente de SUBCLASSES_SKILLS (habilidades fixas, injetadas automaticamente),
@@ -5610,6 +5666,53 @@ const CATALOGO_ITENS = {
       efeito: '',
       usos: [{ name: 'Absorção de Poder', desc: 'A magia das garras absorve poder: no seu próximo Feitiço que conceder um bônus para arma, esse bônus fica até o final da luta (só pode ter 3 bônus ao mesmo tempo nas garras). Um uso por turno. Ao usar a 5ª vez, as garras se quebram.', escopo: 'arma', usosMax: 5 }],
     },
+    {
+      id: 'cat_arma_lanca_eletrica', name: 'Lança Elétrica', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'curto',
+      efeito: 'Ativa: o Cristal Elétrico libera cargas fortes que causam +1d4 de dano no ataque, porém possui -1d4 de Desvantagem no lançamento.',
+      usos: [{ name: 'Carga Elétrica', desc: 'Gaste 1 Cristal Elétrico: libera uma imensa carga que causa +(1d2+1)d4 de dano no próximo ataque. Um uso por turno.', escopo: 'luta', usosMax: 3 }],
+    },
+    {
+      id: 'cat_arma_orbe_cristalino', name: 'Orbe Cristalino', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
+      efeito: 'Passiva: possui +3 de Alcance.',
+      usos: [{ name: 'Feixe Perfurante', desc: 'Gaste 2 Cristais Elétricos: libera um feixe que atravessa Armadura e rola 1d2+1 que multiplica seu dano — caso o alvo esteja sem Armadura, perfura-o e o feixe continua o caminho. 1 uso por Ação.', escopo: 'luta', usosMax: 2 }],
+    },
+    {
+      id: 'cat_arma_lanca_granada', name: 'Lança-Granada', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
+      efeito: 'Ativa: gaste uma Ação para alternar o modo dela. Modo "Lança-Granada": dispara granadas numa área 5x5 com o alvo no centro — elas explodem no início do seu turno seguinte e atravessam Armadura. Modo Focado: dispara balas num alvo até 5 casas.',
+      usos: [{ name: 'Pente de Granadas', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
+      ativas: [{ name: 'Lança-Granada', desc: 'Sacrifique 1d10 de Vida: se estiver no modo "Lança-Granada", a bomba explode ao alcançar o alvo. Se estiver no modo Individual, o dano atravessa a Armadura. Pode ser usado 2x por luta, 0 Ações.' }],
+    },
+    {
+      id: 'cat_arma_motosserra', name: 'Motosserra', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      efeito: 'Passiva: ao causar dano diretamente na Vida, causa +1d8 de dano.',
+      ativas: [{ name: 'Motosserra', desc: 'Sacrifique 1d6 de Vida: sua motosserra acelera e converte o próximo 1d8 da passiva para 1d12. Pode ser usado 2x por luta, 0 Ações.' }],
+    },
+    {
+      id: 'cat_arma_quebra_queixo_3769', name: 'Quebra-Queixo 3769', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      efeito: 'Exclusivo do Briguento! Primeiro uso por personagem: sacrifique 1d10 da Vida Máxima e coloque essa arma no lugar de um braço. Passiva: possui +5 de Armadura e Vantagem em Aparar — se sua Armadura chegar a 0, o braço quebra. Escolha um Golpe: o braço aprende ele.',
+      ativas: [{ name: 'Quebra-Queixo 3769', desc: 'Sacrifique 1d4 de Vida: restaure 1d2 de Armadura do seu braço. Pode ser usado 2x por luta, 0 Ações.' }],
+    },
+    {
+      id: 'cat_arma_sniper', name: 'Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
+      efeito: 'Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
+      usos: [{ name: 'Pente de Munição', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
+      ativas: [{ name: 'Sniper', desc: 'Consuma 1d4 de Vida: para cada ponto, receba +10% de chance de Crítico no próximo tiro da sniper. Pode ser usado 2x por luta, 0 Ações.' }],
+    },
+    {
+      id: 'cat_arma_ancora', name: 'Âncora', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      efeito: 'Passiva: possui +3 de Alcance para Arremessar, e a âncora volta para sua mão por meio das correntes.',
+      ativas: [{ name: 'Âncora', desc: 'No próximo Arremesso, sacrifique 1 de Vida para cada casa que a âncora percorrerá: puxe o alvo para você garantidamente. Pode ser usado 2x por luta, 0 Ações.' }],
+    },
+    {
+      id: 'cat_arma_destruidor_vapor', name: 'Destruidor a Vapor', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      efeito: 'Passiva: ao causar dano na Armadura, causa +1d4 de dano nela. Em objetos, o dano dessa arma é Crítico.',
+      ativas: [{ name: 'Destruidor a Vapor', desc: 'Sacrifique 1d12 de Vida: converta todo o dano da sua arma para atacar diretamente a Armadura do alvo. Pode ser usado 2x por luta, 0 Ações.' }],
+    },
+    {
+      id: 'cat_arma_esmaga_mundo', name: 'Esmaga-Mundo', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      efeito: 'Passiva: causa o dobro de dano em objetos; possui -1d8 de Desvantagem em Aparar contra o esmaga-mundo. 1º uso por turno: gaste uma Ação — o dano dobrado passa a valer contra alvos vivos também, que não podem Aparar contra o esmaga-mundo no próximo ataque. Demais usos no turno: gaste uma Ação — seu próximo ataque com o esmaga-mundo possui +1d6 de dano e Vantagem.',
+      ativas: [{ name: 'Esmaga-Mundo', desc: 'Sacrifique 1d10 de Vida: não precisa gastar uma Ação a mais para dobrar o dano em alvos vivos. Pode ser usado 2x por luta, 0 Ações.' }],
+    },
   ],
   instrumento: [
     {
@@ -5642,6 +5745,22 @@ const CATALOGO_ITENS = {
       id: 'cat_instrumento_clarinete_encantado', name: 'Clarinete Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'longo', vidaMax: 15,
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva 1: ao usar um Feitiço e receber dano dele, pode transmiti-lo para a Vida do instrumento (ver Vida do Item). Passiva 2: o instrumento possui uma carga mágica, podendo lançar pequenos feixes mágicos até 5 casas que causam dano.',
       usos: [{ name: 'Restauração do Clarinete', desc: 'Restaure 1d8 de Vida do instrumento musical. Diversos usos por turno. Se a Vida do instrumento chegar a 0, ele se quebra.', escopo: 'arma', usosMax: 5 }],
+    },
+    {
+      id: 'cat_instrumento_teclado_constelacao', name: 'Teclado Constelação', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: produz mini-constelações que acertam a Longo Alcance e possuem +3 de Alcance.',
+      usos: [{ name: 'Campo Harmônico', desc: 'Gaste 2 Cristais Elétricos e lance um campo harmônico. 1 uso por Ação.', escopo: 'luta', usosMax: 2 }],
+    },
+    {
+      id: 'cat_instrumento_sino_acorrentado', name: 'Sino Acorrentado', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: possui +3 de Alcance para Arremessar; recebe qualquer Nota Musical ao arremessar esse instrumento, e o sino volta para sua mão por meio das correntes.',
+      ativas: [{ name: 'Sino Acorrentado', desc: 'Sacrifique 1d6 de Vida: o sino bate loucamente, concedendo 3 Notas Musicais quaisquer e ensurdecendo todos os outros no tabuleiro. Pode ser usado 2x por luta, 0 Ações.' }],
+    },
+    {
+      id: 'cat_instrumento_guitarra_sniper', name: 'Guitarra-Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
+      usos: [{ name: 'Pente de Munição', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
+      ativas: [{ name: 'Guitarra-Sniper', desc: 'Sacrifique 1d4 de Vida: para cada ponto, receba +10% de chance Crítica, qualquer Nota Musical, e seu próximo disparo causa Ensurdecimento a todos os outros por 1 turno. Pode ser usado 2x por luta, 0 Ações.' }],
     },
   ],
 };
@@ -5745,7 +5864,7 @@ function _buildInvModal(data) {
   // Detecta invAprimoTipo ao editar item existente
   const _peso = data.peso || 'leve';
   if (_peso === 'exotica') {
-    invAprimoTipo = 'nenhum'; // exótica não usa o seletor (campos livres via hint)
+    invAprimoTipo = invAprimos.length ? 'exotico' : 'nenhum'; // exótica vai direto pro catálogo de Aprimoramento
   } else if (_peso === 'encantada') {
     invAprimoTipo = 'encantado';
   } else if (invAprimos.some(a => a.dourado || a.name === 'Dourado')) {
@@ -5790,7 +5909,7 @@ function _updateInvModalSections(tipo) {
   const peso = _invSelectedPeso();
   // Aprimoramentos (inclui Encantamento Arcano/Místico): disponíveis para armas, instrumentos e proteções
   document.getElementById('inv-sec-exotica').style.display = (ehArmaOuInstrumento || tipo === 'protecao') ? '' : 'none';
-  document.getElementById('inv-sec-mega').style.display    = (tipo === 'arma' && peso === 'mega') ? '' : 'none';
+  document.getElementById('inv-sec-mega').style.display    = (ehArmaOuInstrumento && peso === 'mega') ? '' : 'none';
 
   // Usos ("Usar (Nx)"): disponível pra Armas e Instrumentos, em qualquer peso
   const secUsos = document.getElementById('inv-sec-usos');
@@ -5878,9 +5997,11 @@ function invSelectPeso(peso) {
 
   // Ao trocar o peso, limpa aprimoramentos incompatíveis
   if (peso === 'exotica') {
-    // Exótica: remove Dourado se existir, mantém livres
-    invAprimos = invAprimos.filter(a => !a.dourado && a.name !== 'Dourado');
-    invAprimoTipo = 'nenhum';
+    // Exótica (Arma/Instrumento): vai direto pro catálogo de Aprimoramento
+    // (ver APRIMORAMENTOS_ARMA) — mantém só escolhas desse catálogo (catalogId),
+    // remove Dourado/texto livre legado.
+    invAprimos = invAprimos.filter(a => a.catalogId);
+    invAprimoTipo = invAprimos.length ? 'exotico' : 'nenhum';
   } else if (peso === 'encantada') {
     // Encantada: o slot passa a ser o de Encantamento (Arcano/Místico)
     invAprimoTipo = 'encantado';
@@ -5995,6 +6116,8 @@ function selecionarCatalogoItem(itemId) {
     if (inputMunicaoInst) inputMunicaoInst.value = item.municao != null ? item.municao : '';
     invUsos = item.usos ? JSON.parse(JSON.stringify(item.usos)) : [];
     _renderInvUsos();
+    invAtivas = item.ativas ? JSON.parse(JSON.stringify(item.ativas)) : [];
+    _renderInvAtivas();
     const inputVidaMaxInst = document.getElementById('inv-m-vida-max');
     if (inputVidaMaxInst) inputVidaMaxInst.value = item.vidaMax != null ? item.vidaMax : '';
   } else {
@@ -6005,6 +6128,8 @@ function selecionarCatalogoItem(itemId) {
     if (inputMunicaoArma) inputMunicaoArma.value = item.municao != null ? item.municao : '';
     invUsos = item.usos ? JSON.parse(JSON.stringify(item.usos)) : [];
     _renderInvUsos();
+    invAtivas = item.ativas ? JSON.parse(JSON.stringify(item.ativas)) : [];
+    _renderInvAtivas();
     const inputVidaMaxArma = document.getElementById('inv-m-vida-max');
     if (inputVidaMaxArma) inputVidaMaxArma.value = item.vidaMax != null ? item.vidaMax : '';
   }
@@ -6158,6 +6283,73 @@ function toggleAprimoElmo(catalogId) {
   _renderInvAprimos();
 }
 
+// Monta o HTML do catálogo de Aprimoramentos de Arma/Instrumento (Combo,
+// Encantamento, Fusão, Pente, Ritmo) — mesmo esquema de
+// _buildAprimoArmaduraListHtml (ver comentários lá). Sempre 1 slot, seja
+// Exótico (custo normal) ou Comum (custo 5x, travado por Origem Comum Draenei).
+function _buildAprimoArmaListHtml(peso) {
+  const limite = limiteAprimorosArma(peso);
+  const custo  = custoAprimoramentoArma(peso);
+  const isExotica = peso === 'exotica';
+
+  // Armas/Instrumentos Comuns só recebem os Aprimoramentos Exóticos se algum
+  // aliado da campanha tiver a passiva de Origem "draenei_origem_comum".
+  if (!isExotica && !algumAliadoTemOrigemComumDraenei()) {
+    return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Armas/Instrumentos Comuns só recebem Aprimoramentos Exóticos se algum aliado tiver a passiva de Origem <strong>"Comum"</strong> (Draenei).</div>`;
+  }
+
+  // Poda seleções em excesso (defensivo — o limite é sempre 1)
+  const jaEscolhidos = invAprimos.filter(a => a.catalogId);
+  if (jaEscolhidos.length > limite) {
+    const manterIds = jaEscolhidos.slice(0, limite).map(a => a.catalogId);
+    invAprimos = invAprimos.filter(a => !a.catalogId || manterIds.includes(a.catalogId));
+  }
+  // Resincroniza o custo exibido/salvo conforme o peso atual
+  invAprimos.forEach(a => { if (a.catalogId) a.custo = custo; });
+
+  const idsAtivos = invAprimos.filter(a => a.catalogId).map(a => a.catalogId);
+  const aviso = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Essa arma/instrumento pode ter até <strong>${limite}</strong> Aprimoramento (💰 ${custo}${isExotica ? '' : ' — 5x o custo normal, por não ser Exótico'}).</div>`;
+
+  const cards = APRIMORAMENTOS_ARMA.map(a => {
+    const ativo = idsAtivos.includes(a.id);
+    return `<div class="skill-card sk-gray" style="margin:0;cursor:pointer" onclick="toggleAprimoArma('${a.id}')">
+      <div class="sk-name">${a.name}</div>
+      <div class="sk-tags"><span class="sk-tag">💰 ${custo}</span></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5">${a.desc}</div>
+      <button class="btn ${ativo ? '' : 'btn-primary'}" style="width:100%;justify-content:center;margin-top:8px" onclick="event.stopPropagation();toggleAprimoArma('${a.id}')">
+        ${ativo ? '✓ Escolhido — clique para remover' : 'Escolher'}
+      </button>
+    </div>`;
+  }).join('');
+
+  return aviso + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`;
+}
+
+// Alterna a escolha de um Aprimoramento de Arma/Instrumento no modal,
+// respeitando o limite de slots (sempre 1 — ver limiteAprimorosArma).
+function toggleAprimoArma(catalogId) {
+  const peso = _invSelectedPeso();
+  const limite = limiteAprimorosArma(peso);
+  if (peso !== 'exotica' && !algumAliadoTemOrigemComumDraenei()) {
+    alert('Armas/Instrumentos Comuns só recebem Aprimoramentos Exóticos se algum aliado tiver a passiva de Origem "Comum" (Draenei).');
+    return;
+  }
+  const idx = invAprimos.findIndex(a => a.catalogId === catalogId);
+  if (idx !== -1) {
+    invAprimos.splice(idx, 1);
+  } else {
+    const jaEscolhidos = invAprimos.filter(a => a.catalogId).length;
+    if (jaEscolhidos >= limite) {
+      alert(`Essa arma/instrumento só pode ter ${limite} Aprimoramento.`);
+      return;
+    }
+    const cat = APRIMORAMENTOS_ARMA.find(a => a.id === catalogId);
+    if (!cat) return;
+    invAprimos.push({ catalogId: cat.id, name: cat.name, desc: cat.desc, custo: custoAprimoramentoArma(peso) });
+  }
+  _renderInvAprimos();
+}
+
 function _renderInvAprimos() {
   const el = document.getElementById('inv-aprimos-list');
   if (!el) return;
@@ -6190,26 +6382,20 @@ function _renderInvAprimos() {
     return;
   }
 
-  const isExotica = peso === 'exotica';
-
-  if (isExotica) {
-    // Armas exóticas (Elmo exótico já tem seu próprio catálogo acima):
-    // campos livres, sem Dourado
-    el.innerHTML = invAprimos.map((a,i) => `
-      <div class="inv-extra-item">
-        <div style="flex:1">
-          <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome" oninput="invAprimos[${i}].name=this.value">
-          <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito (opcional)" oninput="invAprimos[${i}].desc=this.value">
-        </div>
-        <button onclick="invAprimos.splice(${i},1);_renderInvAprimos()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
-      </div>`).join('');
-    return;
-  }
-
   // Arma/Instrumento Encantados (peso 'encantada'): catálogo próprio de
   // Encantamentos (Arcano/Místico) — ver ENCANTAMENTOS_ARMA.
   if (peso === 'encantada') {
     el.innerHTML = _buildEncantamentoListHtml('arma');
+    return;
+  }
+
+  const isExotica = peso === 'exotica';
+
+  if (isExotica) {
+    // Arma/Instrumento Exótico: vai direto pro catálogo de Aprimoramento de
+    // Arma/Instrumento (ver APRIMORAMENTOS_ARMA), sem seletor Dourado/Nenhum
+    // — igual Armadura/Elmo Exóticos (Elmo Exótico já tem seu próprio catálogo acima).
+    el.innerHTML = _buildAprimoArmaListHtml(peso);
     return;
   }
 
@@ -6225,16 +6411,9 @@ function _renderInvAprimos() {
       <div style="font-size:11px;color:var(--text3)">Custo: 300 de Dinheiro. Disponível para personagens com a passiva <strong>Dourado</strong> (Anão) ou por regra da campanha.</div>
     </div>`;
   } else if (invAprimoTipo === 'exotico') {
-    // Exótico: campos livres
-    el.innerHTML = invAprimos.map((a,i) => `
-      <div class="inv-extra-item">
-        <div style="flex:1">
-          <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome do aprimoramento" oninput="invAprimos[${i}].name=this.value">
-          <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito (opcional)" oninput="invAprimos[${i}].desc=this.value">
-        </div>
-        <button onclick="invAprimos.splice(${i},1);_renderInvAprimos()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
-      </div>`).join('') +
-      `<button class="btn" style="padding:3px 9px;font-size:11px;margin-top:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar</button>`;
+    // Aprimoramento de Arma/Instrumento (catálogo, ver APRIMORAMENTOS_ARMA) —
+    // pra armas/instrumentos Comuns, travado por Tecnologia Draenei e custando 5x.
+    el.innerHTML = _buildAprimoArmaListHtml(peso);
   } else {
     el.innerHTML = '';
   }
@@ -6367,18 +6546,15 @@ function _updateAprimoUI() {
   const isEncantada = peso === 'encantada';
   const isArmaduraProtecao = tipo === 'protecao' && _invSelectedSub() === 'armadura';
   const isElmoProtecao     = tipo === 'protecao' && _invSelectedSub() === 'elmo';
-  // Encantada: só existe 1 slot possível (o Encantamento) — sem seletor, igual à Exótica.
-  // Armadura e Elmo (Leve/Média/Pesada/Exótica): cada um usa seu próprio
-  // catálogo de Aprimoramentos em qualquer peso — também sem este seletor.
+  // Encantada: só existe 1 slot possível (o Encantamento) — sem seletor.
+  // Exótica (Armadura/Elmo/Arma/Instrumento): cada categoria usa seu próprio
+  // catálogo de Aprimoramentos — também sem este seletor, direto pro catálogo.
+  // Armadura/Elmo usam catálogo próprio em QUALQUER peso (não só Exótica).
   seletor.style.display = (isExotica || isEncantada || isArmaduraProtecao || isElmoProtecao) ? 'none' : 'flex';
-  hint.style.display    = (isExotica && !isArmaduraProtecao && !isElmoProtecao) ? '' : 'none';
+  // O hint de texto livre não é mais usado por nenhuma categoria (todas têm catálogo próprio agora)
+  hint.style.display = 'none';
 
-  // Atualiza o texto do hint pra Armas/Instrumentos exóticos (Armadura e Elmo usam catálogo próprio, sem hint)
-  if (isExotica && !isArmaduraProtecao && !isElmoProtecao) {
-    hint.innerHTML = '⚠ Armas/Instrumentos Exóticos não podem receber Aprimoramento Dourado. <button class="btn" style="padding:3px 9px;font-size:11px;margin-left:6px" onclick="addInvAprimo()"><i class="ti ti-plus"></i> Adicionar Aprimoramento</button>';
-  }
-
-  // Highlight do botão ativo (armas/instrumentos comuns)
+  // Highlight do botão ativo (armas/instrumentos comuns: Dourado/Aprimoramento/Nenhum)
   ['dourado','exotico','nenhum'].forEach(t => {
     const btn = document.getElementById('inv-aprimo-btn-' + t);
     if (btn) btn.style.fontWeight = (invAprimoTipo === t) ? '700' : '';
@@ -6450,6 +6626,8 @@ function saveInvItem() {
     }
     // Aprimoramentos disponíveis para todos os instrumentos
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
+    // Instrumentos Mega Pesados: Liberar Vileza
+    if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
     // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Instrumento
     base.usos = invUsos.filter(u => u.name);
     // Vida do Item (opcional)
