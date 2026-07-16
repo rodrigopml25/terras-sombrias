@@ -2791,6 +2791,70 @@ function toggleWizardElmo(itemId) {
   renderWizardElmoStep();
 }
 
+// Repinta a escolha de Arma/Instrumento inicial (passo 9 do wizard de
+// criação). Diferente da Armadura/Elmo (cumulativo), aqui o acesso por
+// atributo é EXCLUSIVO — ver getPesosArmaPermitidos — e as opções vêm dos
+// catálogos de Arma E Instrumento combinados (o jogador escolhe entre os dois).
+function renderWizardArmaStep() {
+  const lista = document.getElementById('c-arma-lista');
+  const aviso = document.getElementById('c-arma-aviso');
+  if (!lista) return;
+
+  const cls = getSelectedSubclasse();
+  if (!cls) {
+    lista.innerHTML = '';
+    if (aviso) { aviso.style.display = ''; aviso.textContent = 'Escolha uma Classe no passo anterior para liberar as opções de Arma.'; }
+    return;
+  }
+
+  const pesosPermitidos = getPesosArmaPermitidos(cls);
+  const opcoesArma = CATALOGO_ITENS.arma.filter(item => pesosPermitidos.includes(item.peso)).map(item => ({ ...item, _tipo: 'arma' }));
+  const opcoesInstrumento = CATALOGO_ITENS.instrumento.filter(item => pesosPermitidos.includes(item.peso)).map(item => ({ ...item, _tipo: 'instrumento' }));
+  const opcoes = [...opcoesArma, ...opcoesInstrumento];
+
+  // Descarta uma escolha antiga que não seja mais válida (ex.: trocou de subclasse/atributo).
+  if (wizardArmaEscolhidaId && !opcoes.some(o => o.id === wizardArmaEscolhidaId && o._tipo === wizardArmaEscolhidaTipo)) {
+    wizardArmaEscolhidaId = null;
+    wizardArmaEscolhidaTipo = null;
+  }
+
+  if (aviso) {
+    aviso.style.display = '';
+    aviso.textContent = `Categoria liberada por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
+  }
+
+  if (!opcoes.length) {
+    lista.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:6px 2px">Nenhuma arma ou instrumento disponível no catálogo para essa categoria ainda.</div>`;
+    return;
+  }
+
+  lista.innerHTML = opcoes.map(item => {
+    const jaEscolhido = wizardArmaEscolhidaId === item.id && wizardArmaEscolhidaTipo === item._tipo;
+    return `
+    <div class="skill-card sk-gray" style="margin:0">
+      <div class="sk-name">${item.name} <span style="font-size:10px;font-weight:400;color:var(--text3)">(${item._tipo === 'instrumento' ? 'Instrumento' : 'Arma'})</span></div>
+      <div class="sk-tags"><span class="sk-tag">${INV_PESO_LABEL[item.peso] || item.peso}</span>${item.dano ? `<span class="sk-tag">🗡 ${item.dano}</span>` : ''}<span class="sk-tag">💰 ${item.preco}</span></div>
+      ${item.efeito ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 12px;line-height:1.5">${item.efeito}</div>` : ''}
+      <button class="btn ${jaEscolhido ? '' : 'btn-primary'}" style="width:100%;justify-content:center;margin-top:6px" onclick="toggleWizardArma('${item._tipo}','${item.id}')">
+        ${jaEscolhido ? '✓ Escolhido — clique para remover' : 'Escolher'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// Alterna a escolha de Arma/Instrumento inicial durante a criação — escolha
+// única (selecionar uma nova substitui a anterior; clicar na já escolhida remove).
+function toggleWizardArma(tipo, itemId) {
+  if (wizardArmaEscolhidaId === itemId && wizardArmaEscolhidaTipo === tipo) {
+    wizardArmaEscolhidaId = null;
+    wizardArmaEscolhidaTipo = null;
+  } else {
+    wizardArmaEscolhidaId = itemId;
+    wizardArmaEscolhidaTipo = tipo;
+  }
+  renderWizardArmaStep();
+}
+
 // Alterna a escolha de uma Habilidade do banco durante a criação (adiciona
 // se ainda não tinha, remove se já tinha). Respeita os mesmos limites de
 // Nível usados no jogo já formado (getBancoLimites/contarBancoEscolhas).
@@ -3195,6 +3259,21 @@ function getPesosArmaduraPermitidos(subclasseName) {
   return PESO_ARMADURA_POR_ATRIBUTO[attr] || ['leve'];
 }
 
+// Categoria de peso de Arma/Instrumento liberada conforme o atributo
+// principal da subclasse: Intelecto → só Leve; Agilidade → só Média;
+// Força → só Pesada. Diferente da Armadura (que é cumulativo), aqui o
+// acesso é EXCLUSIVO — só a categoria correspondente ao atributo, sem as
+// mais leves. Usado na escolha de arma inicial (passo 9 do wizard).
+const PESO_ARMA_POR_ATRIBUTO = {
+  intel: ['leve'],
+  agi:   ['media'],
+  forca: ['pesada'],
+};
+function getPesosArmaPermitidos(subclasseName) {
+  const attr = getSubAttr(subclasseName);
+  return PESO_ARMA_POR_ATRIBUTO[attr] || ['leve'];
+}
+
 const ORDEM_PESO_ARMADURA = ['leve', 'media', 'pesada', 'mega'];
 
 // Peso máximo de Armadura/Elmo que o personagem pode comprar/vestir,
@@ -3203,7 +3282,8 @@ const ORDEM_PESO_ARMADURA = ['leve', 'media', 'pesada', 'mega'];
 // grau: quem só tinha Leve passa a ter Média, quem tinha Média passa a ter
 // Pesada, e quem tinha Pesada passa a ter Mega Pesada. É o único jeito de
 // chegar em Mega. Vale igualmente pra Armadura e Elmo (mesma lógica de
-// categorias de peso) — Arma/Instrumento ficam como estão por ora.
+// categorias de peso). Arma/Instrumento têm regra própria — ver
+// getPesosArmaPermitidosPersonagem, mais abaixo.
 function getPesoMaximoArmaduraPersonagem(p) {
   const base = getPesosArmaduraPermitidos(p.cls);
   let maxIdx = base.reduce((max, peso) => Math.max(max, ORDEM_PESO_ARMADURA.indexOf(peso)), 0);
@@ -3217,6 +3297,29 @@ function getPesoMaximoArmaduraPersonagem(p) {
 // "Maestria de Peso Aprimorada" chega em Mega.
 function temAcessoArmaduraMegaPesada(p) {
   return getPesoMaximoArmaduraPersonagem(p) === 'mega';
+}
+
+// Categorias de peso de Arma/Instrumento liberadas pro personagem: o acesso
+// base é EXCLUSIVO por atributo (ver getPesosArmaPermitidos — só 1
+// categoria). Com o Talento Inferior "Maestria de Peso Aprimorada", o
+// personagem passa a ter acesso à categoria seguinte TAMBÉM (sem perder a
+// original): Leve -> Leve+Média; Média -> Média+Pesada; Pesada -> Pesada+Mega.
+function getPesosArmaPermitidosPersonagem(p) {
+  const base = getPesosArmaPermitidos(p.cls); // ex: ['media']
+  const temMaestriaAprimorada = getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'maestria_de_peso_aprimorada');
+  if (!temMaestriaAprimorada) return base;
+  const idx = ORDEM_PESO_ARMADURA.indexOf(base[0]);
+  if (idx === -1 || idx >= ORDEM_PESO_ARMADURA.length - 1) return base;
+  return [base[0], ORDEM_PESO_ARMADURA[idx + 1]];
+}
+
+// O personagem pode comprar/vestir uma Arma/Instrumento de peso `peso`
+// (leve/media/pesada/mega), considerando getPesosArmaPermitidosPersonagem?
+// Não se aplica a Exótica/Encantada, que têm suas próprias travas por
+// Talento — ver temAcessoEquipamentoExotico/temAcessoEquipamentoEncantado.
+function temAcessoPesoArma(p, peso) {
+  if (!ORDEM_PESO_ARMADURA.includes(peso)) return true;
+  return getPesosArmaPermitidosPersonagem(p).includes(peso);
 }
 
 // O personagem pode comprar/vestir uma peça de peso `peso` (leve/media/pesada/
@@ -3504,6 +3607,11 @@ let wizardRituaisMacabrosEscolhidos = [];
 let wizardArmaduraEscolhidaId = null;
 // Elmo inicial escolhido no passo 8 do wizard (mesma lógica da Armadura, ver renderWizardElmoStep).
 let wizardElmoEscolhidaId = null;
+// Arma/Instrumento inicial escolhido no passo 9 do wizard (acesso exclusivo
+// por atributo — ver renderWizardArmaStep/getPesosArmaPermitidos). Como as
+// opções vêm de dois catálogos (arma/instrumento), guarda também de qual.
+let wizardArmaEscolhidaId = null;
+let wizardArmaEscolhidaTipo = null;
 let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
@@ -6067,6 +6175,11 @@ function renderInvCatalogo() {
     // Aprimorada" (ver getPesoMaximoArmaduraPersonagem/temAcessoPesoArmaduraOuElmo).
     if ((item.subtipo === 'armadura' || item.subtipo === 'elmo') && pOwner && !temAcessoPesoArmaduraOuElmo(pOwner, item.peso)) return false;
     if ((item.subtipo === 'armadura' || item.subtipo === 'elmo') && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
+    // Arma e Instrumento: o acesso por peso é EXCLUSIVO por atributo (só 1
+    // categoria), e o Talento Inferior "Maestria de Peso Aprimorada" libera
+    // também a categoria seguinte — ver getPesosArmaPermitidosPersonagem/temAcessoPesoArma.
+    if ((tipo === 'arma' || tipo === 'instrumento') && pOwner && !temAcessoPesoArma(pOwner, item.peso)) return false;
+    if ((tipo === 'arma' || tipo === 'instrumento') && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
     if (subAtivo && item.subtipo !== subAtivo) return false;
     if (!termoNorm) return true;
     return item.name.toLowerCase().includes(termoNorm);
@@ -8119,6 +8232,8 @@ function openCharModal() {
   wizardRituaisMacabrosEscolhidos = [];
   wizardArmaduraEscolhidaId = null;
   wizardElmoEscolhidaId = null;
+  wizardArmaEscolhidaId = null;
+  wizardArmaEscolhidaTipo = null;
   setModalMode(false);
   showWizardStep(1);
   setTimeout(() => document.getElementById('c-name').focus(), 50);
@@ -8250,10 +8365,17 @@ function handleStep6Continue() {
 }
 
 // Botão "Próximo" do passo 7 (Armadura Inicial): avança para o passo 8
-// (Elmo Inicial), a última etapa antes de criar o personagem.
+// (Elmo Inicial).
 function handleStep7Continue() {
   renderWizardElmoStep();
   showWizardStep(8);
+}
+
+// Botão "Próximo" do passo 8 (Elmo Inicial): avança para o passo 9 (Arma
+// Inicial), a última etapa antes de criar o personagem.
+function handleStep8Continue() {
+  renderWizardArmaStep();
+  showWizardStep(9);
 }
 
 function saveCharacter() {
@@ -8410,6 +8532,24 @@ function saveCharacter() {
         });
       }
     }
+    // Arma/Instrumento inicial escolhido no passo 9 do wizard de criação
+    // (acesso exclusivo por atributo — ver getPesosArmaPermitidos).
+    if (wizardArmaEscolhidaId && wizardArmaEscolhidaTipo) {
+      const catItemArma = (CATALOGO_ITENS[wizardArmaEscolhidaTipo] || []).find(x => x.id === wizardArmaEscolhidaId);
+      if (catItemArma) {
+        novo.inventario.push({
+          id: 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          tipo: wizardArmaEscolhidaTipo, peso: catItemArma.peso, name: catItemArma.name,
+          dano: catItemArma.dano || '', alcance: catItemArma.alcance || null,
+          efeito: catItemArma.efeito || '', preco: catItemArma.preco != null ? catItemArma.preco : null,
+          aprimoramentos: [],
+          usos: (catItemArma.usos || []).map(u => ({ ...u, usosAtuais: u.usosMax })),
+          ativas: catItemArma.ativas ? JSON.parse(JSON.stringify(catItemArma.ativas)) : [],
+          vidaMax: catItemArma.vidaMax != null ? catItemArma.vidaMax : null,
+          vidaAtual: catItemArma.vidaMax != null ? catItemArma.vidaMax : null,
+        });
+      }
+    }
     recomputeProtMax(novo);
     PLAYERS.push(novo);
     modalCharId = newId;
@@ -8424,6 +8564,8 @@ function saveCharacter() {
   wizardRituaisMacabrosEscolhidos = [];
   wizardArmaduraEscolhidaId = null;
   wizardElmoEscolhidaId = null;
+  wizardArmaEscolhidaId = null;
+  wizardArmaEscolhidaTipo = null;
 
   saveState();
   renderAll();
