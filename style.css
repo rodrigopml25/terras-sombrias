@@ -931,12 +931,14 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 
 /* Assistente passo-a-passo de criação de personagem */
 .wizard-steps {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 6px 4px;
   margin-bottom: 20px;
 }
 .wstep {
+  flex: 0 0 calc(20% - 4px);
   display: flex;
   align-items: center;
   justify-content: center;
