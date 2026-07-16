@@ -397,6 +397,7 @@
           <div class="wstep" data-step="6"><span class="wstep-num">6</span> Talentos</div>
           <div class="wstep" data-step="7"><span class="wstep-num">7</span> Armadura</div>
           <div class="wstep" data-step="8"><span class="wstep-num">8</span> Elmo</div>
+          <div class="wstep" data-step="9"><span class="wstep-num">9</span> Arma</div>
         </div>
 
         <div class="modal-step active" data-step="1">
@@ -634,6 +635,19 @@
             <p style="font-size:11px;color:var(--text3);margin:0 0 10px;line-height:1.5;">As categorias de Elmo disponíveis dependem do atributo principal da sua Subclasse: Intelecto → Leve; Agilidade → Leve e Média; Força → Leve, Média e Pesada.</p>
             <div id="c-elmo-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;"></div>
             <div id="c-elmo-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
+          </div>
+
+          <div class="modal-btns step-nav">
+            <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
+            <button class="btn btn-primary" onclick="handleStep8Continue()">Próximo <i class="ti ti-arrow-right"></i></button>
+          </div>
+        </div>
+
+        <div class="modal-step" data-step="9">
+          <div id="c-arma-section">
+            <p style="font-size:11px;color:var(--text3);margin:0 0 10px;line-height:1.5;">A categoria de Arma/Instrumento disponível depende do atributo principal da sua Subclasse: Intelecto → Leve; Agilidade → Média; Força → Pesada (acesso exclusivo, sem acumular categorias mais leves).</p>
+            <div id="c-arma-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;"></div>
+            <div id="c-arma-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
           </div>
 
           <div class="modal-btns step-nav">
