@@ -1681,7 +1681,9 @@ function algumAliadoTemTecnologiaDraenei() {
 // verdade — passiva diferente da "Tecnologia Draenei" (que é só pra
 // Armadura/Elmo) — ver a descrição em RACAS.Draenei.
 function algumAliadoTemOrigemComumDraenei() {
-  return PLAYERS.some(p => getRacePassivas(p).some(pas => pas.id === 'draenei_origem_comum'));
+  // "Comum" é uma Origem escolhida (RACAS_ORIGENS), guardada em p.origemId —
+  // não uma passiva automática de RACAS, então não dá pra usar getRacePassivas aqui.
+  return PLAYERS.some(p => p.origemId === 'draenei_origem_comum');
 }
 
 // ═══════════════════════════════════════
@@ -1739,8 +1741,8 @@ function custoAprimoramentoElmo(peso) {
 //    5x o valor normal (250), e só disponível se algum aliado tiver a passiva
 //    de Origem "draenei_origem_comum" (diferente da "Tecnologia Draenei", que
 //    é a trava de Armadura/Elmo — ver algumAliadoTemOrigemComumDraenei).
-// "Dourado" (Talento Inferior do Anão) continua sendo uma opção à parte,
-// independente deste catálogo — ver invAprimoTipo === 'dourado'.
+// "Dourado" (passiva racial do Anão) é uma opção à parte, com catálogo
+// próprio — ver APRIMORAMENTOS_DOURADO, mais abaixo.
 const APRIMORAMENTOS_ARMA = [
   {
     id: 'combo', name: 'Aprimoramento de Combo', custoBase: 50,
@@ -1775,6 +1777,46 @@ function limiteAprimorosArma(peso) {
 function custoAprimoramentoArma(peso) {
   const base = 50;
   return peso === 'exotica' ? base : base * 5;
+}
+
+// ═══════════════════════════════════════
+// APRIMORAMENTOS DOURADOS (Talento do Anão — "Dourado")
+// ═══════════════════════════════════════
+// Catálogo próprio, no mesmo espaço/UI do Aprimoramento de Arma/Instrumento
+// (ver invAprimoTipo === 'dourado' em _renderInvAprimos). Slot único (1 por
+// arma/instrumento) e mutuamente exclusivo com o Aprimoramento Exótico — uma
+// arma tem um OU outro, nunca os dois, e nenhum dos dois se aplica a Armas/
+// Instrumentos Exóticos (peso 'exotica' vai direto pro próprio catálogo,
+// sem seletor — ver _renderInvAprimos). Só aparece se algum aliado da
+// campanha tiver a passiva racial "Dourado" (Anão) — ver algumAliadoTemDourado.
+const APRIMORAMENTOS_DOURADO = [
+  {
+    id: 'carregamento_aprimorado', name: 'Carregamento Aprimorado', custoBase: 300,
+    desc: 'Doure sua arma que possui Munição: ela não precisa mais ser recarregada, e não pode mais ser quebrada.',
+  },
+  {
+    id: 'encantamento_aprimorado', name: 'Encantamento Aprimorado', custoBase: 300,
+    desc: 'Doure sua arma que possui "Usar (Nx)": no final da sessão, recarregue os usos dela, e ela não pode mais ser quebrada.',
+  },
+  {
+    id: 'mira_aprimorada', name: 'Mira Aprimorada', custoBase: 300,
+    desc: 'Doure sua arma de Longo Alcance: ela possui +6 de Alcance, e não pode mais ser quebrada.',
+  },
+  {
+    id: 'afiacao_aprimorada', name: 'Afiação Aprimorada', custoBase: 300,
+    desc: 'Doure sua arma: ela possui +1d6 de dano, e não pode mais ser quebrada.',
+  },
+  {
+    id: 'arremesso_aprimorado', name: 'Arremesso Aprimorado', custoBase: 300,
+    desc: 'Doure sua arma de Corpo a Corpo: ela ganha uma corrente que, ao ser arremessada, retorna à sua mão; +2 de Alcance em Arremesso; e não pode mais ser quebrada.',
+  },
+];
+
+// Algum aliado (qualquer personagem da campanha) tem a passiva racial
+// "Dourado" (Anão)? Sem isso, nenhuma arma/instrumento tem acesso ao
+// catálogo de Aprimoramentos Dourados.
+function algumAliadoTemDourado() {
+  return PLAYERS.some(p => getRacePassivas(p).some(pas => pas.id === 'anao_dourado'));
 }
 
 
@@ -6463,6 +6505,49 @@ function toggleAprimoArma(catalogId) {
   _renderInvAprimos();
 }
 
+// Monta o HTML do catálogo de Aprimoramentos Dourados — slot único, travado
+// pela passiva racial "Dourado" (Anão) — ver algumAliadoTemDourado.
+function _buildAprimoDouradoListHtml() {
+  if (!algumAliadoTemDourado()) {
+    return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Aprimoramentos Dourados só ficam disponíveis se algum aliado tiver a passiva racial <strong>"Dourado"</strong> (Anão).</div>`;
+  }
+
+  const escolhidoId = invAprimos[0] && invAprimos[0].catalogId;
+  const aviso = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Escolha 1 Aprimoramento Dourado (💰 300 cada).</div>`;
+
+  const cards = APRIMORAMENTOS_DOURADO.map(a => {
+    const ativo = escolhidoId === a.id;
+    return `<div class="skill-card sk-gray" style="margin:0;cursor:pointer" onclick="toggleAprimoDourado('${a.id}')">
+      <div class="sk-name">&#10024; ${a.name}</div>
+      <div class="sk-tags"><span class="sk-tag">💰 ${a.custoBase}</span></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5">${a.desc}</div>
+      <button class="btn ${ativo ? '' : 'btn-primary'}" style="width:100%;justify-content:center;margin-top:8px" onclick="event.stopPropagation();toggleAprimoDourado('${a.id}')">
+        ${ativo ? '✓ Escolhido — clique para remover' : 'Escolher'}
+      </button>
+    </div>`;
+  }).join('');
+
+  return aviso + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`;
+}
+
+// Alterna a escolha de um Aprimoramento Dourado no modal — slot único
+// (escolher um novo substitui o anterior; clicar no já escolhido remove).
+function toggleAprimoDourado(catalogId) {
+  if (!algumAliadoTemDourado()) {
+    alert('Aprimoramentos Dourados só ficam disponíveis se algum aliado tiver a passiva racial "Dourado" (Anão).');
+    return;
+  }
+  const jaEscolhido = invAprimos[0] && invAprimos[0].catalogId === catalogId;
+  if (jaEscolhido) {
+    invAprimos = [];
+  } else {
+    const cat = APRIMORAMENTOS_DOURADO.find(a => a.id === catalogId);
+    if (!cat) return;
+    invAprimos = [{ catalogId: cat.id, name: cat.name, desc: cat.desc, custo: cat.custoBase, dourado: true }];
+  }
+  _renderInvAprimos();
+}
+
 function _renderInvAprimos() {
   const el = document.getElementById('inv-aprimos-list');
   if (!el) return;
@@ -6514,18 +6599,12 @@ function _renderInvAprimos() {
 
   // Armas comuns: renderiza conforme invAprimoTipo
   if (invAprimoTipo === 'dourado') {
-    // Dourado: slot único, mas com nome e efeito definidos pelo usuário
-    if (!invAprimos[0]) invAprimos[0] = { name: '', desc: '', dourado: true };
-    const a = invAprimos[0];
-    el.innerHTML = `<div class="inv-extra-item" style="background:rgba(255,200,0,0.07);border:1px solid rgba(255,200,0,0.25);border-radius:6px;padding:8px;flex-direction:column;align-items:stretch;gap:6px">
-      <div style="font-size:12px;font-weight:600;color:#e8c53a">&#10024; Aprimoramento Dourado</div>
-      <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome do aprimoramento" oninput="invAprimos[0].name=this.value;invAprimos[0].dourado=true">
-      <input class="inv-extra-input" style="font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito do aprimoramento" oninput="invAprimos[0].desc=this.value;invAprimos[0].dourado=true">
-      <div style="font-size:11px;color:var(--text3)">Custo: 300 de Dinheiro. Disponível para personagens com a passiva <strong>Dourado</strong> (Anão) ou por regra da campanha.</div>
-    </div>`;
+    // Aprimoramento Dourado (catálogo, ver APRIMORAMENTOS_DOURADO) — travado
+    // pela passiva racial "Dourado" (Anão) — ver algumAliadoTemDourado.
+    el.innerHTML = _buildAprimoDouradoListHtml();
   } else if (invAprimoTipo === 'exotico') {
     // Aprimoramento de Arma/Instrumento (catálogo, ver APRIMORAMENTOS_ARMA) —
-    // pra armas/instrumentos Comuns, travado por Tecnologia Draenei e custando 5x.
+    // pra armas/instrumentos Comuns, travado por Origem Comum Draenei e custando 5x.
     el.innerHTML = _buildAprimoArmaListHtml(peso);
   } else {
     el.innerHTML = '';
@@ -6626,14 +6705,14 @@ function selectAprimoTipo(tipo) {
   invAprimoTipo = tipo;
   if (tipo === 'dourado') {
     invEncantamentoEscolhido = null;
-    // Dourado é um slot único — nome e efeito ficam livres para o usuário definir
-    const existente = invAprimos.find(a => a.dourado || a.name === 'Dourado');
-    invAprimos = [ existente ? { name: existente.name === 'Dourado' ? '' : existente.name, desc: existente.desc || '', dourado: true } : { name: '', desc: '', dourado: true } ];
+    // Dourado agora é catálogo (ver APRIMORAMENTOS_DOURADO) — mantém a
+    // escolha catalogada existente, se houver; descarta qualquer outra coisa.
+    invAprimos = invAprimos.filter(a => a.catalogId && APRIMORAMENTOS_DOURADO.some(d => d.id === a.catalogId));
   } else if (tipo === 'exotico') {
     invEncantamentoEscolhido = null;
-    // Remove qualquer Dourado existente e inicia lista vazia para preenchimento livre
-    invAprimos = invAprimos.filter(a => !a.dourado && a.name !== 'Dourado');
-    if (!invAprimos.length) invAprimos.push({name:'',desc:''});
+    // Aprimoramento de Arma/Instrumento (catálogo APRIMORAMENTOS_ARMA) —
+    // mantém a escolha catalogada existente, se houver; descarta Dourado.
+    invAprimos = invAprimos.filter(a => a.catalogId && APRIMORAMENTOS_ARMA.some(d => d.id === a.catalogId));
   } else if (tipo === 'encantado') {
     // Encantamento usa invEncantamentoEscolhido, não invAprimos
     invAprimos = [];
