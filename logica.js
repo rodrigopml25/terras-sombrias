@@ -1564,13 +1564,19 @@ function construirSkillEncantamento(encantamentoItem, itemInventarioId) {
 // Ver resetUsosArmaPorEscopo, chamada em resetSessao/resetLuta/nextTurnGlobal.
 const ESCOPO_USO_ARMA_LABEL = { arma: 'Por Arma', sessao: 'Por Sessão', luta: 'Por Luta', turno: 'Por Turno' };
 
-// Reseta pra usosMax todos os Usos de Arma do personagem cujo escopo esteja
-// na lista `escopos` — usado pelos resets globais (sessão/luta/turno).
-// Escopo 'arma' nunca é passado aqui (não reseta sozinho, só manualmente).
+// Reseta pra usosMax todos os Usos ("Usar Nx") E Liberar Vileza do
+// personagem cujo escopo esteja na lista `escopos` — usado pelos resets
+// globais (sessão/luta/turno). Escopo 'arma' nunca é passado aqui (não
+// reseta sozinho, só manualmente).
 function resetUsosArmaPorEscopo(p, escopos) {
   (p.inventario || []).forEach(item => {
-    if (item.tipo === 'arma' && Array.isArray(item.usos)) {
-      item.usos.forEach(u => { if (escopos.includes(u.escopo)) u.usosAtuais = u.usosMax; });
+    if ((item.tipo === 'arma' || item.tipo === 'instrumento')) {
+      if (Array.isArray(item.usos)) {
+        item.usos.forEach(u => { if (escopos.includes(u.escopo)) u.usosAtuais = u.usosMax; });
+      }
+      if (Array.isArray(item.ativas)) {
+        item.ativas.forEach(a => { if (escopos.includes(a.escopo || 'luta')) a.usosAtuais = a.usosMax; });
+      }
     }
   });
 }
@@ -1594,6 +1600,39 @@ function resetArmaUso(pid, itemId, usoIdx) {
   const uso = item && item.usos && item.usos[usoIdx];
   if (!uso) return;
   uso.usosAtuais = uso.usosMax;
+  saveState();
+  renderJogador();
+}
+
+// Consome 1 uso de uma "Liberar Vileza" (clique no card) — mesmo mecanismo
+// dos "Usos". Não faz nada se já estiver esgotada — use resetAtiva pra restaurar.
+function usarAtiva(pid, itemId, ativaIdx) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  const ativa = item && item.ativas && item.ativas[ativaIdx];
+  if (!ativa || (ativa.usosAtuais != null && ativa.usosAtuais <= 0)) return;
+  ativa.usosAtuais = (ativa.usosAtuais != null ? ativa.usosAtuais : (ativa.usosMax || 1)) - 1;
+  saveState();
+  renderJogador();
+}
+
+// "Usa" um Aprimoramento Exótico de Arma/Instrumento (ver APRIMORAMENTOS_ARMA)
+// — diferente dos Usos/Ativas normais, ele não tem contador próprio: cada
+// uso consome 1 Cristal do pool compartilhado do personagem (ver adjCristais).
+function usarAprimoramentoArma(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if ((p.cristais || 0) <= 0) { alert('Sem Cristais suficientes.'); return; }
+  adjCristais(pid, -1);
+}
+
+// Restaura manualmente os usos de uma "Liberar Vileza" pro máximo.
+function resetAtiva(pid, itemId, ativaIdx) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  const ativa = item && item.ativas && item.ativas[ativaIdx];
+  if (!ativa) return;
+  ativa.usosAtuais = ativa.usosMax || 1;
   saveState();
   renderJogador();
 }
@@ -3347,8 +3386,15 @@ function temAcessoArmaduraMegaPesada(p) {
 // personagem passa a ter acesso à categoria seguinte TAMBÉM (sem perder a
 // original): Leve -> Leve+Média; Média -> Média+Pesada; Pesada -> Pesada+Mega.
 function getPesosArmaPermitidosPersonagem(p) {
-  const base = getPesosArmaPermitidos(p.cls); // ex: ['media']
+  // "Multifunções" (passiva fixa do Campeão): sabe usar TODAS as Armas,
+  // independente do atributo da subclasse — ignora a regra exclusiva normal.
+  const temMultifuncoes = getSubclassePassivas(p).some(pas => pas.id === 'campeao_multifuncoes');
   const temMaestriaAprimorada = getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'maestria_de_peso_aprimorada');
+  if (temMultifuncoes) {
+    // Já tem Leve/Média/Pesada; com a Maestria de Peso Aprimorada, chega em Mega também.
+    return temMaestriaAprimorada ? ['leve', 'media', 'pesada', 'mega'] : ['leve', 'media', 'pesada'];
+  }
+  const base = getPesosArmaPermitidos(p.cls); // ex: ['media']
   if (!temMaestriaAprimorada) return base;
   const idx = ORDEM_PESO_ARMADURA.indexOf(base[0]);
   if (idx === -1 || idx >= ORDEM_PESO_ARMADURA.length - 1) return base;
@@ -5471,11 +5517,42 @@ function renderInventarioArea(p) {
     const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>{
           const isDourado = a.dourado || a.name === 'Dourado';
+          const isAprimoramentoExotico = a.catalogId && typeof APRIMORAMENTOS_ARMA !== 'undefined' && APRIMORAMENTOS_ARMA.some(x => x.id === a.catalogId);
+          if (isAprimoramentoExotico) {
+            const podeUsar = (p.cristais || 0) > 0;
+            return `<div class="skill-card sk-gray" style="margin:6px 0">
+              <div class="sk-name">${a.name}</div>
+              <div class="sk-tags"><span class="sk-tag">💎 Consome 1 Cristal</span></div>
+              ${a.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${a.desc}</div>` : ''}
+              <div class="sk-bottom">
+                <button class="sk-btn" onclick="usarAprimoramentoArma(${p.id})" ${!podeUsar ? 'disabled' : ''}>Usar</button>
+              </div>
+            </div>`;
+          }
           const label = isDourado ? (a.dourado ? (a.name || 'Aprimoramento Dourado') : 'Dourado') : a.name;
           return `<div class="inv-aprimo-item"><span class="inv-aprimo-name"${isDourado?' style="color:#e8c53a"':''}>${isDourado?'✨ ':''}${label}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`;
         }).join('')}</div>` : '';
-    const ativas = item.ativas && item.ativas.length
-      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-bolt"></i> Liberar Vileza</div>${item.ativas.map(a=>`<div class="inv-aprimo-item"><span class="inv-aprimo-name">${a.name}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`).join('')}</div>` : '';
+    const ativas = (item.ativas && item.ativas.length)
+      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-bolt"></i> Liberar Vileza</div>${item.ativas.map((a, ai) => {
+          const usosMax = a.usosMax || 2;
+          const usosAtuais = a.usosAtuais != null ? a.usosAtuais : usosMax;
+          const spent = usosMax - usosAtuais;
+          const pronto = usosAtuais > 0;
+          const dots = Array.from({length: usosMax}, (_, di) => `<div class="sdot ${di < spent ? 'spent' : ''}"></div>`).join('');
+          return `<div class="skill-card sk-gray ${pronto ? 'ready' : 'exhausted'}" style="margin:6px 0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div class="sk-name">${a.name}</div>
+              <button onclick="event.stopPropagation();resetAtiva(${p.id},'${item.id}',${ai})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
+            </div>
+            <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[a.escopo || 'luta']}</span></div>
+            ${a.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${a.desc}</div>` : ''}
+            <div class="sk-bottom">
+              <button class="sk-btn" onclick="usarAtiva(${p.id},'${item.id}',${ai})" ${!pronto?'disabled':''}>Usar</button>
+              <div class="sk-dots">${dots}</div>
+            </div>
+          </div>`;
+        }).join('')}</div>`
+      : '';
     const icone = isInstrumento
       ? `<i class="ti ti-music" style="color:#e8a838"></i>`
       : `<i class="ti ti-sword" style="color:var(--red)"></i>`;
@@ -5830,38 +5907,38 @@ const CATALOGO_ITENS = {
       id: 'cat_arma_lanca_granada', name: 'Lança-Granada', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
       efeito: 'Ativa: gaste uma Ação para alternar o modo dela. Modo "Lança-Granada": dispara granadas numa área 5x5 com o alvo no centro — elas explodem no início do seu turno seguinte e atravessam Armadura. Modo Focado: dispara balas num alvo até 5 casas.',
       usos: [{ name: 'Pente de Granadas', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
-      ativas: [{ name: 'Lança-Granada', desc: 'Sacrifique 1d10 de Vida: se estiver no modo "Lança-Granada", a bomba explode ao alcançar o alvo. Se estiver no modo Individual, o dano atravessa a Armadura. Pode ser usado 2x por luta, 0 Ações.' }],
+      ativas: [{ name: 'Lança-Granada', desc: 'Sacrifique 1d10 de Vida: se estiver no modo "Lança-Granada", a bomba explode ao alcançar o alvo. Se estiver no modo Individual, o dano atravessa a Armadura. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
       id: 'cat_arma_motosserra', name: 'Motosserra', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Passiva: ao causar dano diretamente na Vida, causa +1d8 de dano.',
-      ativas: [{ name: 'Motosserra', desc: 'Sacrifique 1d6 de Vida: sua motosserra acelera e converte o próximo 1d8 da passiva para 1d12. Pode ser usado 2x por luta, 0 Ações.' }],
+      ativas: [{ name: 'Motosserra', desc: 'Sacrifique 1d6 de Vida: sua motosserra acelera e converte o próximo 1d8 da passiva para 1d12. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
       id: 'cat_arma_quebra_queixo_3769', name: 'Quebra-Queixo 3769', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Exclusivo do Briguento! Primeiro uso por personagem: sacrifique 1d10 da Vida Máxima e coloque essa arma no lugar de um braço. Passiva: possui +5 de Armadura e Vantagem em Aparar — se sua Armadura chegar a 0, o braço quebra. Escolha um Golpe: o braço aprende ele.',
-      ativas: [{ name: 'Quebra-Queixo 3769', desc: 'Sacrifique 1d4 de Vida: restaure 1d2 de Armadura do seu braço. Pode ser usado 2x por luta, 0 Ações.' }],
+      ativas: [{ name: 'Quebra-Queixo 3769', desc: 'Sacrifique 1d4 de Vida: restaure 1d2 de Armadura do seu braço. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
       id: 'cat_arma_sniper', name: 'Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
       efeito: 'Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
       usos: [{ name: 'Pente de Munição', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
-      ativas: [{ name: 'Sniper', desc: 'Consuma 1d4 de Vida: para cada ponto, receba +10% de chance de Crítico no próximo tiro da sniper. Pode ser usado 2x por luta, 0 Ações.' }],
+      ativas: [{ name: 'Sniper', desc: 'Consuma 1d4 de Vida: para cada ponto, receba +10% de chance de Crítico no próximo tiro da sniper. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
       id: 'cat_arma_ancora', name: 'Âncora', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Passiva: possui +3 de Alcance para Arremessar, e a âncora volta para sua mão por meio das correntes.',
-      ativas: [{ name: 'Âncora', desc: 'No próximo Arremesso, sacrifique 1 de Vida para cada casa que a âncora percorrerá: puxe o alvo para você garantidamente. Pode ser usado 2x por luta, 0 Ações.' }],
+      ativas: [{ name: 'Âncora', desc: 'No próximo Arremesso, sacrifique 1 de Vida para cada casa que a âncora percorrerá: puxe o alvo para você garantidamente. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
       id: 'cat_arma_destruidor_vapor', name: 'Destruidor a Vapor', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Passiva: ao causar dano na Armadura, causa +1d4 de dano nela. Em objetos, o dano dessa arma é Crítico.',
-      ativas: [{ name: 'Destruidor a Vapor', desc: 'Sacrifique 1d12 de Vida: converta todo o dano da sua arma para atacar diretamente a Armadura do alvo. Pode ser usado 2x por luta, 0 Ações.' }],
+      ativas: [{ name: 'Destruidor a Vapor', desc: 'Sacrifique 1d12 de Vida: converta todo o dano da sua arma para atacar diretamente a Armadura do alvo. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
       id: 'cat_arma_esmaga_mundo', name: 'Esmaga-Mundo', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Passiva: causa o dobro de dano em objetos; possui -1d8 de Desvantagem em Aparar contra o esmaga-mundo. 1º uso por turno: gaste uma Ação — o dano dobrado passa a valer contra alvos vivos também, que não podem Aparar contra o esmaga-mundo no próximo ataque. Demais usos no turno: gaste uma Ação — seu próximo ataque com o esmaga-mundo possui +1d6 de dano e Vantagem.',
-      ativas: [{ name: 'Esmaga-Mundo', desc: 'Sacrifique 1d10 de Vida: não precisa gastar uma Ação a mais para dobrar o dano em alvos vivos. Pode ser usado 2x por luta, 0 Ações.' }],
+      ativas: [{ name: 'Esmaga-Mundo', desc: 'Sacrifique 1d10 de Vida: não precisa gastar uma Ação a mais para dobrar o dano em alvos vivos. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
   ],
   instrumento: [
@@ -5904,13 +5981,13 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_instrumento_sino_acorrentado', name: 'Sino Acorrentado', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: possui +3 de Alcance para Arremessar; recebe qualquer Nota Musical ao arremessar esse instrumento, e o sino volta para sua mão por meio das correntes.',
-      ativas: [{ name: 'Sino Acorrentado', desc: 'Sacrifique 1d6 de Vida: o sino bate loucamente, concedendo 3 Notas Musicais quaisquer e ensurdecendo todos os outros no tabuleiro. Pode ser usado 2x por luta, 0 Ações.' }],
+      ativas: [{ name: 'Sino Acorrentado', desc: 'Sacrifique 1d6 de Vida: o sino bate loucamente, concedendo 3 Notas Musicais quaisquer e ensurdecendo todos os outros no tabuleiro. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
       id: 'cat_instrumento_guitarra_sniper', name: 'Guitarra-Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
       usos: [{ name: 'Pente de Munição', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
-      ativas: [{ name: 'Guitarra-Sniper', desc: 'Sacrifique 1d4 de Vida: para cada ponto, receba +10% de chance Crítica, qualquer Nota Musical, e seu próximo disparo causa Ensurdecimento a todos os outros por 1 turno. Pode ser usado 2x por luta, 0 Ações.' }],
+      ativas: [{ name: 'Guitarra-Sniper', desc: 'Sacrifique 1d4 de Vida: para cada ponto, receba +10% de chance Crítica, qualquer Nota Musical, e seu próximo disparo causa Ensurdecimento a todos os outros por 1 turno. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
   ],
 };
@@ -6660,16 +6737,27 @@ function selectEncantamento(id) {
   _renderInvAprimos();
 }
 
+// Repinta a lista de "Liberar Vileza" (Mega Pesada) em edição — mesmo
+// esquema dos "Usos" (Usar Nx): nome, efeito livre, escopo de recarga
+// (Arma/Sessão/Luta/Turno) e a quantidade de usos (Nx). Funciona com o
+// mesmo contador/botão "Usar" no card do item — ver usarAtiva/resetAtiva.
 function _renderInvAtivas() {
   const el = document.getElementById('inv-ativas-list');
   if (!el) return;
+  const ESCOPO_LABEL = { arma: 'Usar (Nx) pela Arma', sessao: 'Usar (Nx) por Sessão', luta: 'Usar (Nx) por Luta', turno: 'Usar (Nx) por Turno' };
   el.innerHTML = invAtivas.map((a,i) => `
-    <div class="inv-extra-item">
-      <div style="flex:1">
-        <input class="inv-extra-input" value="${a.name||''}" placeholder="Nome da vileza" oninput="invAtivas[${i}].name=this.value">
-        <input class="inv-extra-input" style="margin-top:4px;font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito ao liberar" oninput="invAtivas[${i}].desc=this.value">
+    <div class="inv-extra-item" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <input class="inv-extra-input" style="flex:1" value="${a.name||''}" placeholder="Nome da vileza" oninput="invAtivas[${i}].name=this.value">
+        <button onclick="invAtivas.splice(${i},1);_renderInvAtivas()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
       </div>
-      <button onclick="invAtivas.splice(${i},1);_renderInvAtivas()" style="background:none;border:none;color:var(--red);cursor:pointer;padding:4px"><i class="ti ti-x"></i></button>
+      <input class="inv-extra-input" style="font-size:11px;color:var(--text2)" value="${a.desc||''}" placeholder="Efeito ao liberar" oninput="invAtivas[${i}].desc=this.value">
+      <div style="display:flex;gap:6px">
+        <select class="inv-extra-input" style="flex:1" onchange="invAtivas[${i}].escopo=this.value">
+          ${Object.keys(ESCOPO_LABEL).map(esc => `<option value="${esc}" ${(a.escopo||'luta')===esc?'selected':''}>${ESCOPO_LABEL[esc]}</option>`).join('')}
+        </select>
+        <input type="number" min="1" class="inv-extra-input" style="width:64px" value="${a.usosMax||2}" oninput="invAtivas[${i}].usosMax=Math.max(1,parseInt(this.value)||1)">
+      </div>
     </div>`).join('');
 }
 
@@ -6798,7 +6886,7 @@ function saveInvItem() {
     // Aprimoramentos disponíveis para todas as armas
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Armas exóticas: cristais ficam em p.cristais (pool do personagem), não no item
-    if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
+    if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name).map(a => ({ ...a, escopo: a.escopo || 'luta', usosMax: a.usosMax || 2 }));
     // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Arma
     base.usos = invUsos.filter(u => u.name);
     // Vida do Item (opcional)
@@ -6819,7 +6907,7 @@ function saveInvItem() {
     // Aprimoramentos disponíveis para todos os instrumentos
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Instrumentos Mega Pesados: Liberar Vileza
-    if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name);
+    if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name).map(a => ({ ...a, escopo: a.escopo || 'luta', usosMax: a.usosMax || 2 }));
     // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Instrumento
     base.usos = invUsos.filter(u => u.name);
     // Vida do Item (opcional)
@@ -6859,6 +6947,8 @@ function saveInvItem() {
   // Usos de Arma ("Usar Nx") já existentes — guardado antes de sobrescrever,
   // pra preservar usosAtuais dos usos que continuam iguais (ver abaixo).
   const usosAntigos = (modalInvId && (p.inventario.find(x => x.id === modalInvId) || {}).usos) || [];
+  // Liberar Vileza já existentes — mesma ideia, pra preservar usosAtuais.
+  const ativasAntigas = (modalInvId && (p.inventario.find(x => x.id === modalInvId) || {}).ativas) || [];
   // Vida do Item já existente — guardado antes de sobrescrever, pra preservar
   // vidaAtual se a Vida Máxima continuar a mesma (ver abaixo).
   const itemAntigo = modalInvId ? p.inventario.find(x => x.id === modalInvId) : null;
@@ -6904,12 +6994,35 @@ function saveInvItem() {
     });
   }
 
+  // Liberar Vileza — mesma preservação de usosAtuais que os Usos.
+  if (itemSalvo && itemSalvo.ativas && itemSalvo.ativas.length) {
+    itemSalvo.ativas = itemSalvo.ativas.map(a => {
+      const antiga = ativasAntigas.find(x => x.name === a.name && x.escopo === a.escopo && x.usosMax === a.usosMax);
+      return { ...a, usosAtuais: antiga ? antiga.usosAtuais : (a.usosMax || 2) };
+    });
+  }
+
   // Vida do Item — preserva vidaAtual se a Vida Máxima não mudou; se mudou
   // (ou é novo), começa cheia. Clampa pro novo máximo se ele diminuiu.
   if (itemSalvo && itemSalvo.vidaMax != null) {
     itemSalvo.vidaAtual = (vidaAtualAntiga != null && vidaMaxAntiga === itemSalvo.vidaMax)
       ? Math.min(vidaAtualAntiga, itemSalvo.vidaMax)
       : itemSalvo.vidaMax;
+  }
+
+  // Origem "Comum" (Draenei): toda vez que comprar uma Arma/Instrumento
+  // Exótica nova, ou aplicar um Aprimoramento Exótico numa Arma/Instrumento
+  // Comum que ainda não tinha, o personagem ganha +3 Cristais (pool compartilhado).
+  if ((tipo === 'arma' || tipo === 'instrumento') && itemSalvo) {
+    const eraNovoItem = !itemAntigo;
+    const isExotica = itemSalvo.peso === 'exotica';
+    const catalogIdAntigo = itemAntigo && (itemAntigo.aprimoramentos || []).find(a => a.catalogId && APRIMORAMENTOS_ARMA.some(x => x.id === a.catalogId));
+    const catalogIdNovo = (itemSalvo.aprimoramentos || []).find(a => a.catalogId && APRIMORAMENTOS_ARMA.some(x => x.id === a.catalogId));
+    const comprouExotica = eraNovoItem && isExotica;
+    const aprimorouComum = !isExotica && !catalogIdAntigo && catalogIdNovo;
+    if (comprouExotica || aprimorouComum) {
+      adjCristais(p.id, 3);
+    }
   }
 
   saveState();
@@ -8623,7 +8736,7 @@ function saveCharacter() {
           efeito: catItemArma.efeito || '', preco: catItemArma.preco != null ? catItemArma.preco : null,
           aprimoramentos: [],
           usos: (catItemArma.usos || []).map(u => ({ ...u, usosAtuais: u.usosMax })),
-          ativas: catItemArma.ativas ? JSON.parse(JSON.stringify(catItemArma.ativas)) : [],
+          ativas: (catItemArma.ativas || []).map(a => ({ ...a, usosAtuais: a.usosMax || 2 })),
           vidaMax: catItemArma.vidaMax != null ? catItemArma.vidaMax : null,
           vidaAtual: catItemArma.vidaMax != null ? catItemArma.vidaMax : null,
         });
