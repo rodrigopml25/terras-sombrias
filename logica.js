@@ -1564,13 +1564,41 @@ function construirSkillEncantamento(encantamentoItem, itemInventarioId) {
 // Ver resetUsosArmaPorEscopo, chamada em resetSessao/resetLuta/nextTurnGlobal.
 const ESCOPO_USO_ARMA_LABEL = { arma: 'Por Arma', sessao: 'Por Sessão', luta: 'Por Luta', turno: 'Por Turno' };
 
+// Monta o HTML da caixa de "Usos" (Usar Nx) de um item de inventário —
+// compartilhado entre os cards de Arma/Instrumento e Armadura/Elmo (ver
+// renderInventarioArea), já que qualquer um desses tipos pode ter Usos.
+function construirUsosBoxHtml(item, p) {
+  if (!item.usos || !item.usos.length) return '';
+  return `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-target-arrow" style="color:var(--accent2)"></i> Usos</div>${item.usos.map((u, ui) => {
+    const usosMax = u.usosMax || 1;
+    const usosAtuais = u.usosAtuais != null ? u.usosAtuais : usosMax;
+    const spent = usosMax - usosAtuais;
+    const usadoNesteTurno = u.umPorTurno && u.ultimoTurnoUsado === turnGlobal;
+    const pronto = usosAtuais > 0 && !usadoNesteTurno;
+    const dots = Array.from({length: usosMax}, (_, di) => `<div class="sdot ${di < spent ? 'spent' : ''}"></div>`).join('');
+    return `<div class="skill-card sk-gray ${pronto ? 'ready' : 'exhausted'}" style="margin:6px 0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="sk-name">${u.name}</div>
+        <button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
+      </div>
+      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}</div>
+      ${u.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${u.desc}</div>` : ''}
+      ${usadoNesteTurno ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Já usado neste turno.</div>` : ''}
+      <div class="sk-bottom">
+        <button class="sk-btn" onclick="usarArmaUso(${p.id},'${item.id}',${ui})" ${!pronto?'disabled':''}>Usar</button>
+        <div class="sk-dots">${dots}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
 // Reseta pra usosMax todos os Usos ("Usar Nx") E Liberar Vileza do
 // personagem cujo escopo esteja na lista `escopos` — usado pelos resets
 // globais (sessão/luta/turno). Escopo 'arma' nunca é passado aqui (não
 // reseta sozinho, só manualmente).
 function resetUsosArmaPorEscopo(p, escopos) {
   (p.inventario || []).forEach(item => {
-    if ((item.tipo === 'arma' || item.tipo === 'instrumento')) {
+    if ((item.tipo === 'arma' || item.tipo === 'instrumento' || item.tipo === 'protecao')) {
       if (Array.isArray(item.usos)) {
         item.usos.forEach(u => { if (escopos.includes(u.escopo)) u.usosAtuais = u.usosMax; });
       }
@@ -5625,29 +5653,7 @@ function renderInventarioArea(p, readOnly) {
     const encantamentoBox = item.encantamento
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>`
       : '';
-    const usosBox = (item.usos && item.usos.length)
-      ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-target-arrow" style="color:var(--accent2)"></i> Usos</div>${item.usos.map((u, ui) => {
-          const usosMax = u.usosMax || 1;
-          const usosAtuais = u.usosAtuais != null ? u.usosAtuais : usosMax;
-          const spent = usosMax - usosAtuais;
-          const usadoNesteTurno = u.umPorTurno && u.ultimoTurnoUsado === turnGlobal;
-          const pronto = usosAtuais > 0 && !usadoNesteTurno;
-          const dots = Array.from({length: usosMax}, (_, di) => `<div class="sdot ${di < spent ? 'spent' : ''}"></div>`).join('');
-          return `<div class="skill-card sk-gray ${pronto ? 'ready' : 'exhausted'}" style="margin:6px 0">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start">
-              <div class="sk-name">${u.name}</div>
-              <button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
-            </div>
-            <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}</div>
-            ${u.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${u.desc}</div>` : ''}
-            ${usadoNesteTurno ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Já usado neste turno.</div>` : ''}
-            <div class="sk-bottom">
-              <button class="sk-btn" onclick="usarArmaUso(${p.id},'${item.id}',${ui})" ${!pronto?'disabled':''}>Usar</button>
-              <div class="sk-dots">${dots}</div>
-            </div>
-          </div>`;
-        }).join('')}</div>`
-      : '';
+    const usosBox = construirUsosBoxHtml(item, p);
     const vidaBox = (item.vidaMax != null && item.vidaMax > 0)
       ? (() => {
           const vidaMax = item.vidaMax;
@@ -5729,6 +5735,7 @@ function renderInventarioArea(p, readOnly) {
           return `<div class="inv-aprimo-item"><span class="inv-aprimo-name"${isDourado?' style="color:#e8c53a"':''}>${isDourado?'✨ ':''}${label}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`;
         }).join('')}</div>` : ''}
       ${item.encantamento ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>` : ''}
+      ${construirUsosBoxHtml(item, p)}
     </div>`;
   }
 
@@ -5820,15 +5827,18 @@ const CATALOGO_ITENS = {
     { id: 'cat_armadura_media',   name: 'Armadura Média',   subtipo: 'armadura', peso: 'media', valor: 8,  preco: 60, passosPenalidade: 5, efeito: 'Reduz 5 de Passos. Concede -1d4 de Desvantagem em testes de Furtividade.' },
     { id: 'cat_armadura_pesada',  name: 'Armadura Pesada',  subtipo: 'armadura', peso: 'pesada', valor: 12, preco: 80, passosPenalidade: 7, efeito: 'Reduz 7 de Passos. Concede Mega Desvantagem em testes de Furtividade.' },
     { id: 'cat_armadura_encantada', name: 'Armadura Encantada', subtipo: 'armadura', peso: 'encantada', valor: 7, preco: 50, passosPenalidade: 4, efeito: 'Reduz 4 de Passos. Concede -1d2 de Desvantagem em testes de Furtividade. Possui 1 espaço de Encantamento (requer o Talento Inferior "Equipamento Encantado").' },
-    { id: 'cat_armadura_exotica', name: 'Armadura Exótica', subtipo: 'armadura', peso: 'exotica', valor: 10, preco: 75, passosPenalidade: 6, efeito: 'Reduz 6 de Passos. Concede -1d6 de Desvantagem em testes de Furtividade. Ativa (3x por luta, gasta 1 Cristal): até o final da luta, quem te atacar corpo a corpo recebe 1d6 de dano que atravessa Armadura (podendo ser usada diversas vezes por turno). Pode receber até 2 Aprimoramentos de Armadura.' },
+    { id: 'cat_armadura_exotica', name: 'Armadura Exótica', subtipo: 'armadura', peso: 'exotica', valor: 10, preco: 75, passosPenalidade: 6, efeito: 'Reduz 6 de Passos. Concede -1d6 de Desvantagem em testes de Furtividade. Pode receber até 2 Aprimoramentos de Armadura.',
+      usos: [{ name: 'Barreira de Retaliação', desc: 'Gaste 1 Cristal: até o final da luta, quem te atacar corpo a corpo recebe 1d6 de dano que atravessa Armadura. Pode ser usada diversas vezes no mesmo turno.', escopo: 'luta', usosMax: 3 }] },
     { id: 'cat_armadura_mega', name: 'Armadura Mega Pesada', subtipo: 'armadura', peso: 'mega', valor: 16, preco: 100, passosPenalidade: 8, efeito: 'Reduz 8 de Passos. Não pode realizar testes de Furtividade.' },
     { id: 'cat_elmo_capuz',  name: 'Capuz',       subtipo: 'elmo', peso: 'leve',  valor: 2, preco: 20, efeito: 'Concede +1d2 de Vantagem em testes de Furtividade.' },
     { id: 'cat_elmo_chapeu', name: 'Chapéu',      subtipo: 'elmo', peso: 'leve',  valor: 5, preco: 40, efeito: '' },
     { id: 'cat_elmo_medio',  name: 'Elmo Médio',  subtipo: 'elmo', peso: 'media', valor: 6, preco: 60, efeito: 'Concede -1d2 de Desvantagem em testes de Furtividade.' },
     { id: 'cat_elmo_pesado', name: 'Elmo Pesado', subtipo: 'elmo', peso: 'pesada', valor: 8, preco: 80, efeito: 'Concede -1d6 de Desvantagem em testes de Furtividade.' },
     { id: 'cat_elmo_encantado', name: 'Elmo Encantado', subtipo: 'elmo', peso: 'encantada', valor: 6, preco: 60, efeito: 'Concede -1 de Desvantagem em testes de Furtividade. Possui 1 espaço de Encantamento (requer o Talento Inferior "Equipamento Encantado").' },
-    { id: 'cat_elmo_chapeu_exotico', name: 'Chapéu Exótico', subtipo: 'elmo', peso: 'exotica', valor: 5, preco: 50, efeito: 'Concede +1d2 de Vantagem em testes de Furtividade. Ativa (3x por luta, gasta 1 Cristal, 1 uso por turno): restaura a Armadura do Chapéu. Pode receber até 2 Aprimoramentos de Elmo.' },
-    { id: 'cat_elmo_exotico', name: 'Elmo Exótico', subtipo: 'elmo', peso: 'exotica', valor: 7, preco: 75, efeito: 'Concede -1d4 de Desvantagem em testes de Furtividade. Ativa (3x por luta, gasta 1 Cristal, 1 uso por turno): remova sua Cegueira, ou crie uma barreira na sua cabeça que a torna impossível de ser mirada por 1 turno. Pode receber até 2 Aprimoramentos de Elmo.' },
+    { id: 'cat_elmo_chapeu_exotico', name: 'Chapéu Exótico', subtipo: 'elmo', peso: 'exotica', valor: 5, preco: 50, efeito: 'Concede +1d2 de Vantagem em testes de Furtividade. Pode receber até 2 Aprimoramentos de Elmo.',
+      usos: [{ name: 'Restauração do Chapéu', desc: 'Gaste 1 Cristal: restaura a Armadura do Chapéu.', escopo: 'luta', usosMax: 3, umPorTurno: true }] },
+    { id: 'cat_elmo_exotico', name: 'Elmo Exótico', subtipo: 'elmo', peso: 'exotica', valor: 7, preco: 75, efeito: 'Concede -1d4 de Desvantagem em testes de Furtividade. Pode receber até 2 Aprimoramentos de Elmo.',
+      usos: [{ name: 'Barreira Craniana', desc: 'Gaste 1 Cristal: remova sua Cegueira, ou crie uma barreira na sua cabeça que a torna impossível de ser mirada por 1 turno.', escopo: 'luta', usosMax: 3, umPorTurno: true }] },
     { id: 'cat_elmo_mega', name: 'Elmo Mega Pesado', subtipo: 'elmo', peso: 'mega', valor: 10, preco: 100, efeito: 'Concede -1d10 de Desvantagem em testes de Furtividade.' },
   ],
   arma: [
@@ -6173,11 +6183,12 @@ function _updateInvModalSections(tipo) {
   document.getElementById('inv-sec-exotica').style.display = (ehArmaOuInstrumento || tipo === 'protecao') ? '' : 'none';
   document.getElementById('inv-sec-mega').style.display    = (ehArmaOuInstrumento && peso === 'mega') ? '' : 'none';
 
-  // Usos ("Usar (Nx)"): disponível pra Armas e Instrumentos, em qualquer peso
+  // Usos ("Usar (Nx)"): disponível pra Armas, Instrumentos e Proteções (Armadura/Elmo), em qualquer peso
   const secUsos = document.getElementById('inv-sec-usos');
   if (secUsos) {
-    secUsos.style.display = ehArmaOuInstrumento ? '' : 'none';
-    if (ehArmaOuInstrumento) _renderInvUsos();
+    const mostraUsos = ehArmaOuInstrumento || tipo === 'protecao';
+    secUsos.style.display = mostraUsos ? '' : 'none';
+    if (mostraUsos) _renderInvUsos();
   }
 
   // Munição (armas/instrumentos de longo alcance) ou Cristais (itens exóticos ou com aprimo exótico)
@@ -6374,6 +6385,8 @@ function selecionarCatalogoItem(itemId) {
     document.getElementById('inv-m-valor').value = item.valor != null ? item.valor : '';
     const inputPassosPenalidade = document.getElementById('inv-m-passos-penalidade');
     if (inputPassosPenalidade) inputPassosPenalidade.value = item.passosPenalidade != null ? item.passosPenalidade : '';
+    invUsos = item.usos ? JSON.parse(JSON.stringify(item.usos)) : [];
+    _renderInvUsos();
   } else if (tipo === 'instrumento') {
     invSelectPeso(item.peso);
     if (item.alcance) invSelectAlcance(item.alcance);
@@ -7008,6 +7021,8 @@ function saveInvItem() {
     Object.assign(base, { peso, subtipo, valor: valor !== '' ? Number(valor) : null, passosPenalidade, equipado });
     // Aprimoramentos disponíveis para proteções (Draenei)
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
+    // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Armadura/Elmo
+    base.usos = invUsos.filter(u => u.name);
     // Proteções exóticas: atualiza o pool de cristais do personagem
     if (peso === 'exotica') {
       const p2 = PLAYERS.find(x => x.id === modalInvPid);
@@ -8805,6 +8820,7 @@ function saveCharacter() {
           efeito: catItem.efeito || '', valor: catItem.valor != null ? catItem.valor : null,
           preco: catItem.preco != null ? catItem.preco : null,
           passosPenalidade: catItem.passosPenalidade || 0, equipado: true, aprimoramentos: [],
+          usos: (catItem.usos || []).map(u => ({ ...u, usosAtuais: u.usosMax })),
         });
       }
     }
@@ -8818,6 +8834,7 @@ function saveCharacter() {
           efeito: catItemElmo.efeito || '', valor: catItemElmo.valor != null ? catItemElmo.valor : null,
           preco: catItemElmo.preco != null ? catItemElmo.preco : null,
           passosPenalidade: catItemElmo.passosPenalidade || 0, equipado: true, aprimoramentos: [],
+          usos: (catItemElmo.usos || []).map(u => ({ ...u, usosAtuais: u.usosMax })),
         });
       }
     }
