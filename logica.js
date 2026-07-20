@@ -1588,9 +1588,13 @@ function usarArmaUso(pid, itemId, usoIdx) {
   const item = p && (p.inventario || []).find(i => i.id === itemId);
   const uso = item && item.usos && item.usos[usoIdx];
   if (!uso || uso.usosAtuais <= 0) return;
+  // "Um uso por turno": mesmo com usos sobrando no total, não deixa usar de
+  // novo se já foi usado no turno global atual.
+  if (uso.umPorTurno && uso.ultimoTurnoUsado === turnGlobal) return;
   uso.usosAtuais -= 1;
+  if (uso.umPorTurno) uso.ultimoTurnoUsado = turnGlobal;
   saveState();
-  renderJogador();
+  renderAll();
 }
 
 // Restaura manualmente os usos de um "Usar (Nx)" da arma pro máximo.
@@ -1600,8 +1604,9 @@ function resetArmaUso(pid, itemId, usoIdx) {
   const uso = item && item.usos && item.usos[usoIdx];
   if (!uso) return;
   uso.usosAtuais = uso.usosMax;
+  if (uso.umPorTurno) uso.ultimoTurnoUsado = null;
   saveState();
-  renderJogador();
+  renderAll();
 }
 
 // Consome 1 uso de uma "Liberar Vileza" (clique no card) — mesmo mecanismo
@@ -1613,7 +1618,7 @@ function usarAtiva(pid, itemId, ativaIdx) {
   if (!ativa || (ativa.usosAtuais != null && ativa.usosAtuais <= 0)) return;
   ativa.usosAtuais = (ativa.usosAtuais != null ? ativa.usosAtuais : (ativa.usosMax || 1)) - 1;
   saveState();
-  renderJogador();
+  renderAll();
 }
 
 // "Usa" um Aprimoramento Exótico de Arma/Instrumento (ver APRIMORAMENTOS_ARMA)
@@ -1634,7 +1639,7 @@ function resetAtiva(pid, itemId, ativaIdx) {
   if (!ativa) return;
   ativa.usosAtuais = ativa.usosMax || 1;
   saveState();
-  renderJogador();
+  renderAll();
 }
 
 // ═══════════════════════════════════════
@@ -1658,7 +1663,7 @@ function ajustarVidaItem(pid, itemId, delta) {
     item.vidaAtual = Math.max(0, Math.min(item.vidaMax, atual + delta));
   }
   saveState();
-  renderJogador();
+  renderAll();
 }
 
 // ═══════════════════════════════════════
@@ -2124,6 +2129,24 @@ const BANCO_HABILIDADES_SUBCLASSE = {
     { indice: 10, id: 'acolito_sentenca_instantanea', name: 'Sentença Instantânea', color: 'blue', cost: 1, tipo: 'turno_N', turnosRecarga: 2, usosMax: 1, desc: 'Com a essência da sua divindade, castigue um pecador! Escolha um Alvo a até 8 Casas e cause 1d8 de Dano. Se o Alvo acabou de cometer um pecado à sua frente, o dano será total, ou causa +1d8 de Dano.' },
   ],
 };
+
+// Retorna TODAS as Habilidades azuis (Feitiços) de TODAS as subclasses do
+// jogo, não importa a classe do personagem — usado pelo Aprimoramento de
+// Encantamento (ver APRIMORAMENTOS_ARMA), que deixa a arma "aprender" 1
+// Feitiço de qualquer classe. Cada item vem com "subclasseOrigem" anexado.
+function getTodasHabilidadesAzuisCatalogo() {
+  const vistos = new Set();
+  const lista = [];
+  Object.entries(BANCO_HABILIDADES_SUBCLASSE).forEach(([subNome, skills]) => {
+    skills.forEach(sk => {
+      if (sk.color === 'blue' && !vistos.has(sk.id)) {
+        vistos.add(sk.id);
+        lista.push({ ...sk, subclasseOrigem: subNome });
+      }
+    });
+  });
+  return lista;
+}
 
 // Retorna o catálogo de Habilidades disponível para o personagem: TODAS as
 // Habilidades de TODAS as subclasses da mesma Classe-base (ex: um Campeão
@@ -3704,6 +3727,7 @@ let modalPassivaPid = null;
 let modalPassivaId = null;
 let narPassivasExpanded = {}; // { [playerId]: true/false } — estado local, não sincroniza
 let narSkillsExpanded = {};  // { [playerId]: true/false } — mostra habilidades agrupadas
+let narInventarioExpanded = {}; // { [playerId]: true/false } — mostra o Inventário (reaproveita renderInventarioArea)
 let jogTestesCollapsed = true;   // jogador: começa fechado
 let jogIniciativaCollapsed = false; // jogador: painel de Ordem de Iniciativa começa aberto
 let narTestesCollapsed = {};     // narrador: { [playerId]: true/false } — começa fechado
@@ -4444,6 +4468,7 @@ function renderNarrador() {
 
     const skillsExpanded = !!narSkillsExpanded[p.id];
     const passivasExpanded = !!narPassivasExpanded[p.id];
+    const inventarioExpanded = !!narInventarioExpanded[p.id];
 
     let gruposHtml = '';
     ['green','red','blue','gray'].forEach(cor => {
@@ -4515,6 +4540,7 @@ function renderNarrador() {
         </div>
         <button class="prow-edit-btn ${skillsExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarSkills(${p.id})" title="Ver habilidades agrupadas por atributo"><i class="ti ti-sword"></i></button>
         <button class="prow-edit-btn ${passivasExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarPassivas(${p.id})" title="Ver passivas / talentos"><i class="ti ti-sparkles"></i></button>
+        <button class="prow-edit-btn ${inventarioExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarInventario(${p.id})" title="Ver inventário"><i class="ti ti-backpack"></i></button>
         <button class="prow-edit-btn ${narTestesCollapsed[p.id] === false ? 'prow-passiva-on' : ''}" onclick="toggleNarTestes(${p.id})" title="Ver testes"><i class="ti ti-hexagon-letter-d"></i></button>
         <button class="prow-edit-btn" onclick="editCharacter(${p.id})" title="Editar ficha do personagem"><i class="ti ti-edit"></i></button>
       </div>
@@ -4625,6 +4651,7 @@ function renderNarrador() {
         </div>
       </div>
       ${skillsExpanded ? `<div class="nar-skills-box">${gruposHtml}</div>` : ''}
+      ${inventarioExpanded ? renderInventarioArea(p, true) : ''}
       ${passivasExpanded ? `<div class="nar-passivas-box">
         <div class="nar-passivas-title"><i class="ti ti-sparkles"></i> Passivas / Talentos</div>
         ${passivasHtml}
@@ -5445,7 +5472,7 @@ const INV_PESO_BG    = { leve:'var(--blue-bg)', media:'var(--green-bg)', pesada:
 const INV_PESO_BD    = { leve:'var(--blue-bd)', media:'var(--green-bd)', pesada:'var(--red-bd)', exotica:'var(--green-bd)', mega:'rgba(139,31,31,0.4)', encantada:'rgba(58,95,192,0.5)' };
 const INV_ALCANCE_LABEL = { curto: 'Curto Alcance', longo: 'Longo Alcance' };
 
-function renderInventarioArea(p) {
+function renderInventarioArea(p, readOnly) {
   const inv = Array.isArray(p.inventario) ? p.inventario : [];
   const armas     = inv.filter(i => i.tipo === 'arma' || i.tipo === 'instrumento');
   const protecoes = inv.filter(i => i.tipo === 'protecao');
@@ -5519,11 +5546,17 @@ function renderInventarioArea(p) {
           const isDourado = a.dourado || a.name === 'Dourado';
           const isAprimoramentoExotico = a.catalogId && typeof APRIMORAMENTOS_ARMA !== 'undefined' && APRIMORAMENTOS_ARMA.some(x => x.id === a.catalogId);
           if (isAprimoramentoExotico) {
-            const podeUsar = (p.cristais || 0) > 0;
+            const isEncantamento = a.catalogId === 'encantamento';
+            const nomeExibido = isEncantamento && a.habilidadeNome ? `✨ ${a.habilidadeNome}` : a.name;
+            const descExibida = isEncantamento && a.habilidadeDesc ? a.habilidadeDesc : a.desc;
+            const subTag = isEncantamento && a.habilidadeSubclasse ? `<span class="sk-tag">${a.habilidadeSubclasse}</span>` : '';
+            const semEscolha = isEncantamento && !a.habilidadeId;
+            const podeUsar = (p.cristais || 0) > 0 && !semEscolha;
             return `<div class="skill-card sk-gray" style="margin:6px 0">
-              <div class="sk-name">${a.name}</div>
-              <div class="sk-tags"><span class="sk-tag">💎 Consome 1 Cristal</span></div>
-              ${a.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${a.desc}</div>` : ''}
+              <div class="sk-name">${nomeExibido}</div>
+              <div class="sk-tags"><span class="sk-tag">💎 Consome 1 Cristal</span>${subTag}</div>
+              ${descExibida ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${descExibida}</div>` : ''}
+              ${semEscolha ? `<div style="font-size:11px;color:var(--text3);margin-bottom:6px">⚠ Nenhum Feitiço escolhido ainda — edite a arma pra escolher.</div>` : ''}
               <div class="sk-bottom">
                 <button class="sk-btn" onclick="usarAprimoramentoArma(${p.id})" ${!podeUsar ? 'disabled' : ''}>Usar</button>
               </div>
@@ -5597,15 +5630,17 @@ function renderInventarioArea(p) {
           const usosMax = u.usosMax || 1;
           const usosAtuais = u.usosAtuais != null ? u.usosAtuais : usosMax;
           const spent = usosMax - usosAtuais;
-          const pronto = usosAtuais > 0;
+          const usadoNesteTurno = u.umPorTurno && u.ultimoTurnoUsado === turnGlobal;
+          const pronto = usosAtuais > 0 && !usadoNesteTurno;
           const dots = Array.from({length: usosMax}, (_, di) => `<div class="sdot ${di < spent ? 'spent' : ''}"></div>`).join('');
           return `<div class="skill-card sk-gray ${pronto ? 'ready' : 'exhausted'}" style="margin:6px 0">
             <div style="display:flex;justify-content:space-between;align-items:flex-start">
               <div class="sk-name">${u.name}</div>
               <button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
             </div>
-            <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span></div>
+            <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}</div>
             ${u.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${u.desc}</div>` : ''}
+            ${usadoNesteTurno ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Já usado neste turno.</div>` : ''}
             <div class="sk-bottom">
               <button class="sk-btn" onclick="usarArmaUso(${p.id},'${item.id}',${ui})" ${!pronto?'disabled':''}>Usar</button>
               <div class="sk-dots">${dots}</div>
@@ -5635,7 +5670,7 @@ function renderInventarioArea(p) {
       return `<div class="inv-card">
         <div class="inv-card-header" style="flex-wrap:nowrap;align-items:center">
           <div class="inv-card-title">${icone} ${item.name}</div>
-          <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>
+          ${readOnly ? '' : `<button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>`}
         </div>
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px">
           <span class="inv-peso-tag" style="color:#e8a838;background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.3)">🎵 Instrumento</span>
@@ -5653,7 +5688,7 @@ function renderInventarioArea(p) {
     return `<div class="inv-card">
       <div class="inv-card-header" style="flex-wrap:nowrap;align-items:center">
         <div class="inv-card-title">${icone} ${item.name}</div>
-        <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>
+        ${readOnly ? '' : `<button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>`}
       </div>
       <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px">
         ${alcanceTag(item)}
@@ -5678,7 +5713,7 @@ function renderInventarioArea(p) {
     return `<div class="inv-card">
       <div class="inv-card-header" style="flex-wrap:nowrap;align-items:center">
         <div class="inv-card-title"><i class="ti ${icone}" style="color:${cor}"></i> ${item.name}</div>
-        <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>
+        ${readOnly ? '' : `<button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>`}
       </div>
       <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px">
         ${equipBadge}
@@ -5703,7 +5738,7 @@ function renderInventarioArea(p) {
         <div class="inv-card-title"><i class="ti ti-package" style="color:var(--text3)"></i> ${item.name}</div>
         <div style="display:flex;align-items:center;gap:6px">
           ${item.qtd != null && item.qtd !== '' ? `<span class="inv-qtd">×${item.qtd}</span>` : ''}
-          <button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>
+          ${readOnly ? '' : `<button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px"><i class="ti ti-edit" style="font-size:15px"></i></button>`}
         </div>
       </div>
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
@@ -5726,7 +5761,7 @@ function renderInventarioArea(p) {
     <div class="inv-header">
       <i class="ti ti-backpack" style="color:var(--accent2)"></i>
       <span>Inventário</span>
-      <button class="btn btn-success inv-add-btn" onclick="openInvModal(${p.id})"><i class="ti ti-plus"></i> Adicionar</button>
+      ${readOnly ? '' : `<button class="btn btn-success inv-add-btn" onclick="openInvModal(${p.id})"><i class="ti ti-plus"></i> Adicionar</button>`}
     </div>
     ${invSection('armas',     '⚔️ Armas',    'ti-sword',   'var(--red)',    armas,     renderArmaCard)}
     ${invSection('protecoes', '🛡 Proteções', 'ti-shield',  'var(--amber)',  protecoes, renderProtecaoCard)}
@@ -5748,7 +5783,7 @@ function adjInvMunicao(pid, itemId, d) {
   if (!item) return;
   item.municao = Math.max(0, (item.municao || 0) + d);
   saveState();
-  renderJogador();
+  renderAll();
 }
 
 // Equipa/desequipa uma peça de proteção direto pelo card (sem abrir o modal).
@@ -5767,7 +5802,7 @@ function toggleEquipProt(pid, itemId) {
   item.equipado = novoEstado;
   recomputeProtMax(p);
   saveState();
-  renderJogador();
+  renderAll();
 }
 
 // ═══════════════════════════════════════
@@ -5818,8 +5853,8 @@ const CATALOGO_ITENS = {
     },
     {
       id: 'cat_arma_orbe_tecnologico', name: 'Orbe Tecnológico', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
-      efeito: 'Munição (Cápsulas de Energia): o orbe guarda até 2 Cápsulas. Ao gastar uma, recarregue pagando 10 de Dinheiro no final da luta.',
-      usos: [{ name: 'Disparo de Energia', desc: 'Sacrifique 1 Cápsula de Energia e libere um disparo de energia — o dano é um teste de Arcano ou Místico (não pode mirar na cabeça).', escopo: 'arma', usosMax: 2 }],
+      efeito: 'Orbe de energia com 1 carga disponível a cada turno (ver Usos).',
+      usos: [{ name: 'Disparo de Energia', desc: 'Sacrifique 1 Cápsula de Energia e libere um disparo de energia — o dano é um teste de Arcano ou Místico (não pode mirar na cabeça).', escopo: 'turno', usosMax: 1 }],
     },
     {
       id: 'cat_arma_varinha', name: 'Varinha', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
@@ -5881,22 +5916,22 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_alianca_encantada', name: 'Aliança Encantada', peso: 'encantada', dano: '', preco: 50, alcance: 'curto',
       efeito: 'Passiva: seus Feitiços causam +1d4 de dano/cura — porém não há como atacar com a aliança, e ela ocupa o lugar de uma arma.',
-      usos: [{ name: 'Explosão Mágica', desc: 'A aliança libera muita magia: seus Feitiços também possuem +3 de dano/cura nesse turno. Um uso por turno. Ao usar a 5ª vez, a aliança se quebra.', escopo: 'arma', usosMax: 5 }],
+      usos: [{ name: 'Explosão Mágica', desc: 'A aliança libera muita magia: seus Feitiços também possuem +3 de dano/cura nesse turno. Um uso por turno. Ao usar a 5ª vez, a aliança se quebra.', escopo: 'arma', usosMax: 5, umPorTurno: true }],
     },
     {
       id: 'cat_arma_cajado_encantado', name: 'Cajado Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'curto',
       efeito: 'Passiva: seus ataques corpo a corpo com o cajado possuem +1 de Alcance; o cajado também dispara feixes mágicos, com +2 de Alcance.',
-      usos: [{ name: 'Duplicata Arcana', desc: 'O cajado encanta sua próxima invocação/evocação surgida de um Feitiço: ela cria uma duplicata dela pelo mesmo tempo de duração. Um uso por turno. Ao usar a 5ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 5 }],
+      usos: [{ name: 'Duplicata Arcana', desc: 'O cajado encanta sua próxima invocação/evocação surgida de um Feitiço: ela cria uma duplicata dela pelo mesmo tempo de duração. Um uso por turno. Ao usar a 5ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 5, umPorTurno: true }],
     },
     {
       id: 'cat_arma_garras_encantadas', name: 'Garras Encantadas', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'curto',
       efeito: '',
-      usos: [{ name: 'Absorção de Poder', desc: 'A magia das garras absorve poder: no seu próximo Feitiço que conceder um bônus para arma, esse bônus fica até o final da luta (só pode ter 3 bônus ao mesmo tempo nas garras). Um uso por turno. Ao usar a 5ª vez, as garras se quebram.', escopo: 'arma', usosMax: 5 }],
+      usos: [{ name: 'Absorção de Poder', desc: 'A magia das garras absorve poder: no seu próximo Feitiço que conceder um bônus para arma, esse bônus fica até o final da luta (só pode ter 3 bônus ao mesmo tempo nas garras). Um uso por turno. Ao usar a 5ª vez, as garras se quebram.', escopo: 'arma', usosMax: 5, umPorTurno: true }],
     },
     {
       id: 'cat_arma_lanca_eletrica', name: 'Lança Elétrica', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'curto',
       efeito: 'Ativa: o Cristal Elétrico libera cargas fortes que causam +1d4 de dano no ataque, porém possui -1d4 de Desvantagem no lançamento.',
-      usos: [{ name: 'Carga Elétrica', desc: 'Gaste 1 Cristal Elétrico: libera uma imensa carga que causa +(1d2+1)d4 de dano no próximo ataque. Um uso por turno.', escopo: 'luta', usosMax: 3 }],
+      usos: [{ name: 'Carga Elétrica', desc: 'Gaste 1 Cristal Elétrico: libera uma imensa carga que causa +(1d2+1)d4 de dano no próximo ataque. Um uso por turno.', escopo: 'luta', usosMax: 3, umPorTurno: true }],
     },
     {
       id: 'cat_arma_orbe_cristalino', name: 'Orbe Cristalino', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
@@ -6544,6 +6579,7 @@ function _buildAprimoArmaListHtml(peso) {
 
   const cards = APRIMORAMENTOS_ARMA.map(a => {
     const ativo = idsAtivos.includes(a.id);
+    const extra = (a.id === 'encantamento' && ativo) ? _buildEncantamentoHabilidadeEscolhaHtml() : '';
     return `<div class="skill-card sk-gray" style="margin:0;cursor:pointer" onclick="toggleAprimoArma('${a.id}')">
       <div class="sk-name">${a.name}</div>
       <div class="sk-tags"><span class="sk-tag">💰 ${custo}</span></div>
@@ -6551,10 +6587,64 @@ function _buildAprimoArmaListHtml(peso) {
       <button class="btn ${ativo ? '' : 'btn-primary'}" style="width:100%;justify-content:center;margin-top:8px" onclick="event.stopPropagation();toggleAprimoArma('${a.id}')">
         ${ativo ? '✓ Escolhido — clique para remover' : 'Escolher'}
       </button>
+      ${extra}
     </div>`;
   }).join('');
 
   return aviso + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`;
+}
+
+// Sub-tela do Aprimoramento de Encantamento: escolher 1 Feitiço (Habilidade
+// azul) de qualquer classe pra "morar" na arma — ela ignora o custo de Ação
+// e a recarga normais; o único requisito pra usar é 1 Cristal (ver
+// usarAprimoramentoArma). A escolha fica junto com o próprio Aprimoramento
+// em invAprimos, não em p.skills — ela não aparece nas Habilidades normais.
+function _buildEncantamentoHabilidadeEscolhaHtml() {
+  const idx = invAprimos.findIndex(a => a.catalogId === 'encantamento');
+  if (idx === -1) return '';
+  const entry = invAprimos[idx];
+
+  if (entry.habilidadeId) {
+    return `<div onclick="event.stopPropagation()" style="margin-top:10px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Feitiço encantado nessa arma:</div>
+      <div style="font-size:12px;font-weight:600;color:#8ab8e8">✨ ${entry.habilidadeNome} <span style="font-size:10px;font-weight:400;color:var(--text3)">(${entry.habilidadeSubclasse})</span></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;line-height:1.5">${entry.habilidadeDesc}</div>
+      <button class="btn" style="margin-top:8px;font-size:11px;padding:4px 10px" onclick="event.stopPropagation();trocarHabilidadeEncantamento()">Trocar Feitiço</button>
+    </div>`;
+  }
+
+  const opcoes = getTodasHabilidadesAzuisCatalogo();
+  return `<div onclick="event.stopPropagation()" style="margin-top:10px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Escolha 1 Feitiço (Habilidade azul) de qualquer classe — o custo de Ação e a recarga dele não valem aqui; o único requisito pra usar é 1 Cristal.</div>
+    ${opcoes.map(sk => `<div style="padding:6px 4px;border-bottom:1px solid var(--border);cursor:pointer" onclick="event.stopPropagation();escolherHabilidadeEncantamento('${sk.id}')">
+      <div style="font-size:12px;font-weight:600;color:#8ab8e8">${sk.name} <span style="font-size:10px;font-weight:400;color:var(--text3)">(${sk.subclasseOrigem})</span></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px;line-height:1.4">${sk.desc}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// Confirma a escolha do Feitiço pro Aprimoramento de Encantamento.
+function escolherHabilidadeEncantamento(skillId) {
+  const idx = invAprimos.findIndex(a => a.catalogId === 'encantamento');
+  if (idx === -1) return;
+  const sk = getTodasHabilidadesAzuisCatalogo().find(s => s.id === skillId);
+  if (!sk) return;
+  invAprimos[idx].habilidadeId = sk.id;
+  invAprimos[idx].habilidadeNome = sk.name;
+  invAprimos[idx].habilidadeDesc = sk.desc;
+  invAprimos[idx].habilidadeSubclasse = sk.subclasseOrigem;
+  _renderInvAprimos();
+}
+
+// Limpa a escolha atual pra permitir escolher outro Feitiço.
+function trocarHabilidadeEncantamento() {
+  const idx = invAprimos.findIndex(a => a.catalogId === 'encantamento');
+  if (idx === -1) return;
+  delete invAprimos[idx].habilidadeId;
+  delete invAprimos[idx].habilidadeNome;
+  delete invAprimos[idx].habilidadeDesc;
+  delete invAprimos[idx].habilidadeSubclasse;
+  _renderInvAprimos();
 }
 
 // Alterna a escolha de um Aprimoramento de Arma/Instrumento no modal,
@@ -6990,7 +7080,7 @@ function saveInvItem() {
   if (itemSalvo && itemSalvo.usos && itemSalvo.usos.length) {
     itemSalvo.usos = itemSalvo.usos.map(u => {
       const antigo = usosAntigos.find(a => a.name === u.name && a.escopo === u.escopo && a.usosMax === u.usosMax);
-      return { ...u, usosAtuais: antigo ? antigo.usosAtuais : u.usosMax };
+      return { ...u, usosAtuais: antigo ? antigo.usosAtuais : u.usosMax, ultimoTurnoUsado: antigo ? antigo.ultimoTurnoUsado : null };
     });
   }
 
@@ -7907,6 +7997,13 @@ function toggleNarPassivas(pid) {
 
 function toggleNarSkills(pid) {
   narSkillsExpanded[pid] = !narSkillsExpanded[pid];
+  renderNarrador();
+}
+
+// Narrador: alterna a exibição do Inventário de um personagem específico
+// (mesmo componente usado no jogador — ver renderInventarioArea).
+function toggleNarInventario(pid) {
+  narInventarioExpanded[pid] = !narInventarioExpanded[pid];
   renderNarrador();
 }
 
