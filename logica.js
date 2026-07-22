@@ -3760,7 +3760,7 @@ let jogTestesCollapsed = true;   // jogador: começa fechado
 let jogIniciativaCollapsed = false; // jogador: painel de Ordem de Iniciativa começa aberto
 let narTestesCollapsed = {};     // narrador: { [playerId]: true/false } — começa fechado
 let jogSkillsCollapsed = { green: true, red: true, blue: true, gray: true, passivas: true, expressoes: true, campos: true, divindade: true }; // começa fechado
-let jogInvCollapsed = { armas: true, protecoes: true, itens: true }; // inventário começa fechado
+let jogInvCollapsed = {}; // { [playerId]: { armas, protecoes, itens } } — cada personagem tem seu próprio estado, começa fechado
 let jogActiveTab = 'ficha'; // 'ficha' | 'anotacoes'
 let modalInvPid = null;
 let modalInvId = null;
@@ -5638,17 +5638,15 @@ function renderInventarioArea(p, readOnly) {
       }
       return null;
     }
-    function danoRow(peso) {
-      if (!item.dano) return '';
+    function statsRow(peso) {
       const mb = armaMaestriaBonus(peso);
       const bonus = mb && mb.val > 0
         ? `<span style="font-size:11px;color:${mb.color};margin-left:2px" title="Bônus de Maestria de ${mb.attr}">+${mb.val} <span style="font-size:10px;opacity:.8">${mb.attr}</span></span>`
         : (mb && mb.val === 0 ? `<span style="font-size:10px;color:var(--text3);margin-left:2px" title="Maestria de ${mb.attr} ainda é 0">+0 <span style="opacity:.7">${mb.attr}</span></span>` : '');
-      return `<div class="inv-dano"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}</div>`;
-    }
-    function precoRow() {
-      if (item.preco == null) return '';
-      return `<div class="inv-dano"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val">${item.preco}</span></div>`;
+      const danoPart = item.dano ? `<div class="inv-stat"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}</div>` : '';
+      const precoPart = item.preco != null ? `<div class="inv-stat"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val" style="color:var(--amber)">${item.preco}</span></div>` : '';
+      if (!danoPart && !precoPart) return '';
+      return `<div class="inv-stats-row">${danoPart}${precoPart}</div>`;
     }
     const encantamentoBox = item.encantamento
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>`
@@ -5683,11 +5681,10 @@ function renderInventarioArea(p, readOnly) {
           ${alcanceTag(item)}
           ${pesoTag(item)}
         </div>
-        ${danoRow(item.peso)}
-        ${precoRow()}
+        ${statsRow(item.peso)}
         ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
         ${municaoRow(item)}
-        ${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}
+        ${readOnly ? `<details class="inv-details-compact"><summary>Detalhes</summary>${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}</details>` : `${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}`}
       </div>`;
     }
 
@@ -5700,11 +5697,10 @@ function renderInventarioArea(p, readOnly) {
         ${alcanceTag(item)}
         ${pesoTag(item)}
       </div>
-      ${danoRow(item.peso)}
-      ${precoRow()}
+      ${statsRow(item.peso)}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
       ${municaoRow(item)}
-      ${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}
+      ${readOnly ? `<details class="inv-details-compact"><summary>Detalhes</summary>${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}</details>` : `${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}`}
     </div>`;
   }
 
@@ -5729,13 +5725,18 @@ function renderInventarioArea(p, readOnly) {
       ${item.preco != null ? `<div class="inv-dano"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val">${item.preco}</span></div>` : ''}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
       ${municaoRow(item)}
-      ${item.aprimoramentos && item.aprimoramentos.length ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>{
-          const isDourado = a.dourado || a.name === 'Dourado';
-          const label = isDourado ? (a.dourado ? (a.name || 'Aprimoramento Dourado') : 'Dourado') : a.name;
-          return `<div class="inv-aprimo-item"><span class="inv-aprimo-name"${isDourado?' style="color:#e8c53a"':''}>${isDourado?'✨ ':''}${label}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`;
-        }).join('')}</div>` : ''}
-      ${item.encantamento ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>` : ''}
-      ${construirUsosBoxHtml(item, p)}
+      ${(() => {
+        const aprimoramentosProt = item.aprimoramentos && item.aprimoramentos.length ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>{
+            const isDourado = a.dourado || a.name === 'Dourado';
+            const label = isDourado ? (a.dourado ? (a.name || 'Aprimoramento Dourado') : 'Dourado') : a.name;
+            return `<div class="inv-aprimo-item"><span class="inv-aprimo-name"${isDourado?' style="color:#e8c53a"':''}>${isDourado?'✨ ':''}${label}</span>${a.desc?`<span class="inv-aprimo-desc">${a.desc}</span>`:''}</div>`;
+          }).join('')}</div>` : '';
+        const encantamentoProt = item.encantamento ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>` : '';
+        const usosProt = construirUsosBoxHtml(item, p);
+        return readOnly
+          ? `<details class="inv-details-compact"><summary>Detalhes</summary>${aprimoramentosProt}${encantamentoProt}${usosProt}</details>`
+          : `${aprimoramentosProt}${encantamentoProt}${usosProt}`;
+      })()}
     </div>`;
   }
 
@@ -5753,10 +5754,11 @@ function renderInventarioArea(p, readOnly) {
   }
 
   function invSection(key, label, icon, color, items, renderFn) {
-    const col = jogInvCollapsed[key];
+    const estado = jogInvCollapsed[p.id] || (jogInvCollapsed[p.id] = { armas: true, protecoes: true, itens: true });
+    const col = estado[key];
     const badge = col ? `<span class="gt-ready-badge" style="color:${color};background:transparent;border-color:${color}40">${items.length} item${items.length!==1?'s':''}</span>` : '';
     return `
-      <div class="group-title group-title-toggle" onclick="toggleInvSection('${key}')">
+      <div class="group-title group-title-toggle" onclick="toggleInvSection(${p.id},'${key}')">
         <span class="gt-dot" style="background:${color}"></span>${label}
         <span class="gt-collapse-info">${badge}</span>
         <i class="ti ${col?'ti-chevron-down':'ti-chevron-up'} gt-chevron"></i>
@@ -5764,7 +5766,7 @@ function renderInventarioArea(p, readOnly) {
       ${col ? '' : `<div class="inv-grid">${items.length ? items.map(renderFn).join('') : `<div class="inv-empty">Nenhum item cadastrado.</div>`}</div>`}`;
   }
 
-  return `<div class="inv-area">
+  return `<div class="inv-area${readOnly ? ' inv-area-compact' : ''}">
     <div class="inv-header">
       <i class="ti ti-backpack" style="color:var(--accent2)"></i>
       <span>Inventário</span>
@@ -5776,9 +5778,10 @@ function renderInventarioArea(p, readOnly) {
   </div>`;
 }
 
-function toggleInvSection(key) {
-  jogInvCollapsed[key] = !jogInvCollapsed[key];
-  renderJogador();
+function toggleInvSection(pid, key) {
+  const estado = jogInvCollapsed[pid] || (jogInvCollapsed[pid] = { armas: true, protecoes: true, itens: true });
+  estado[key] = !estado[key];
+  renderAll();
 }
 
 // Ajusta a munição (ou cristais, no caso de itens exóticos) de uma arma/instrumento
