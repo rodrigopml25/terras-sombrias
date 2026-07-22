@@ -1301,6 +1301,24 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 }
 .inv-card-item { border-color: var(--border); }
 
+/* Modo compacto (Narrador): cards menores, mais colunas, detalhes recolhidos */
+.inv-area-compact .inv-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.inv-area-compact .inv-card { padding: 7px 9px; gap: 3px; }
+.inv-area-compact .inv-card-title { font-size: 12px; }
+.inv-area-compact .inv-desc { font-size: 11px; }
+.inv-details-compact { margin-top: 2px; }
+.inv-details-compact summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--accent2);
+  list-style: none;
+  user-select: none;
+}
+.inv-details-compact summary::-webkit-details-marker { display: none; }
+.inv-details-compact summary::before { content: '▸ '; }
+.inv-details-compact[open] summary::before { content: '▾ '; }
+.inv-details-compact[open] summary { margin-bottom: 6px; }
+
 .inv-card-header {
   display: flex;
   align-items: flex-start;
@@ -1343,6 +1361,18 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   align-items: center;
   gap: 8px;
   margin-top: 2px;
+}
+.inv-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+.inv-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .inv-dano-label {
   font-size: 10px;
