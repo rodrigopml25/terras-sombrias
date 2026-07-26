@@ -1581,7 +1581,7 @@ function construirUsosBoxHtml(item, p) {
         <div class="sk-name">${u.name}</div>
         <button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
       </div>
-      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}</div>
+      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}</div>
       ${u.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${u.desc}</div>` : ''}
       ${usadoNesteTurno ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Já usado neste turno.</div>` : ''}
       <div class="sk-bottom">
@@ -1619,8 +1619,21 @@ function usarArmaUso(pid, itemId, usoIdx) {
   // "Um uso por turno": mesmo com usos sobrando no total, não deixa usar de
   // novo se já foi usado no turno global atual.
   if (uso.umPorTurno && uso.ultimoTurnoUsado === turnGlobal) return;
+  // Custo em Ações (ex: "1 uso por Ação"): mesma checagem/desconto do custo
+  // de Ação das Habilidades (ver useSkill) — sem saldo suficiente, bloqueia.
+  const custo = uso.custo || 0;
+  if (custo > 0) {
+    const atuais = p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
+    if (atuais < custo) {
+      alert(`Ações insuficientes! "${uso.name}" custa ${custo} ${custo === 1 ? 'ação' : 'ações'}, e ${p.name} só tem ${atuais} neste turno.`);
+      return;
+    }
+  }
   uso.usosAtuais -= 1;
   if (uso.umPorTurno) uso.ultimoTurnoUsado = turnGlobal;
+  if (custo > 0) {
+    p.acoesAtuais = Math.max(0, (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) - custo);
+  }
   saveState();
   renderAll();
 }
@@ -5853,7 +5866,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_adagas_magicas', name: 'Adagas Mágicas', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
       efeito: 'Munição (Runas): as adagas guardam até 2 Runas. Ao gastar uma Runa, recarregue pagando 10 de Dinheiro no final da luta.',
-      usos: [{ name: 'Invisibilidade da Runa', desc: 'Gaste 1 Runa: as adagas ficam invisíveis até acertarem um alvo — o alvo não consegue Desviar nem Aparar. 1 uso por Ação.', escopo: 'arma', usosMax: 2 }],
+      usos: [{ name: 'Invisibilidade da Runa', desc: 'Gaste 1 Runa: as adagas ficam invisíveis até acertarem um alvo — o alvo não consegue Desviar nem Aparar. 1 uso por Ação.', escopo: 'arma', usosMax: 2, custo: 1 }],
     },
     {
       id: 'cat_arma_cajado', name: 'Cajado', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
@@ -5949,7 +5962,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_orbe_cristalino', name: 'Orbe Cristalino', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
       efeito: 'Passiva: possui +3 de Alcance.',
-      usos: [{ name: 'Feixe Perfurante', desc: 'Gaste 2 Cristais Elétricos: libera um feixe que atravessa Armadura e rola 1d2+1 que multiplica seu dano — caso o alvo esteja sem Armadura, perfura-o e o feixe continua o caminho. 1 uso por Ação.', escopo: 'luta', usosMax: 2 }],
+      usos: [{ name: 'Feixe Perfurante', desc: 'Gaste 2 Cristais Elétricos: libera um feixe que atravessa Armadura e rola 1d2+1 que multiplica seu dano — caso o alvo esteja sem Armadura, perfura-o e o feixe continua o caminho. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1 }],
     },
     {
       id: 'cat_arma_lanca_granada', name: 'Lança-Granada', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
@@ -6024,7 +6037,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_instrumento_teclado_constelacao', name: 'Teclado Constelação', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: produz mini-constelações que acertam a Longo Alcance e possuem +3 de Alcance.',
-      usos: [{ name: 'Campo Harmônico', desc: 'Gaste 2 Cristais Elétricos e lance um campo harmônico. 1 uso por Ação.', escopo: 'luta', usosMax: 2 }],
+      usos: [{ name: 'Campo Harmônico', desc: 'Gaste 2 Cristais Elétricos e lance um campo harmônico. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1 }],
     },
     {
       id: 'cat_instrumento_sino_acorrentado', name: 'Sino Acorrentado', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
