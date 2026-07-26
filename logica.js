@@ -5532,7 +5532,7 @@ const INV_PESO_LABEL = { leve:'Leve', media:'Média', pesada:'Pesada', exotica:'
 const INV_PESO_COLOR = { leve:'var(--blue)', media:'var(--green)', pesada:'var(--red)', exotica:'var(--green-dim)', mega:'#8b1f1f', encantada:'#3a5fc0' };
 const INV_PESO_BG    = { leve:'var(--blue-bg)', media:'var(--green-bg)', pesada:'var(--red-bg)', exotica:'var(--green-bg)', mega:'rgba(139,31,31,0.12)', encantada:'rgba(20,32,74,0.55)' };
 const INV_PESO_BD    = { leve:'var(--blue-bd)', media:'var(--green-bd)', pesada:'var(--red-bd)', exotica:'var(--green-bd)', mega:'rgba(139,31,31,0.4)', encantada:'rgba(58,95,192,0.5)' };
-const INV_ALCANCE_LABEL = { curto: 'Curto Alcance', longo: 'Longo Alcance' };
+const INV_ALCANCE_LABEL = { curto: 'Curto Alcance', longo: 'Longo Alcance', ambos: 'Curto e Longo Alcance' };
 
 function renderInventarioArea(p, readOnly) {
   const inv = Array.isArray(p.inventario) ? p.inventario : [];
@@ -5547,6 +5547,9 @@ function renderInventarioArea(p, readOnly) {
 
   function alcanceTag(item) {
     if (!item.alcance) return '';
+    if (item.alcance === 'ambos') {
+      return `<span class="inv-peso-tag" style="color:var(--text3);background:var(--bg3);border-color:var(--border)">${INV_ALCANCE_LABEL.curto}</span><span class="inv-peso-tag" style="color:var(--teal);background:var(--teal-bg);border-color:var(--teal-bd)">${INV_ALCANCE_LABEL.longo}</span>`;
+    }
     const isLongo = item.alcance === 'longo';
     return `<span class="inv-peso-tag" style="color:${isLongo?'var(--teal)':'var(--text3)'};background:${isLongo?'var(--teal-bg)':'var(--bg3)'};border-color:${isLongo?'var(--teal-bd)':'var(--border)'}">${INV_ALCANCE_LABEL[item.alcance]}</span>`;
   }
@@ -5890,7 +5893,7 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Invisibilidade da Runa', desc: 'Gaste 1 Runa: as adagas ficam invisíveis até acertarem um alvo — o alvo não consegue Desviar nem Aparar. 1 uso por Ação.', escopo: 'arma', usosMax: 2, custo: 1, custoRecarga: 10 }],
     },
     {
-      id: 'cat_arma_cajado', name: 'Cajado', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
+      id: 'cat_arma_cajado', name: 'Cajado', peso: 'leve', dano: '1d4', preco: 25, alcance: 'ambos',
       efeito: 'Passiva: ataques corpo a corpo com o cajado têm +1 de Alcance. O cajado também dispara feixes mágicos, com +2 de Alcance.',
       usos: [{ name: 'Recarga Arcana', desc: 'Recarregue um turno de recarga de um Feitiço seu. Pode ser usado diversas vezes no mesmo turno. Ao usar a 10ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 10 }],
     },
@@ -5966,7 +5969,7 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Explosão Mágica', desc: 'A aliança libera muita magia: seus Feitiços também possuem +3 de dano/cura nesse turno. Um uso por turno. Ao usar a 5ª vez, a aliança se quebra.', escopo: 'arma', usosMax: 5, umPorTurno: true }],
     },
     {
-      id: 'cat_arma_cajado_encantado', name: 'Cajado Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'curto',
+      id: 'cat_arma_cajado_encantado', name: 'Cajado Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'ambos',
       efeito: 'Passiva: seus ataques corpo a corpo com o cajado possuem +1 de Alcance; o cajado também dispara feixes mágicos, com +2 de Alcance.',
       usos: [{ name: 'Duplicata Arcana', desc: 'O cajado encanta sua próxima invocação/evocação surgida de um Feitiço: ela cria uma duplicata dela pelo mesmo tempo de duração. Um uso por turno. Ao usar a 5ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 5, umPorTurno: true }],
     },
