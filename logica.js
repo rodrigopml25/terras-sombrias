@@ -1622,6 +1622,14 @@ function usarArmaUso(pid, itemId, usoIdx) {
   // "Um uso por turno": mesmo com usos sobrando no total, não deixa usar de
   // novo se já foi usado no turno global atual.
   if (uso.umPorTurno && uso.ultimoTurnoUsado === turnGlobal) return;
+  // "Recarga Arcana" (Cajado): não reduz a recarga de um Feitiço fixo — abre
+  // um seletor para escolher qual Feitiço em recarga perde 1 turno. O uso do
+  // Cajado e a redução em si só são aplicados ao confirmar a escolha (ver
+  // escolherFeiticoRecarga), então nada é consumido aqui.
+  if (uso.reduzRecargaFeitico) {
+    abrirRecargaArcanaModal(pid, itemId, usoIdx);
+    return;
+  }
   // Custo em Ações (ex: "1 uso por Ação"): mesma checagem/desconto do custo
   // de Ação das Habilidades (ver useSkill) — sem saldo suficiente, bloqueia.
   const custo = uso.custo || 0;
@@ -1637,6 +1645,56 @@ function usarArmaUso(pid, itemId, usoIdx) {
   if (custo > 0) {
     p.acoesAtuais = Math.max(0, (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) - custo);
   }
+  saveState();
+  renderAll();
+}
+
+// ─── Modal de escolha de Feitiço — "Recarga Arcana" do Cajado ──────────────
+// A Recarga Arcana não tem um Feitiço fixo pra recarregar: o jogador escolhe,
+// entre os Feitiços (Habilidades azuis) que estejam em recarga (cdRestante >
+// 0), qual perde 1 turno de recarga — mesmo efeito de 1 turno passar (ver
+// nextTurnGlobal). Se o Feitiço escolhido zerar a recarga, seus usos voltam
+// ao máximo.
+function abrirRecargaArcanaModal(pid, itemId, usoIdx) {
+  const overlay = document.getElementById('modal-recarga-arcana-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const feiticos = (p.skills || []).filter(sk => sk.color === 'blue' && sk.tipo === 'turno_N' && sk.cdRestante > 0);
+  if (!feiticos.length) { alert(`${p.name} não tem nenhum Feitiço em recarga no momento.`); return; }
+
+  const opcoesHtml = feiticos.map(sk => `<button class="tm-opcao tm-opcao-blue" onclick="escolherFeiticoRecarga(${p.id},'${itemId}',${usoIdx},'${sk.id}')">
+    <span class="tm-opcao-nome">${escHtml(sk.name)}</span>
+    <span class="tm-opcao-info">⏳ ${sk.cdRestante} turno${sk.cdRestante > 1 ? 's' : ''}</span>
+  </button>`).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px">
+      <h3><i class="ti ti-wand"></i> Recarga Arcana — ${escHtml(p.name)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+        Escolha um Feitiço em recarga: ele perde 1 turno de recarga.
+      </div>
+      <div class="tm-opcoes">${opcoesHtml}</div>
+      <button class="tm-cancelar" onclick="fecharRecargaArcanaModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function fecharRecargaArcanaModal() {
+  const overlay = document.getElementById('modal-recarga-arcana-overlay');
+  if (overlay) { overlay.classList.remove('open'); overlay.innerHTML = ''; }
+}
+
+function escolherFeiticoRecarga(pid, itemId, usoIdx, skillId) {
+  fecharRecargaArcanaModal();
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  const uso = item && item.usos && item.usos[usoIdx];
+  const sk = p && p.skills.find(s => s.id === skillId);
+  if (!uso || uso.usosAtuais <= 0 || !sk || sk.cdRestante <= 0) return;
+  sk.cdRestante--;
+  if (sk.cdRestante === 0) sk.usosAtuais = sk.usosMax;
+  uso.usosAtuais -= 1;
+  if (uso.umPorTurno) uso.ultimoTurnoUsado = turnGlobal;
   saveState();
   renderAll();
 }
@@ -5895,7 +5953,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_cajado', name: 'Cajado', peso: 'leve', dano: '1d4', preco: 25, alcance: 'ambos',
       efeito: 'Passiva: ataques corpo a corpo com o cajado têm +1 de Alcance. O cajado também dispara feixes mágicos, com +2 de Alcance.',
-      usos: [{ name: 'Recarga Arcana', desc: 'Recarregue um turno de recarga de um Feitiço seu. Pode ser usado diversas vezes no mesmo turno. Ao usar a 10ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 10 }],
+      usos: [{ name: 'Recarga Arcana', desc: 'Recarregue um turno de recarga de um Feitiço seu. Pode ser usado diversas vezes no mesmo turno. Ao usar a 10ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 10, reduzRecargaFeitico: true }],
     },
     {
       id: 'cat_arma_grimorio_conhecimento', name: 'Grimório do Conhecimento', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
