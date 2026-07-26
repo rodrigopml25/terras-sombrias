@@ -1579,9 +1579,12 @@ function construirUsosBoxHtml(item, p) {
     return `<div class="skill-card sk-gray ${pronto ? 'ready' : 'exhausted'}" style="margin:6px 0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="sk-name">${u.name}</div>
-        <button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${u.custoRecarga ? `<button onclick="event.stopPropagation();comprarUsoArma(${p.id},'${item.id}',${ui})" title="Comprar +1 (${u.custoRecarga} de Dinheiro)" style="background:none;border:none;color:var(--amber);cursor:pointer;padding:0"><i class="ti ti-coin" style="font-size:15px"></i></button>` : ''}
+          <button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
+        </div>
       </div>
-      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}</div>
+      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.custoRecarga ? `<span class="sk-tag">💰${u.custoRecarga}/uso</span>` : ''}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}</div>
       ${u.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${u.desc}</div>` : ''}
       ${usadoNesteTurno ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Já usado neste turno.</div>` : ''}
       <div class="sk-bottom">
@@ -1634,6 +1637,24 @@ function usarArmaUso(pid, itemId, usoIdx) {
   if (custo > 0) {
     p.acoesAtuais = Math.max(0, (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) - custo);
   }
+  saveState();
+  renderAll();
+}
+
+// Compra de volta 1 uso ("Runa") de um "Usar (Nx)" da arma, pagando o custo
+// em Dinheiro definido em u.custoRecarga (ex: Adagas Mágicas — 10 Dinheiro
+// por Runa). Diferente de resetArmaUso (reset manual grátis, geralmente de
+// uso do Narrador): esta é a recarga "oficial" via economia da campanha, um
+// uso de cada vez, e nunca passa do usosMax (a capacidade de Runas da arma).
+function comprarUsoArma(pid, itemId, usoIdx) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  const uso = item && item.usos && item.usos[usoIdx];
+  if (!uso || !uso.custoRecarga) return;
+  if (uso.usosAtuais >= uso.usosMax) { alert(`"${uso.name}" já está no máximo (${uso.usosMax}).`); return; }
+  if ((p.dinheiro || 0) < uso.custoRecarga) { alert(`Dinheiro insuficiente! Recarregar "${uso.name}" custa ${uso.custoRecarga} de Dinheiro, e ${p.name} só tem ${p.dinheiro || 0}.`); return; }
+  adjDinheiro(pid, -uso.custoRecarga);
+  uso.usosAtuais += 1;
   saveState();
   renderAll();
 }
@@ -5866,7 +5887,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_adagas_magicas', name: 'Adagas Mágicas', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
       efeito: 'Munição (Runas): as adagas guardam até 2 Runas. Ao gastar uma Runa, recarregue pagando 10 de Dinheiro no final da luta.',
-      usos: [{ name: 'Invisibilidade da Runa', desc: 'Gaste 1 Runa: as adagas ficam invisíveis até acertarem um alvo — o alvo não consegue Desviar nem Aparar. 1 uso por Ação.', escopo: 'arma', usosMax: 2, custo: 1 }],
+      usos: [{ name: 'Invisibilidade da Runa', desc: 'Gaste 1 Runa: as adagas ficam invisíveis até acertarem um alvo — o alvo não consegue Desviar nem Aparar. 1 uso por Ação.', escopo: 'arma', usosMax: 2, custo: 1, custoRecarga: 10 }],
     },
     {
       id: 'cat_arma_cajado', name: 'Cajado', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
