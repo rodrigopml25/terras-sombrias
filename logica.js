@@ -1699,6 +1699,71 @@ function escolherFeiticoRecarga(pid, itemId, usoIdx, skillId) {
   renderAll();
 }
 
+// Lista achatada de todos os Feitiços (Habilidades azuis) do banco de
+// subclasses do jogo — usada pelo Grimório do Conhecimento pra deixar o
+// jogador escolher qualquer Feitiço, independente da própria subclasse.
+function getTodosFeiticosBanco() {
+  const lista = [];
+  Object.entries(BANCO_HABILIDADES_SUBCLASSE).forEach(([subclasse, skills]) => {
+    skills.forEach(sk => { if (sk.color === 'blue') lista.push({ ...sk, subclasse }); });
+  });
+  return lista;
+}
+
+// ─── Modal de escolha de Feitiço — "Grimório do Conhecimento" ──────────────
+// Escolha única (não é por uso): o Feitiço fica guardado em
+// item.feiticoEscolhidoId até o jogador trocar. "Lançar" esse Feitiço (ver
+// uso grimorioFeitico) só consome o próprio contador do Grimório (1x/luta) —
+// não mexe em nenhuma Habilidade do personagem.
+function abrirGrimorioModal(pid, itemId) {
+  const overlay = document.getElementById('modal-grimorio-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const feiticos = getTodosFeiticosBanco();
+
+  const opcoesHtml = feiticos.map(sk => {
+    const busca = `${sk.name} ${sk.subclasse} ${sk.desc}`.toLowerCase().replace(/"/g, '');
+    return `<button class="tm-opcao tm-opcao-blue" data-busca="${escHtml(busca)}" onclick="escolherFeiticoGrimorio(${p.id},'${itemId}','${sk.id}')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+      <span class="tm-opcao-nome">${escHtml(sk.name)} <span style="font-size:10.5px;color:var(--text3);font-weight:400">— ${escHtml(sk.subclasse)}</span></span>
+      <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">${escHtml(sk.desc)}</span>
+    </button>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:480px">
+      <h3><i class="ti ti-book-2"></i> Grimório do Conhecimento — ${escHtml(p.name)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha um Feitiço de qualquer classe. Você poderá lançá-lo 1 vez por luta.
+      </div>
+      <input type="text" placeholder="Buscar Feitiço..." oninput="filtrarGrimorioFeiticos(this.value)" style="width:100%;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px">
+      <div class="tm-opcoes" id="grimorio-opcoes-lista" style="max-height:340px;overflow-y:auto">${opcoesHtml}</div>
+      <button class="tm-cancelar" onclick="fecharGrimorioModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function filtrarGrimorioFeiticos(texto) {
+  const t = texto.trim().toLowerCase();
+  document.querySelectorAll('#grimorio-opcoes-lista .tm-opcao').forEach(btn => {
+    btn.style.display = (!t || (btn.dataset.busca || '').includes(t)) ? '' : 'none';
+  });
+}
+
+function fecharGrimorioModal() {
+  const overlay = document.getElementById('modal-grimorio-overlay');
+  if (overlay) { overlay.classList.remove('open'); overlay.innerHTML = ''; }
+}
+
+function escolherFeiticoGrimorio(pid, itemId, skillId) {
+  fecharGrimorioModal();
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  if (!item) return;
+  item.feiticoEscolhidoId = skillId;
+  saveState();
+  renderAll();
+}
+
 // Compra de volta 1 uso ("Runa") de um "Usar (Nx)" da arma, pagando o custo
 // em Dinheiro definido em u.custoRecarga (ex: Adagas Mágicas — 10 Dinheiro
 // por Runa). Diferente de resetArmaUso (reset manual grátis, geralmente de
@@ -5662,6 +5727,22 @@ function renderInventarioArea(p, readOnly) {
     </div>`;
   }
 
+  // Box de escolha de Feitiço — usado por itens com um "uso" marcado como
+  // grimorioFeitico (ver Grimório do Conhecimento). O Feitiço escolhido é
+  // guardado em item.feiticoEscolhidoId e é só informativo aqui: "lançá-lo"
+  // consome o uso "Usar (1x/luta)" do próprio item, sem tocar em nenhuma
+  // Habilidade do personagem.
+  function grimorioFeiticoBox(item) {
+    const escolhido = item.feiticoEscolhidoId ? getTodosFeiticosBanco().find(f => f.id === item.feiticoEscolhidoId) : null;
+    return `<div class="inv-sub-section">
+      <div class="inv-sub-label"><i class="ti ti-book-2" style="color:var(--accent2)"></i> Feitiço Escolhido</div>
+      ${escolhido
+        ? `<div class="inv-aprimo-item"><span class="inv-aprimo-name">${escHtml(escolhido.name)} <span style="font-size:10px;color:var(--text3);font-weight:400">(${escHtml(escolhido.subclasse)})</span></span><span class="inv-aprimo-desc">${escHtml(escolhido.desc)}</span></div>`
+        : `<div style="font-size:11.5px;color:var(--text3);margin-top:4px">Nenhum Feitiço escolhido ainda.</div>`}
+      <button onclick="abrirGrimorioModal(${p.id},'${item.id}')" style="margin-top:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">${escolhido ? 'Trocar Feitiço' : 'Escolher Feitiço'}</button>
+    </div>`;
+  }
+
   function renderArmaCard(item) {
     const isInstrumento = item.tipo === 'instrumento';
     const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
@@ -5747,6 +5828,7 @@ function renderInventarioArea(p, readOnly) {
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>`
       : '';
     const usosBox = construirUsosBoxHtml(item, p);
+    const grimorioBox = (item.usos || []).some(u => u.grimorioFeitico) ? grimorioFeiticoBox(item) : '';
     const vidaBox = (item.vidaMax != null && item.vidaMax > 0)
       ? (() => {
           const vidaMax = item.vidaMax;
@@ -5779,7 +5861,7 @@ function renderInventarioArea(p, readOnly) {
         ${statsRow(item.peso)}
         ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
         ${municaoRow(item)}
-        ${readOnly ? `<details class="inv-details-compact"><summary>Detalhes</summary>${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}</details>` : `${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}`}
+        ${readOnly ? `<details class="inv-details-compact"><summary>Detalhes</summary>${grimorioBox}${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}</details>` : `${grimorioBox}${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}`}
       </div>`;
     }
 
@@ -5795,7 +5877,7 @@ function renderInventarioArea(p, readOnly) {
       ${statsRow(item.peso)}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
       ${municaoRow(item)}
-      ${readOnly ? `<details class="inv-details-compact"><summary>Detalhes</summary>${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}</details>` : `${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}`}
+      ${readOnly ? `<details class="inv-details-compact"><summary>Detalhes</summary>${grimorioBox}${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}</details>` : `${grimorioBox}${aprimoramentos}${ativas}${encantamentoBox}${usosBox}${vidaBox}`}
     </div>`;
   }
 
@@ -5958,6 +6040,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_grimorio_conhecimento', name: 'Grimório do Conhecimento', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
       efeito: 'Passiva: escolha um Feitiço — pode lançá-lo uma vez por luta. Escolha também um elemento: seus disparos passam a ser baseados nele.',
+      usos: [{ name: 'Lançar Feitiço Escolhido', desc: 'Lance o Feitiço escolhido na Passiva. Não consome os usos/recarga do Feitiço original do personagem.', escopo: 'luta', usosMax: 1, grimorioFeitico: true }],
     },
     {
       id: 'cat_arma_orbe_tecnologico', name: 'Orbe Tecnológico', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
