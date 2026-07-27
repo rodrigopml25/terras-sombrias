@@ -6282,7 +6282,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_lanca_granada', name: 'Lança-Granada', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
       efeito: 'Ativa: gaste uma Ação para alternar o modo dela. Modo "Lança-Granada": dispara granadas numa área 5x5 com o alvo no centro — elas explodem no início do seu turno seguinte e atravessam Armadura. Modo Focado: dispara balas num alvo até 5 casas.',
-      usos: [{ name: 'Pente de Granadas', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
+      usos: [{ name: 'Pente de Granadas', desc: 'Ative 1 Pente de Granadas: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 25 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 25 }],
       ativas: [{ name: 'Lança-Granada', desc: 'Sacrifique 1d10 de Vida: se estiver no modo "Lança-Granada", a bomba explode ao alcançar o alvo. Se estiver no modo Individual, o dano atravessa a Armadura. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
