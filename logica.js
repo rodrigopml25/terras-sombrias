@@ -6112,7 +6112,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_adagas', name: 'Adagas', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
       efeito: 'Passiva: se você estiver Furtivo, seu teste de Arremesso possui +1d6 de Vantagem.',
-      usos: [{ name: 'Bolsa de Adagas', desc: 'Consome 1 uso a cada Arremesso com as adagas. Recarregue pagando 5 de Dinheiro no final da luta (até 2 bolsas por vez).', escopo: 'arma', usosMax: 2 }],
+      usos: [{ name: 'Bolsa de Adagas', desc: 'Ative 1 Bolsa de Adagas: ela serve para a Luta inteira, sem precisar gastar de novo a cada Arremesso. Recarregue pagando 5 de Dinheiro por Bolsa.', escopo: 'arma', usosMax: 2, custoRecarga: 5 }],
     },
     {
       id: 'cat_arma_arco', name: 'Arco', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
