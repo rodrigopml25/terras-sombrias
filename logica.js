@@ -4691,7 +4691,11 @@ function recomputeProtMax(p) {
   if (typeof p.passosBase !== 'number') p.passosBase = typeof p.passos === 'number' ? p.passos : 10;
   const equipadas = p.inventario.filter(i => i.tipo === 'protecao' && i.equipado);
   const penalidadeTotal = equipadas.reduce((acc, i) => acc + (Number(i.passosPenalidade) || 0), 0);
-  p.passos = Math.max(0, p.passosBase - penalidadeTotal);
+  // Aprimoramento de Armadura "Ligeirinho": +maestria de Agilidade/2 (arredondado
+  // pra cima) em Passos, enquanto a armadura com esse Aprimoramento estiver equipada.
+  const temLigeirinho = equipadas.some(i => Array.isArray(i.aprimoramentos) && i.aprimoramentos.some(a => a.catalogId === 'ligeirinho'));
+  const bonusLigeirinho = temLigeirinho ? Math.ceil(maestriaDe(p, 'agi') / 2) : 0;
+  p.passos = Math.max(0, p.passosBase - penalidadeTotal + bonusLigeirinho);
 }
 
 // Efeitos automáticos de subida/queda de Nível dependentes de raça.
