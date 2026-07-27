@@ -6236,7 +6236,10 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_instrumento_harpa_grimorio', name: 'Harpa-Grimório', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: escolha um Feitiço — pode lançá-lo uma vez por luta, concedendo qualquer Nota Musical ao fazê-lo.',
-      usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
+      usos: [
+        { name: 'Lançar Feitiço Escolhido', desc: 'Lance o Feitiço escolhido na Passiva. Não consome os usos/recarga do Feitiço original do personagem.', escopo: 'luta', usosMax: 1, grimorioFeitico: true, semMunicao: true },
+        { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
+      ],
     },
     {
       id: 'cat_instrumento_microfone_adaga', name: 'Microfone-Adaga', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
