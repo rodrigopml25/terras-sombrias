@@ -6898,18 +6898,51 @@ function _buildEncantamentoHabilidadeEscolhaHtml() {
       <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Feitiço encantado nessa arma:</div>
       <div style="font-size:12px;font-weight:600;color:#8ab8e8">✨ ${entry.habilidadeNome} <span style="font-size:10px;font-weight:400;color:var(--text3)">(${entry.habilidadeSubclasse})</span></div>
       <div style="font-size:11px;color:var(--text2);margin-top:4px;line-height:1.5">${entry.habilidadeDesc}</div>
-      <button class="btn" style="margin-top:8px;font-size:11px;padding:4px 10px" onclick="event.stopPropagation();trocarHabilidadeEncantamento()">Trocar Feitiço</button>
+      <button class="btn" style="margin-top:8px;font-size:11px;padding:4px 10px" onclick="event.stopPropagation();abrirEncantamentoFeiticoModal()">Trocar Feitiço</button>
     </div>`;
   }
 
-  const opcoes = getTodasHabilidadesAzuisCatalogo();
-  return `<div onclick="event.stopPropagation()" style="margin-top:10px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto">
+  return `<div onclick="event.stopPropagation()" style="margin-top:10px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
     <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Escolha 1 Feitiço (Habilidade azul) de qualquer classe — o custo de Ação e a recarga dele não valem aqui; o único requisito pra usar é 1 Cristal.</div>
-    ${opcoes.map(sk => `<div style="padding:6px 4px;border-bottom:1px solid var(--border);cursor:pointer" onclick="event.stopPropagation();escolherHabilidadeEncantamento('${sk.id}')">
-      <div style="font-size:12px;font-weight:600;color:#8ab8e8">${sk.name} <span style="font-size:10px;font-weight:400;color:var(--text3)">(${sk.subclasseOrigem})</span></div>
-      <div style="font-size:11px;color:var(--text2);margin-top:2px;line-height:1.4">${sk.desc}</div>
-    </div>`).join('')}
+    <button class="btn" style="font-size:11px;padding:4px 10px" onclick="event.stopPropagation();abrirEncantamentoFeiticoModal()">Escolher Feitiço</button>
   </div>`;
+}
+
+// Modal de busca/escolha do Feitiço do Aprimoramento de Encantamento — mesma
+// UI (busca + lista) do Grimório do Conhecimento (ver abrirGrimorioModal),
+// reaproveitando o mesmo overlay. Diferente do Grimório, a escolha aqui não
+// fica num item já salvo no inventário: fica em invAprimos (estado do modal
+// de Adicionar/Editar Item), por isso usa escolherHabilidadeEncantamento
+// (já existente) como callback em vez de mexer em p.inventario direto.
+function abrirEncantamentoFeiticoModal() {
+  const overlay = document.getElementById('modal-grimorio-overlay');
+  if (!overlay) return;
+  const feiticos = getTodasHabilidadesAzuisCatalogo();
+
+  const opcoesHtml = feiticos.map(sk => {
+    const busca = `${sk.name} ${sk.subclasseOrigem} ${sk.desc}`.toLowerCase().replace(/"/g, '');
+    return `<button class="tm-opcao tm-opcao-blue" data-busca="${escHtml(busca)}" onclick="event.stopPropagation();escolherFeiticoEncantamentoModal('${sk.id}')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+      <span class="tm-opcao-nome">${escHtml(sk.name)} <span style="font-size:10.5px;color:var(--text3);font-weight:400">— ${escHtml(sk.subclasseOrigem)}</span></span>
+      <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">${escHtml(sk.desc)}</span>
+    </button>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:480px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-book-2"></i> Aprimoramento de Encantamento</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha um Feitiço de qualquer classe pra encantar a arma/instrumento.
+      </div>
+      <input type="text" placeholder="Buscar Feitiço..." oninput="filtrarGrimorioFeiticos(this.value)" style="width:100%;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px">
+      <div class="tm-opcoes" id="grimorio-opcoes-lista" style="max-height:340px;overflow-y:auto">${opcoesHtml}</div>
+      <button class="tm-cancelar" onclick="fecharGrimorioModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherFeiticoEncantamentoModal(skillId) {
+  fecharGrimorioModal();
+  escolherHabilidadeEncantamento(skillId);
 }
 
 // Confirma a escolha do Feitiço pro Aprimoramento de Encantamento.
