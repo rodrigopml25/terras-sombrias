@@ -1584,7 +1584,7 @@ function construirUsosBoxHtml(item, p) {
           <button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
         </div>
       </div>
-      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.custoRecarga ? `<span class="sk-tag">💰${u.custoRecarga}/uso</span>` : ''}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}${u.concedeNotaEscolhida ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 escolha uma nota</span>` : ''}</div>
+      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.custoCristal ? `<span class="sk-tag">💎${u.custoCristal===1?'1 Cristal':u.custoCristal+' Cristais'}</span>` : ''}${u.custoRecarga ? `<span class="sk-tag">💰${u.custoRecarga}/uso</span>` : ''}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}${u.concedeNotaEscolhida ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 escolha uma nota</span>` : ''}</div>
       ${u.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${u.desc}</div>` : ''}
       ${usadoNesteTurno ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Já usado neste turno.</div>` : ''}
       <div class="sk-bottom">
@@ -1647,10 +1647,24 @@ function usarArmaUso(pid, itemId, usoIdx) {
       return;
     }
   }
+  // Custo em Cristais (ex: "Gaste 1 Cristal Elétrico"): consome do pool
+  // compartilhado do personagem (p.cristais, ver adjCristais) — sem saldo
+  // suficiente, bloqueia.
+  const custoCristal = uso.custoCristal || 0;
+  if (custoCristal > 0) {
+    const cristaisAtuais = p.cristais || 0;
+    if (cristaisAtuais < custoCristal) {
+      alert(`Cristais insuficientes! "${uso.name}" custa ${custoCristal} ${custoCristal === 1 ? 'Cristal' : 'Cristais'}, e ${p.name} só tem ${cristaisAtuais}.`);
+      return;
+    }
+  }
   uso.usosAtuais -= 1;
   if (uso.umPorTurno) uso.ultimoTurnoUsado = turnGlobal;
   if (custo > 0) {
     p.acoesAtuais = Math.max(0, (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) - custo);
+  }
+  if (custoCristal > 0) {
+    p.cristais = Math.max(0, (p.cristais || 0) - custoCristal);
   }
   saveState();
   renderAll();
@@ -6180,7 +6194,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_lanca_eletrica', name: 'Lança Elétrica', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'curto',
       efeito: 'Ativa: o Cristal Elétrico libera cargas fortes que causam +1d4 de dano no ataque, porém possui -1d4 de Desvantagem no lançamento.',
-      usos: [{ name: 'Carga Elétrica', desc: 'Gaste 1 Cristal Elétrico: libera uma imensa carga que causa +(1d2+1)d4 de dano no próximo ataque. Um uso por turno.', escopo: 'luta', usosMax: 3, umPorTurno: true }],
+      usos: [{ name: 'Carga Elétrica', desc: 'Gaste 1 Cristal Elétrico: libera uma imensa carga que causa +(1d2+1)d4 de dano no próximo ataque. Um uso por turno.', escopo: 'luta', usosMax: 3, umPorTurno: true, custoCristal: 1 }],
     },
     {
       id: 'cat_arma_orbe_cristalino', name: 'Orbe Cristalino', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
