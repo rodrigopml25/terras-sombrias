@@ -4536,6 +4536,54 @@ function resetNotasBardo(id) {
   saveState(); renderAll();
 }
 
+// Aprimoramento de Armadura "Carapaça Antimagia" (ver APRIMORAMENTOS_ARMADURA):
+// concede uma Armadura secundária ("Armadura Anti-Magia"), exclusiva contra
+// Feitiços, com valor máx = maestria de Agilidade/2 (arredondado pra baixo).
+// Só existe enquanto o personagem tiver uma Armadura equipada com esse
+// Aprimoramento. Restaura manualmente (não há gatilho automático de
+// "fim de Jornada/Aventura/Campanha" no app).
+function temCarapacaAntimagia(p) {
+  return !!(p && (p.inventario || []).some(item =>
+    item.tipo === 'protecao' && item.subtipo === 'armadura' && item.equipado &&
+    Array.isArray(item.aprimoramentos) && item.aprimoramentos.some(a => a.catalogId === 'carapaca_antimagia')
+  ));
+}
+
+function syncArmaduraAntiMagia(p) {
+  if (!temCarapacaAntimagia(p)) return;
+  const max = Math.ceil(maestriaDe(p, 'agi') / 2);
+  const jaTinha = typeof p.armaduraAntiMagiaMax === 'number';
+  p.armaduraAntiMagiaMax = max;
+  if (!jaTinha || typeof p.armaduraAntiMagia !== 'number') p.armaduraAntiMagia = max;
+  if (p.armaduraAntiMagia > max) p.armaduraAntiMagia = max;
+}
+
+function adjArmaduraAntiMagia(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  syncArmaduraAntiMagia(p);
+  p.armaduraAntiMagia = Math.max(0, Math.min(p.armaduraAntiMagiaMax || 0, (p.armaduraAntiMagia || 0) + d));
+  saveState(); renderAll();
+}
+
+function setArmaduraAntiMagia(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  syncArmaduraAntiMagia(p);
+  p.armaduraAntiMagia = Math.max(0, Math.min(p.armaduraAntiMagiaMax || 0, v));
+  saveState(); renderAll();
+}
+
+function restaurarArmaduraAntiMagia(id) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  syncArmaduraAntiMagia(p);
+  p.armaduraAntiMagia = p.armaduraAntiMagiaMax || 0;
+  saveState(); renderAll();
+}
+
 function adjArmadura(id, d) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return; p.armadura = Math.max(0, Math.min(p.armaduraMax || 0, (p.armadura || 0) + d));
@@ -4787,7 +4835,7 @@ function renderNarrador() {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span><span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
@@ -4867,6 +4915,16 @@ function renderNarrador() {
             <button onclick="adjArmadura(${p.id},+1)">+1</button>
           </div>
         </div>
+        ${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">🔮 Armadura Anti-Magia</span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjArmaduraAntiMagia(${p.id},-1)">−1</button>
+            <input type="number" class="nar-ctrl-input" value="${p.armaduraAntiMagia || 0}" onchange="setArmaduraAntiMagia(${p.id}, this.value)">
+            <button onclick="adjArmaduraAntiMagia(${p.id},+1)">+1</button>
+            <button onclick="restaurarArmaduraAntiMagia(${p.id})" title="Restaurar (fim de Jornada/Aventura/Campanha)"><i class="ti ti-refresh"></i></button>
+          </div>
+        </div>`; })() : ''}
         <div class="nar-ctrl-group">
           <span class="nar-ctrl-lbl">⛑ Elmo</span>
           <div class="nar-ctrl-btns">
@@ -5514,6 +5572,20 @@ function renderJogador() {
           <button onclick="adjArmadura(${p.id},+1)">+1</button>
         </div>
       </div>
+      ${temCarapacaAntimagia(p) ? (() => {
+        syncArmaduraAntiMagia(p);
+        const antiMagiaPct = p.armaduraAntiMagiaMax ? Math.round((p.armaduraAntiMagia / p.armaduraAntiMagiaMax) * 100) : 0;
+        return `
+      <div class="stat-block">
+        <div class="stat-row"><span class="stat-lbl"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Armadura Anti-Magia</span><span class="stat-val" style="color:var(--accent2)">${p.armaduraAntiMagia}/${p.armaduraAntiMagiaMax}</span></div>
+        <div class="bar-track" style="margin:5px 0"><div class="bar-fill" style="width:${antiMagiaPct}%;background:var(--accent2)"></div></div>
+        <div class="arm-ctrl arm-ctrl-3">
+          <button onclick="adjArmaduraAntiMagia(${p.id},-1)">−1</button>
+          <input type="number" class="stat-input" value="${p.armaduraAntiMagia}" onchange="setArmaduraAntiMagia(${p.id}, this.value)">
+          <button onclick="adjArmaduraAntiMagia(${p.id},+1)">+1</button>
+        </div>
+        <div style="text-align:right;margin-top:4px"><button onclick="restaurarArmaduraAntiMagia(${p.id})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-refresh"></i> Restaurar (fim de Jornada/Aventura/Campanha)</button></div>
+      </div>`; })() : ''}
       <div class="stat-block">
         <div class="stat-row"><span class="stat-lbl"><i class="ti ti-helmet" style="color:var(--teal)"></i> Elmo</span><span class="stat-val" style="color:var(--teal)">${p.elmo}/${p.elmoMax}</span></div>
         <div class="bar-track" style="margin:5px 0"><div class="bar-fill bfill-elm" style="width:${elmPct}%"></div></div>
