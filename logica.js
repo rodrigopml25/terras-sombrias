@@ -1584,7 +1584,7 @@ function construirUsosBoxHtml(item, p) {
           <button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
         </div>
       </div>
-      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.custoRecarga ? `<span class="sk-tag">💰${u.custoRecarga}/uso</span>` : ''}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}</div>
+      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.custoRecarga ? `<span class="sk-tag">💰${u.custoRecarga}/uso</span>` : ''}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}${u.concedeNotaEscolhida ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 escolha uma nota</span>` : ''}</div>
       ${u.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${u.desc}</div>` : ''}
       ${usadoNesteTurno ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Já usado neste turno.</div>` : ''}
       <div class="sk-bottom">
@@ -1628,6 +1628,13 @@ function usarArmaUso(pid, itemId, usoIdx) {
   // escolherFeiticoRecarga), então nada é consumido aqui.
   if (uso.reduzRecargaFeitico) {
     abrirRecargaArcanaModal(pid, itemId, usoIdx);
+    return;
+  }
+  // "Tocar Instrumento": abre o seletor de Nota Musical — a concessão da
+  // nota e o consumo deste uso só acontecem ao escolher (ver
+  // escolherNotaInstrumento), então nada é consumido aqui.
+  if (uso.concedeNotaEscolhida) {
+    abrirNotaInstrumentoModal(pid, itemId, usoIdx);
     return;
   }
   // Custo em Ações (ex: "1 uso por Ação"): mesma checagem/desconto do custo
@@ -1760,6 +1767,53 @@ function escolherFeiticoGrimorio(pid, itemId, skillId) {
   const item = p && (p.inventario || []).find(i => i.id === itemId);
   if (!item) return;
   item.feiticoEscolhidoId = skillId;
+  saveState();
+  renderAll();
+}
+
+// ─── Modal de escolha de Nota — "Tocar Instrumento" (todo Instrumento Musical) ──
+// Toda arma do tipo Instrumento tem 1 "Usar" que concede uma Nota Musical à
+// escolha do jogador (ver uso marcado com concedeNotaEscolhida). Diferente
+// das Habilidades com concedeNota:'qualquer' (que só mostram uma tag e
+// dependem do jogador ir marcar a nota manualmente), aqui a escolha e a
+// concessão acontecem juntas, no ato de usar.
+function abrirNotaInstrumentoModal(pid, itemId, usoIdx) {
+  const overlay = document.getElementById('modal-nota-instrumento-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const opcoesHtml = NOTAS_MUSICAIS.map(n =>
+    `<button class="nota-btn" onclick="escolherNotaInstrumento(${p.id},'${itemId}',${usoIdx},'${n}')">${n}</button>`
+  ).join('');
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:360px">
+      <h3><i class="ti ti-music"></i> Tocar Instrumento — ${escHtml(p.name)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+        Escolha qual Nota Musical você recebe.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:14px" onclick="fecharNotaInstrumentoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function fecharNotaInstrumentoModal() {
+  const overlay = document.getElementById('modal-nota-instrumento-overlay');
+  if (overlay) { overlay.classList.remove('open'); overlay.innerHTML = ''; }
+}
+
+function escolherNotaInstrumento(pid, itemId, usoIdx, nota) {
+  fecharNotaInstrumentoModal();
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  const uso = item && item.usos && item.usos[usoIdx];
+  if (!uso || uso.usosAtuais <= 0 || !NOTAS_MUSICAIS.includes(nota)) return;
+  if (!p.notasBardo || typeof p.notasBardo !== 'object') {
+    p.notasBardo = {};
+    NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
+  }
+  p.notasBardo[nota] = true;
+  uso.usosAtuais -= 1;
+  if (uso.umPorTurno) uso.ultimoTurnoUsado = turnGlobal;
   saveState();
   renderAll();
 }
@@ -6174,48 +6228,68 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_instrumento_violino_amuleto', name: 'Violino-Amuleto', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Aparenta ser apenas um bijuteria decorativa em forma de violino.',
-      usos: [{ name: 'Restauração do Violino-Amuleto', desc: 'Restaure 1d4 de Vida e receba qualquer Nota Musical. Pode ser usado diversas vezes no mesmo turno. Ao usar a 5ª vez, o violino-amuleto se quebra.', escopo: 'arma', usosMax: 5 }],
+      usos: [
+        { name: 'Restauração do Violino-Amuleto', desc: 'Restaure 1d4 de Vida e receba qualquer Nota Musical. Pode ser usado diversas vezes no mesmo turno. Ao usar a 5ª vez, o violino-amuleto se quebra.', escopo: 'arma', usosMax: 5 },
+        { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
+      ],
     },
     {
       id: 'cat_instrumento_harpa_grimorio', name: 'Harpa-Grimório', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: escolha um Feitiço — pode lançá-lo uma vez por luta, concedendo qualquer Nota Musical ao fazê-lo.',
+      usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
     {
       id: 'cat_instrumento_microfone_adaga', name: 'Microfone-Adaga', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: se o alvo estiver te encarando de longe, seu teste de Arremesso possui +1d4 de Vantagem, e ao acertá-lo no arremesso, receba qualquer Nota Musical.',
-      usos: [{ name: 'Bolsa de Microfone-Adaga', desc: 'Consome 1 uso a cada Arremesso com o microfone-adaga. Recarregue pagando 5 de Dinheiro no final da luta (até 2 bolsas por vez).', escopo: 'arma', usosMax: 2 }],
+      usos: [
+        { name: 'Bolsa de Microfone-Adaga', desc: 'Consome 1 uso a cada Arremesso com o microfone-adaga. Recarregue pagando 5 de Dinheiro no final da luta (até 2 bolsas por vez).', escopo: 'arma', usosMax: 2 },
+        { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
+      ],
     },
     {
       id: 'cat_instrumento_sousafone_foice', name: 'Sousafone-Foice', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: seu sopro é tão potente que seus ataques corpo a corpo possuem +2 de Alcance.',
+      usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
     {
       id: 'cat_instrumento_baixo_glaive', name: 'Baixo-Glaive', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: receba qualquer Nota Musical ao arremessar esse instrumento. No final do turno, ele retorna para sua mão.',
+      usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
     {
       id: 'cat_instrumento_guitarra_machado', name: 'Guitarra-Machado', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: no Arremesso, causa +2 de dano e possui +2 de Vantagem no Arremesso.',
+      usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
     {
       id: 'cat_instrumento_clarinete_encantado', name: 'Clarinete Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'longo', vidaMax: 15,
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva 1: ao usar um Feitiço e receber dano dele, pode transmiti-lo para a Vida do instrumento (ver Vida do Item). Passiva 2: o instrumento possui uma carga mágica, podendo lançar pequenos feixes mágicos até 5 casas que causam dano.',
-      usos: [{ name: 'Restauração do Clarinete', desc: 'Restaure 1d8 de Vida do instrumento musical. Diversos usos por turno. Se a Vida do instrumento chegar a 0, ele se quebra.', escopo: 'arma', usosMax: 5 }],
+      usos: [
+        { name: 'Restauração do Clarinete', desc: 'Restaure 1d8 de Vida do instrumento musical. Diversos usos por turno. Se a Vida do instrumento chegar a 0, ele se quebra.', escopo: 'arma', usosMax: 5 },
+        { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
+      ],
     },
     {
       id: 'cat_instrumento_teclado_constelacao', name: 'Teclado Constelação', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: produz mini-constelações que acertam a Longo Alcance e possuem +3 de Alcance.',
-      usos: [{ name: 'Campo Harmônico', desc: 'Gaste 2 Cristais Elétricos e lance um campo harmônico. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1 }],
+      usos: [
+        { name: 'Campo Harmônico', desc: 'Gaste 2 Cristais Elétricos e lance um campo harmônico. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1 },
+        { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
+      ],
     },
     {
       id: 'cat_instrumento_sino_acorrentado', name: 'Sino Acorrentado', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: possui +3 de Alcance para Arremessar; recebe qualquer Nota Musical ao arremessar esse instrumento, e o sino volta para sua mão por meio das correntes.',
+      usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
       ativas: [{ name: 'Sino Acorrentado', desc: 'Sacrifique 1d6 de Vida: o sino bate loucamente, concedendo 3 Notas Musicais quaisquer e ensurdecendo todos os outros no tabuleiro. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
       id: 'cat_instrumento_guitarra_sniper', name: 'Guitarra-Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
-      usos: [{ name: 'Pente de Munição', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
+      usos: [
+        { name: 'Pente de Munição', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 },
+        { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
+      ],
       ativas: [{ name: 'Guitarra-Sniper', desc: 'Sacrifique 1d4 de Vida: para cada ponto, receba +10% de chance Crítica, qualquer Nota Musical, e seu próximo disparo causa Ensurdecimento a todos os outros por 1 turno. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
   ],
