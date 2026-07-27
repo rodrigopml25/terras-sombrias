@@ -1575,7 +1575,7 @@ function construirUsosBoxHtml(item, p) {
     const spent = usosMax - usosAtuais;
     const usadoNesteTurno = u.umPorTurno && u.ultimoTurnoUsado === turnGlobal;
     const pronto = usosAtuais > 0 && !usadoNesteTurno;
-    const dots = Array.from({length: usosMax}, (_, di) => `<div class="sdot ${di < spent ? 'spent' : ''}"></div>`).join('');
+    const dots = Array.from({length: usosMax}, (_, di) => `<div class="sdot ${di < usosAtuais ? 'spent' : ''}"></div>`).join('');
     return `<div class="skill-card sk-gray ${pronto ? 'ready' : 'exhausted'}" style="margin:6px 0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="sk-name">${u.name}</div>
@@ -7251,9 +7251,9 @@ function saveInvItem() {
     // Aprimoramentos disponíveis para todas as armas
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Armas exóticas: cristais ficam em p.cristais (pool do personagem), não no item
-    if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name).map(a => ({ ...a, escopo: a.escopo || 'luta', usosMax: a.usosMax || 2 }));
+    if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name).map(a => ({ ...a, escopo: a.escopo || 'luta', usosMax: a.usosMax || 2, usosAtuais: a.usosAtuais != null ? a.usosAtuais : (a.usosMax || 2) }));
     // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Arma
-    base.usos = invUsos.filter(u => u.name);
+    base.usos = invUsos.filter(u => u.name).map(u => ({ ...u, usosAtuais: u.usosAtuais != null ? u.usosAtuais : u.usosMax }));
     // Vida do Item (opcional)
     const vidaMaxRaw = (document.getElementById('inv-m-vida-max') || {}).value || '';
     base.vidaMax = vidaMaxRaw !== '' ? Math.max(0, parseInt(vidaMaxRaw)) : null;
@@ -7272,9 +7272,9 @@ function saveInvItem() {
     // Aprimoramentos disponíveis para todos os instrumentos
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Instrumentos Mega Pesados: Liberar Vileza
-    if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name).map(a => ({ ...a, escopo: a.escopo || 'luta', usosMax: a.usosMax || 2 }));
+    if (peso === 'mega')    base.ativas = invAtivas.filter(a => a.name).map(a => ({ ...a, escopo: a.escopo || 'luta', usosMax: a.usosMax || 2, usosAtuais: a.usosAtuais != null ? a.usosAtuais : (a.usosMax || 2) }));
     // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Instrumento
-    base.usos = invUsos.filter(u => u.name);
+    base.usos = invUsos.filter(u => u.name).map(u => ({ ...u, usosAtuais: u.usosAtuais != null ? u.usosAtuais : u.usosMax }));
     // Vida do Item (opcional)
     const vidaMaxRawInst = (document.getElementById('inv-m-vida-max') || {}).value || '';
     base.vidaMax = vidaMaxRawInst !== '' ? Math.max(0, parseInt(vidaMaxRawInst)) : null;
@@ -7284,7 +7284,7 @@ function saveInvItem() {
     // Aprimoramentos disponíveis para proteções (Draenei)
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Usos ("Usar Nx") — livres, disponíveis em qualquer peso de Armadura/Elmo
-    base.usos = invUsos.filter(u => u.name);
+    base.usos = invUsos.filter(u => u.name).map(u => ({ ...u, usosAtuais: u.usosAtuais != null ? u.usosAtuais : u.usosMax }));
     // Proteções exóticas: atualiza o pool de cristais do personagem
     if (peso === 'exotica') {
       const p2 = PLAYERS.find(x => x.id === modalInvPid);
