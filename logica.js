@@ -6122,6 +6122,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_espada_uma_mao', name: 'Espada de Uma Mão', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
       efeito: 'Passiva: ao Desviar, pode fazer um Contra-Ataque. Funciona apenas uma vez por turno.',
+      usos: [{ name: 'Contra-Ataque', desc: 'Ao Desviar, faça um Contra-Ataque.', escopo: 'turno', usosMax: 1 }],
     },
     {
       id: 'cat_arma_foice', name: 'Foice', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
