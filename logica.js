@@ -6152,7 +6152,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_espingarda', name: 'Espingarda', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
       efeito: 'Passiva: possui +2 de Alcance e causa +2 de dano perfurante (atravessa a Armadura).',
-      usos: [{ name: 'Pente de Cartuchos', desc: 'Consome 1 uso a cada disparo com a espingarda. Recarregue pagando 10 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
+      usos: [{ name: 'Pente de Cartuchos', desc: 'Ative 1 Pente de Cartuchos: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 10 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 10 }],
     },
     {
       id: 'cat_arma_machado_arremesso', name: 'Machado de Arremesso', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
