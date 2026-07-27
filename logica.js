@@ -5682,10 +5682,10 @@ function renderInventarioArea(p, readOnly) {
     const temAprimoExotico = Array.isArray(item.aprimoramentos) && item.aprimoramentos.length > 0
       && !item.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado'));
     const usaCristal = item.peso === 'exotica' || temAprimoExotico;
-    const temMunicaoPropria = (item.usos || []).some(u => u.grimorioFeitico || u.custoRecarga);
-    const isLongoAlcance = item.alcance === 'longo'
-      && item.name !== 'Grimório do Conhecimento'
-      && !temMunicaoPropria;
+    const temMunicaoPropria = (item.usos || []).some(u => u.custoRecarga);
+    const semMunicaoForcado = (item.usos || []).some(u => u.semMunicao)
+      || item.name === 'Grimório do Conhecimento' || item.name === 'Varinha';
+    const isLongoAlcance = item.alcance === 'longo' && !temMunicaoPropria && !semMunicaoForcado;
     const precisaMunicao = isLongoAlcance || usaCristal;
     if (!precisaMunicao) return '';
 
@@ -6043,7 +6043,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_grimorio_conhecimento', name: 'Grimório do Conhecimento', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
       efeito: 'Passiva: escolha um Feitiço — pode lançá-lo uma vez por luta. Escolha também um elemento: seus disparos passam a ser baseados nele.',
-      usos: [{ name: 'Lançar Feitiço Escolhido', desc: 'Lance o Feitiço escolhido na Passiva. Não consome os usos/recarga do Feitiço original do personagem.', escopo: 'luta', usosMax: 1, grimorioFeitico: true }],
+      usos: [{ name: 'Lançar Feitiço Escolhido', desc: 'Lance o Feitiço escolhido na Passiva. Não consome os usos/recarga do Feitiço original do personagem.', escopo: 'luta', usosMax: 1, grimorioFeitico: true, semMunicao: true }],
     },
     {
       id: 'cat_arma_orbe_tecnologico', name: 'Orbe Tecnológico', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
@@ -6053,7 +6053,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_varinha', name: 'Varinha', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
       efeito: 'Passiva: a varinha possui magia, permitindo lançar feixes mágicos a Longo Alcance.',
-      usos: [{ name: 'Impulso Arcano', desc: 'Ao lançar um Feitiço, conceda +1 de Vantagem para ele. Pode ser usado diversas vezes no mesmo turno. Ao usar a 10ª vez, a varinha se quebra.', escopo: 'arma', usosMax: 10 }],
+      usos: [{ name: 'Impulso Arcano', desc: 'Ao lançar um Feitiço, conceda +1 de Vantagem para ele. Pode ser usado diversas vezes no mesmo turno. Ao usar a 10ª vez, a varinha se quebra.', escopo: 'arma', usosMax: 10, semMunicao: true }],
     },
     {
       id: 'cat_arma_adagas', name: 'Adagas', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
