@@ -5682,9 +5682,10 @@ function renderInventarioArea(p, readOnly) {
     const temAprimoExotico = Array.isArray(item.aprimoramentos) && item.aprimoramentos.length > 0
       && !item.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado'));
     const usaCristal = item.peso === 'exotica' || temAprimoExotico;
+    const temMunicaoPropria = (item.usos || []).some(u => u.grimorioFeitico || u.custoRecarga);
     const isLongoAlcance = item.alcance === 'longo'
       && item.name !== 'Grimório do Conhecimento'
-      && !(item.usos || []).some(u => u.grimorioFeitico);
+      && !temMunicaoPropria;
     const precisaMunicao = isLongoAlcance || usaCristal;
     if (!precisaMunicao) return '';
 
@@ -6046,8 +6047,8 @@ const CATALOGO_ITENS = {
     },
     {
       id: 'cat_arma_orbe_tecnologico', name: 'Orbe Tecnológico', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
-      efeito: 'Orbe de energia com 1 carga disponível a cada turno (ver Usos).',
-      usos: [{ name: 'Disparo de Energia', desc: 'Sacrifique 1 Cápsula de Energia e libere um disparo de energia — o dano é um teste de Arcano ou Místico (não pode mirar na cabeça).', escopo: 'turno', usosMax: 1 }],
+      efeito: 'Munição (Cápsulas de Energia): o orbe guarda até 2 Cápsulas. Recarregue pagando 10 de Dinheiro por Cápsula.',
+      usos: [{ name: 'Disparo de Energia', desc: 'Sacrifique 1 Cápsula de Energia e libere um disparo de energia — o dano é um teste de Arcano ou Místico (não pode mirar na cabeça).', escopo: 'arma', usosMax: 2, custoRecarga: 10 }],
     },
     {
       id: 'cat_arma_varinha', name: 'Varinha', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
