@@ -6135,7 +6135,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_revolver', name: 'Revólver', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
       efeito: 'Passiva: ao acertar um alvo, retire 1d2 de Armadura dele.',
-      usos: [{ name: 'Pente de Balas', desc: 'Consome 1 uso a cada disparo com o revólver. Recarregue pagando 10 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
+      usos: [{ name: 'Pente de Balas', desc: 'Ative 1 Pente de Balas: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 10 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 10 }],
     },
     {
       id: 'cat_arma_conjunto_glaives', name: 'Conjunto de Glaives', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
