@@ -6246,7 +6246,7 @@ const CATALOGO_ITENS = {
       id: 'cat_instrumento_microfone_adaga', name: 'Microfone-Adaga', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: se o alvo estiver te encarando de longe, seu teste de Arremesso possui +1d4 de Vantagem, e ao acertá-lo no arremesso, receba qualquer Nota Musical.',
       usos: [
-        { name: 'Bolsa de Microfone-Adaga', desc: 'Consome 1 uso a cada Arremesso com o microfone-adaga. Recarregue pagando 5 de Dinheiro no final da luta (até 2 bolsas por vez).', escopo: 'arma', usosMax: 2 },
+        { name: 'Bolsa de Microfone-Adaga', desc: 'Ative 1 Bolsa de Microfone-Adaga: ela serve para a Luta inteira, sem precisar gastar de novo a cada Arremesso. Recarregue pagando 5 de Dinheiro por Bolsa.', escopo: 'arma', usosMax: 2, custoRecarga: 5 },
         { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
       ],
     },
