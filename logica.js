@@ -1575,7 +1575,7 @@ function construirUsosBoxHtml(item, p) {
     const spent = usosMax - usosAtuais;
     const usadoNesteTurno = u.umPorTurno && u.ultimoTurnoUsado === turnGlobal;
     const pronto = usosAtuais > 0 && !usadoNesteTurno;
-    const dots = Array.from({length: usosMax}, (_, di) => `<div class="sdot ${di < usosAtuais ? 'spent' : ''}"></div>`).join('');
+    const dots = Array.from({length: usosMax}, (_, di) => `<div class="sdot ${(u.custoRecarga ? di < usosAtuais : di < spent) ? 'spent' : ''}"></div>`).join('');
     return `<div class="skill-card sk-gray ${pronto ? 'ready' : 'exhausted'}" style="margin:6px 0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="sk-name">${u.name}</div>
