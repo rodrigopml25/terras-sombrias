@@ -6256,12 +6256,12 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
     {
-      id: 'cat_instrumento_baixo_glaive', name: 'Baixo-Glaive', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
+      id: 'cat_instrumento_baixo_glaive', name: 'Baixo-Glaive', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: receba qualquer Nota Musical ao arremessar esse instrumento. No final do turno, ele retorna para sua mão.',
       usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
     {
-      id: 'cat_instrumento_guitarra_machado', name: 'Guitarra-Machado', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
+      id: 'cat_instrumento_guitarra_machado', name: 'Guitarra-Machado', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: no Arremesso, causa +2 de dano e possui +2 de Vantagem no Arremesso.',
       usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
