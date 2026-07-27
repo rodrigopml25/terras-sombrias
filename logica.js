@@ -6117,7 +6117,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_arco', name: 'Arco', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
       efeito: 'Passiva: possui +6 de Alcance.',
-      usos: [{ name: 'Aljava', desc: 'Consome 1 uso a cada disparo com o arco. Recarregue pagando 5 de Dinheiro no final da luta (até 2 conjuntos de flechas por vez).', escopo: 'arma', usosMax: 2 }],
+      usos: [{ name: 'Aljava', desc: 'Ative 1 Aljava: ela serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 5 de Dinheiro por Aljava.', escopo: 'arma', usosMax: 2, custoRecarga: 5 }],
     },
     {
       id: 'cat_arma_espada_uma_mao', name: 'Espada de Uma Mão', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
