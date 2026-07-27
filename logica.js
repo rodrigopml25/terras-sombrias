@@ -5682,7 +5682,9 @@ function renderInventarioArea(p, readOnly) {
     const temAprimoExotico = Array.isArray(item.aprimoramentos) && item.aprimoramentos.length > 0
       && !item.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado'));
     const usaCristal = item.peso === 'exotica' || temAprimoExotico;
-    const isLongoAlcance = item.alcance === 'longo' && !(item.usos || []).some(u => u.grimorioFeitico);
+    const isLongoAlcance = item.alcance === 'longo'
+      && item.name !== 'Grimório do Conhecimento'
+      && !(item.usos || []).some(u => u.grimorioFeitico);
     const precisaMunicao = isLongoAlcance || usaCristal;
     if (!precisaMunicao) return '';
 
