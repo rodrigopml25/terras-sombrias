@@ -1775,6 +1775,82 @@ function fecharGrimorioModal() {
   if (overlay) { overlay.classList.remove('open'); overlay.innerHTML = ''; }
 }
 
+// ─── "Criação de Anão" (passiva racial) ────────────────────────────────────
+// Funde 2 armas/instrumentos com Aprimoramento Dourado numa arma nova (que
+// carrega os 2 Aprimoramentos Dourados combinados), pagando 500 de Dinheiro.
+// Só pode ser usada 1 vez por personagem (p.criacaoAnaoUsada).
+function temAprimoDourado(item) {
+  return Array.isArray(item.aprimoramentos) && item.aprimoramentos.some(a => a.dourado);
+}
+
+function abrirCriacaoAnaoModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  if (p.criacaoAnaoUsada) { alert('Criação de Anão já foi usada por este personagem.'); return; }
+  const elegiveis = (p.inventario || []).filter(i => (i.tipo === 'arma' || i.tipo === 'instrumento') && temAprimoDourado(i));
+  if (elegiveis.length < 2) { alert('Você precisa de pelo menos 2 armas/instrumentos com Aprimoramento Dourado pra fundir.'); return; }
+
+  const opcoesHtml = elegiveis.map(i => {
+    const dourado = i.aprimoramentos.find(a => a.dourado);
+    return `<label class="tm-opcao" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+      <input type="checkbox" class="criacao-anao-check" value="${i.id}" style="width:16px;height:16px;flex-shrink:0">
+      <span style="flex:1">
+        <span class="tm-opcao-nome">${escHtml(i.name)}</span>
+        <span style="display:block;font-size:11px;color:#e8c53a;margin-top:2px">✨ ${escHtml((dourado && dourado.name) || 'Dourado')}</span>
+      </span>
+    </label>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-hammer"></i> Criação de Anão</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha 2 armas/instrumentos com Aprimoramento Dourado pra fundir numa arma nova. Custa 500 de Dinheiro e só pode ser feita 1 vez.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto">${opcoesHtml}</div>
+      <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="confirmarCriacaoAnao(${p.id})">Confirmar Fusão (500 Dinheiro)</button>
+      <button class="tm-cancelar" style="margin-top:8px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function fecharCriacaoAnaoModal() {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  if (overlay) { overlay.classList.remove('open'); overlay.innerHTML = ''; }
+}
+
+function confirmarCriacaoAnao(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (p.criacaoAnaoUsada) { fecharCriacaoAnaoModal(); return; }
+  const checks = Array.from(document.querySelectorAll('.criacao-anao-check:checked'));
+  if (checks.length !== 2) { alert('Escolha exatamente 2 armas/instrumentos.'); return; }
+  if ((p.dinheiro || 0) < 500) { alert(`Dinheiro insuficiente! A fusão custa 500 de Dinheiro, e ${p.name} só tem ${p.dinheiro || 0}.`); return; }
+
+  const ids = checks.map(c => c.value);
+  const itens = ids.map(id => (p.inventario || []).find(i => i.id === id)).filter(Boolean);
+  if (itens.length !== 2) { fecharCriacaoAnaoModal(); return; }
+
+  const dourados = itens.map(i => i.aprimoramentos.find(a => a.dourado)).filter(Boolean);
+  p.inventario = (p.inventario || []).filter(i => !ids.includes(i.id));
+  p.dinheiro = Math.max(0, (p.dinheiro || 0) - 500);
+
+  const novoId = 'inv_fusao_anao_' + Date.now();
+  p.inventario.push({
+    id: novoId, tipo: 'arma', name: `Fusão de ${itens[0].name} + ${itens[1].name}`,
+    peso: 'exotica', dano: itens[0].dano || itens[1].dano || '1d6', alcance: itens[0].alcance || 'curto',
+    preco: 0, equipado: false,
+    efeito: 'Arma fundida pela Criação de Anão. Só o dono sabe como usá-la — ajuste os detalhes abaixo.',
+    aprimoramentos: dourados,
+  });
+  p.criacaoAnaoUsada = true;
+  fecharCriacaoAnaoModal();
+  saveState();
+  renderAll();
+  editInvItem(pid, novoId);
+}
+
 function escolherFeiticoGrimorio(pid, itemId, skillId) {
   fecharGrimorioModal();
   const p = PLAYERS.find(x => x.id === pid);
@@ -4817,7 +4893,7 @@ function renderNarrador() {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div></div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -5397,6 +5473,7 @@ function renderJogador() {
         </button>
       </div>
       <div class="passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>
+      ${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:6px">✓ Já usada</div>` : `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}
     </div>`;
   }).join('');
 
