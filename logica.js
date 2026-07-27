@@ -6165,9 +6165,9 @@ const CATALOGO_ITENS = {
     { id: 'cat_elmo_pesado', name: 'Elmo Pesado', subtipo: 'elmo', peso: 'pesada', valor: 8, preco: 80, efeito: 'Concede -1d6 de Desvantagem em testes de Furtividade.' },
     { id: 'cat_elmo_encantado', name: 'Elmo Encantado', subtipo: 'elmo', peso: 'encantada', valor: 6, preco: 60, efeito: 'Concede -1 de Desvantagem em testes de Furtividade. Possui 1 espaço de Encantamento (requer o Talento Inferior "Equipamento Encantado").' },
     { id: 'cat_elmo_chapeu_exotico', name: 'Chapéu Exótico', subtipo: 'elmo', peso: 'exotica', valor: 5, preco: 50, efeito: 'Concede +1d2 de Vantagem em testes de Furtividade. Pode receber até 2 Aprimoramentos de Elmo.',
-      usos: [{ name: 'Restauração do Chapéu', desc: 'Gaste 1 Cristal: restaura a Armadura do Chapéu.', escopo: 'luta', usosMax: 3, umPorTurno: true }] },
+      usos: [{ name: 'Restauração do Chapéu', desc: 'Gaste 1 Cristal: restaura a Armadura do Chapéu.', escopo: 'luta', usosMax: 3, umPorTurno: true, custoCristal: 1 }] },
     { id: 'cat_elmo_exotico', name: 'Elmo Exótico', subtipo: 'elmo', peso: 'exotica', valor: 7, preco: 75, efeito: 'Concede -1d4 de Desvantagem em testes de Furtividade. Pode receber até 2 Aprimoramentos de Elmo.',
-      usos: [{ name: 'Barreira Craniana', desc: 'Gaste 1 Cristal: remova sua Cegueira, ou crie uma barreira na sua cabeça que a torna impossível de ser mirada por 1 turno.', escopo: 'luta', usosMax: 3, umPorTurno: true }] },
+      usos: [{ name: 'Barreira Craniana', desc: 'Gaste 1 Cristal: remova sua Cegueira, ou crie uma barreira na sua cabeça que a torna impossível de ser mirada por 1 turno.', escopo: 'luta', usosMax: 3, umPorTurno: true, custoCristal: 1 }] },
     { id: 'cat_elmo_mega', name: 'Elmo Mega Pesado', subtipo: 'elmo', peso: 'mega', valor: 10, preco: 100, efeito: 'Concede -1d10 de Desvantagem em testes de Furtividade.' },
   ],
   arma: [
