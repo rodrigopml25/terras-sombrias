@@ -6298,7 +6298,7 @@ const CATALOGO_ITENS = {
     {
       id: 'cat_arma_sniper', name: 'Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
       efeito: 'Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
-      usos: [{ name: 'Pente de Munição', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 }],
+      usos: [{ name: 'Pente de Munição', desc: 'Ative 1 Pente de Munição: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 25 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 25 }],
       ativas: [{ name: 'Sniper', desc: 'Consuma 1d4 de Vida: para cada ponto, receba +10% de chance de Crítico no próximo tiro da sniper. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
@@ -6383,7 +6383,7 @@ const CATALOGO_ITENS = {
       id: 'cat_instrumento_guitarra_sniper', name: 'Guitarra-Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
       usos: [
-        { name: 'Pente de Munição', desc: 'Consome 1 uso a cada disparo. Recarregue pagando 25 de Dinheiro no final da luta (até 2 pentes por vez).', escopo: 'arma', usosMax: 2 },
+        { name: 'Pente de Munição', desc: 'Ative 1 Pente de Munição: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 25 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 25 },
         { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
       ],
       ativas: [{ name: 'Guitarra-Sniper', desc: 'Sacrifique 1d4 de Vida: para cada ponto, receba +10% de chance Crítica, qualquer Nota Musical, e seu próximo disparo causa Ensurdecimento a todos os outros por 1 turno. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
