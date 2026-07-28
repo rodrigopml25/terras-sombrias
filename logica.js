@@ -1567,29 +1567,38 @@ const ESCOPO_USO_ARMA_LABEL = { arma: 'Por Arma', sessao: 'Por Sessão', luta: '
 // Monta o HTML da caixa de "Usos" (Usar Nx) de um item de inventário —
 // compartilhado entre os cards de Arma/Instrumento e Armadura/Elmo (ver
 // renderInventarioArea), já que qualquer um desses tipos pode ter Usos.
+// Aprimoramento Dourado "Carregamento Aprimorado": armas com Munição/Usos que
+// recarregam pagando Dinheiro (custoRecarga) deixam de precisar de recarga —
+// o limite de usosMax vira infinito, sem custo. Vale pra qualquer arma com
+// esse tipo de recarga (Bolsa de Adagas, Pentes, Aljavas, etc).
+function temCarregamentoAprimorado(item) {
+  return Array.isArray(item.aprimoramentos) && item.aprimoramentos.some(a => a.catalogId === 'carregamento_aprimorado' || a.name === 'Carregamento Aprimorado');
+}
+
 function construirUsosBoxHtml(item, p) {
   if (!item.usos || !item.usos.length) return '';
   return `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-target-arrow" style="color:var(--accent2)"></i> Usos</div>${item.usos.map((u, ui) => {
+    const infinito = !!(u.custoRecarga && temCarregamentoAprimorado(item));
     const usosMax = u.usosMax || 1;
     const usosAtuais = u.usosAtuais != null ? u.usosAtuais : usosMax;
     const spent = usosMax - usosAtuais;
     const usadoNesteTurno = u.umPorTurno && u.ultimoTurnoUsado === turnGlobal;
-    const pronto = usosAtuais > 0 && !usadoNesteTurno;
-    const dots = Array.from({length: usosMax}, (_, di) => `<div class="sdot ${(u.custoRecarga ? di < usosAtuais : di < spent) ? 'spent' : ''}"></div>`).join('');
+    const pronto = infinito ? !usadoNesteTurno : (usosAtuais > 0 && !usadoNesteTurno);
+    const dots = infinito ? '' : Array.from({length: usosMax}, (_, di) => `<div class="sdot ${(u.custoRecarga ? di < usosAtuais : di < spent) ? 'spent' : ''}"></div>`).join('');
     return `<div class="skill-card sk-gray ${pronto ? 'ready' : 'exhausted'}" style="margin:6px 0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="sk-name">${u.name}</div>
         <div style="display:flex;gap:6px;align-items:center">
-          ${u.custoRecarga ? `<button onclick="event.stopPropagation();comprarUsoArma(${p.id},'${item.id}',${ui})" title="Comprar +1 (${u.custoRecarga} de Dinheiro)" style="background:none;border:none;color:var(--amber);cursor:pointer;padding:0"><i class="ti ti-coin" style="font-size:15px"></i></button>` : ''}
-          <button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>
+          ${u.custoRecarga && !infinito ? `<button onclick="event.stopPropagation();comprarUsoArma(${p.id},'${item.id}',${ui})" title="Comprar +1 (${u.custoRecarga} de Dinheiro)" style="background:none;border:none;color:var(--amber);cursor:pointer;padding:0"><i class="ti ti-coin" style="font-size:15px"></i></button>` : ''}
+          ${!infinito ? `<button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>` : ''}
         </div>
       </div>
-      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.custoCristal ? `<span class="sk-tag">💎${u.custoCristal===1?'1 Cristal':u.custoCristal+' Cristais'}</span>` : ''}${u.custoRecarga ? `<span class="sk-tag">💰${u.custoRecarga}/uso</span>` : ''}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}${u.concedeNotaEscolhida ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 escolha uma nota</span>` : ''}</div>
+      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.custoCristal ? `<span class="sk-tag">💎${u.custoCristal===1?'1 Cristal':u.custoCristal+' Cristais'}</span>` : ''}${infinito ? `<span class="sk-tag" style="color:#e8c53a">✨ Carregamento Aprimorado (∞)</span>` : (u.custoRecarga ? `<span class="sk-tag">💰${u.custoRecarga}/uso</span>` : '')}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}${u.concedeNotaEscolhida ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 escolha uma nota</span>` : ''}</div>
       ${u.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${u.desc}</div>` : ''}
       ${usadoNesteTurno ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Já usado neste turno.</div>` : ''}
       <div class="sk-bottom">
         <button class="sk-btn" onclick="usarArmaUso(${p.id},'${item.id}',${ui})" ${!pronto?'disabled':''}>Usar</button>
-        <div class="sk-dots">${dots}</div>
+        <div class="sk-dots">${infinito ? '<span style="font-size:13px;color:#e8c53a">∞</span>' : dots}</div>
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -1618,7 +1627,11 @@ function usarArmaUso(pid, itemId, usoIdx) {
   const p = PLAYERS.find(x => x.id === pid);
   const item = p && (p.inventario || []).find(i => i.id === itemId);
   const uso = item && item.usos && item.usos[usoIdx];
-  if (!uso || uso.usosAtuais <= 0) return;
+  if (!uso) return;
+  // Aprimoramento Dourado "Carregamento Aprimorado": Munição/Usos com custoRecarga
+  // (Bolsa de Adagas, Pentes, Aljavas etc.) deixam de ter limite — nunca esgota.
+  const infinito = !!(uso.custoRecarga && item && temCarregamentoAprimorado(item));
+  if (!infinito && uso.usosAtuais <= 0) return;
   // "Um uso por turno": mesmo com usos sobrando no total, não deixa usar de
   // novo se já foi usado no turno global atual.
   if (uso.umPorTurno && uso.ultimoTurnoUsado === turnGlobal) return;
@@ -1658,7 +1671,7 @@ function usarArmaUso(pid, itemId, usoIdx) {
       return;
     }
   }
-  uso.usosAtuais -= 1;
+  uso.usosAtuais = infinito ? uso.usosAtuais : uso.usosAtuais - 1;
   if (uso.umPorTurno) uso.ultimoTurnoUsado = turnGlobal;
   if (custo > 0) {
     p.acoesAtuais = Math.max(0, (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) - custo);
@@ -6558,6 +6571,7 @@ function _buildInvModal(data) {
 
   // aprimoramentos — detecta tipo pelo conteúdo salvo
   invAprimos = data.aprimoramentos ? JSON.parse(JSON.stringify(data.aprimoramentos)) : [];
+  _douradoPendente = null;
   // ativas
   invAtivas  = data.ativas ? JSON.parse(JSON.stringify(data.ativas)) : [];
   // usos ("Usar (Nx)" — só se aplica a Armas)
@@ -6585,6 +6599,10 @@ function _buildInvModal(data) {
 }
 
 let invAprimos = [];
+// Aprimoramento Dourado escolhido nesta sessão de edição do item, ainda não
+// cobrado — só é cobrado (e descontado do Dinheiro) ao clicar em "Salvar"
+// (ver saveInvItem). Resetado sempre que o modal de item é aberto.
+let _douradoPendente = null;
 let invAtivas  = [];
 // Lista de "Usos" (Usar Nx) da Arma em edição — ver ESCOPO_USO_ARMA_LABEL/resetUsosArmaPorEscopo.
 let invUsos = [];
@@ -7196,10 +7214,12 @@ function toggleAprimoDourado(catalogId) {
   const jaEscolhido = invAprimos[0] && invAprimos[0].catalogId === catalogId;
   if (jaEscolhido) {
     invAprimos = [];
+    _douradoPendente = null;
   } else {
     const cat = APRIMORAMENTOS_DOURADO.find(a => a.id === catalogId);
     if (!cat) return;
     invAprimos = [{ catalogId: cat.id, name: cat.name, desc: cat.desc, custo: cat.custoBase, dourado: true }];
+    _douradoPendente = { catalogId: cat.id, name: cat.name, custoBase: cat.custoBase };
   }
   _renderInvAprimos();
 }
@@ -7430,10 +7450,22 @@ function saveInvItem() {
   if (!p) return;
   if (!Array.isArray(p.inventario)) p.inventario = [];
 
-  const tipo    = _invSelectedTipo();
   const name    = document.getElementById('inv-m-name').value.trim();
   if (!name) { document.getElementById('inv-m-name').focus(); return; }
 
+  // Aprimoramento Dourado escolhido nesta edição: só cobra os 300 de Dinheiro
+  // agora, ao salvar de verdade (ver toggleAprimoDourado) — bloqueia o
+  // salvamento se não tiver saldo.
+  if (_douradoPendente) {
+    if ((p.dinheiro || 0) < _douradoPendente.custoBase) {
+      alert(`Dinheiro insuficiente! "${_douradoPendente.name}" custa ${_douradoPendente.custoBase} de Dinheiro, e ${p.name} só tem ${p.dinheiro || 0}.`);
+      return;
+    }
+    p.dinheiro = Math.max(0, (p.dinheiro || 0) - _douradoPendente.custoBase);
+    _douradoPendente = null;
+  }
+
+  const tipo    = _invSelectedTipo();
   const efeito  = document.getElementById('inv-m-efeito').value.trim();
   const peso    = _invSelectedPeso();
   const dano    = document.getElementById('inv-m-dano').value.trim();
