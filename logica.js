@@ -1780,7 +1780,7 @@ function fecharGrimorioModal() {
 // carrega os 2 Aprimoramentos Dourados combinados), pagando 500 de Dinheiro.
 // Só pode ser usada 1 vez por personagem (p.criacaoAnaoUsada).
 function temAprimoDourado(item) {
-  return Array.isArray(item.aprimoramentos) && item.aprimoramentos.some(a => a.dourado);
+  return Array.isArray(item.aprimoramentos) && item.aprimoramentos.some(a => a.dourado || a.name === 'Dourado');
 }
 
 function abrirCriacaoAnaoModal(pid) {
@@ -1792,7 +1792,7 @@ function abrirCriacaoAnaoModal(pid) {
   if (elegiveis.length < 2) { alert('Você precisa de pelo menos 2 armas/instrumentos com Aprimoramento Dourado pra fundir.'); return; }
 
   const opcoesHtml = elegiveis.map(i => {
-    const dourado = i.aprimoramentos.find(a => a.dourado);
+    const dourado = i.aprimoramentos.find(a => a.dourado || a.name === 'Dourado');
     return `<label class="tm-opcao" style="display:flex;align-items:center;gap:10px;cursor:pointer">
       <input type="checkbox" class="criacao-anao-check" value="${i.id}" style="width:16px;height:16px;flex-shrink:0">
       <span style="flex:1">
@@ -1832,7 +1832,7 @@ function confirmarCriacaoAnao(pid) {
   const itens = ids.map(id => (p.inventario || []).find(i => i.id === id)).filter(Boolean);
   if (itens.length !== 2) { fecharCriacaoAnaoModal(); return; }
 
-  const dourados = itens.map(i => i.aprimoramentos.find(a => a.dourado)).filter(Boolean);
+  const dourados = itens.map(i => i.aprimoramentos.find(a => a.dourado || a.name === 'Dourado')).filter(Boolean);
   p.inventario = (p.inventario || []).filter(i => !ids.includes(i.id));
   p.dinheiro = Math.max(0, (p.dinheiro || 0) - 500);
 
