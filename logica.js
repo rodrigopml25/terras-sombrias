@@ -1833,13 +1833,16 @@ function confirmarCriacaoAnao(pid) {
   if (itens.length !== 2) { fecharCriacaoAnaoModal(); return; }
 
   const dourados = itens.map(i => i.aprimoramentos.find(a => a.dourado || a.name === 'Dourado')).filter(Boolean);
+  // Peso da arma fundida = o maior peso entre as 2 armas originais.
+  const ORDEM_PESO = { leve: 1, encantada: 2, media: 3, exotica: 4, pesada: 5, mega: 6 };
+  const pesoFundido = (ORDEM_PESO[itens[0].peso] || 0) >= (ORDEM_PESO[itens[1].peso] || 0) ? itens[0].peso : itens[1].peso;
   p.inventario = (p.inventario || []).filter(i => !ids.includes(i.id));
   p.dinheiro = Math.max(0, (p.dinheiro || 0) - 500);
 
   const novoId = 'inv_fusao_anao_' + Date.now();
   p.inventario.push({
     id: novoId, tipo: 'arma', name: `Fusão de ${itens[0].name} + ${itens[1].name}`,
-    peso: 'exotica', dano: itens[0].dano || itens[1].dano || '1d6', alcance: itens[0].alcance || 'curto',
+    peso: pesoFundido, dano: itens[0].dano || itens[1].dano || '1d6', alcance: itens[0].alcance || 'curto',
     preco: 0, equipado: false,
     efeito: 'Arma fundida pela Criação de Anão. Só o dono sabe como usá-la — ajuste os detalhes abaixo.',
     aprimoramentos: dourados,
