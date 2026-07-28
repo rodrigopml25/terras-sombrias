@@ -1851,7 +1851,7 @@ function confirmarCriacaoAnao(pid) {
   fecharCriacaoAnaoModal();
   saveState();
   renderAll();
-  editInvItem(pid, novoId);
+  alert(`Fusão concluída! A nova arma carrega os 2 Aprimoramentos Dourados combinados. Para ajustar nome/dano, edite pelo lápis — mas evite mexer na seção de Aprimoramentos lá, já que ela foi feita pra 1 escolha só e substituiria os 2 Dourados fundidos por apenas 1.`);
 }
 
 function escolherFeiticoGrimorio(pid, itemId, skillId) {
@@ -7159,11 +7159,13 @@ function _buildAprimoDouradoListHtml() {
     return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Aprimoramentos Dourados só ficam disponíveis se algum aliado tiver a passiva racial <strong>"Dourado"</strong> (Anão).</div>`;
   }
 
-  const escolhidoId = invAprimos[0] && invAprimos[0].catalogId;
-  const aviso = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Escolha 1 Aprimoramento Dourado (💰 300 cada).</div>`;
+  const idsEscolhidos = invAprimos.map(a => a.catalogId);
+  const aviso = invAprimos.length > 1
+    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Esta arma tem ${invAprimos.length} Aprimoramentos Dourados combinados (fusão). Escolher um novo abaixo substitui todos eles por 1 só.</div>`
+    : `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Escolha 1 Aprimoramento Dourado (💰 300 cada).</div>`;
 
   const cards = APRIMORAMENTOS_DOURADO.map(a => {
-    const ativo = escolhidoId === a.id;
+    const ativo = idsEscolhidos.includes(a.id);
     return `<div class="skill-card sk-gray" style="margin:0;cursor:pointer" onclick="toggleAprimoDourado('${a.id}')">
       <div class="sk-name">&#10024; ${a.name}</div>
       <div class="sk-tags"><span class="sk-tag">💰 ${a.custoBase}</span></div>
@@ -7183,6 +7185,13 @@ function toggleAprimoDourado(catalogId) {
   if (!algumAliadoTemDourado()) {
     alert('Aprimoramentos Dourados só ficam disponíveis se algum aliado tiver a passiva racial "Dourado" (Anão).');
     return;
+  }
+  // Arma fundida pela Criação de Anão pode ter mais de 1 Aprimoramento Dourado
+  // combinado — esse seletor é de 1 escolha só, então avisa antes de substituir
+  // e perder os outros.
+  if (invAprimos.length > 1) {
+    const ok = confirm(`Essa arma tem ${invAprimos.length} Aprimoramentos Dourados combinados (provavelmente de uma fusão). Escolher aqui substitui TODOS eles por só 1. Continuar mesmo assim?`);
+    if (!ok) return;
   }
   const jaEscolhido = invAprimos[0] && invAprimos[0].catalogId === catalogId;
   if (jaEscolhido) {
