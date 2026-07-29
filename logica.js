@@ -1905,8 +1905,8 @@ function abrirOrigemComumModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
   if (!overlay || !p) return;
-  const elegiveis = (p.inventario || []).filter(i => i.tipo === 'arma' || i.tipo === 'instrumento');
-  if (!elegiveis.length) { alert('Esse personagem não tem nenhuma arma/instrumento.'); return; }
+  const elegiveis = (p.inventario || []).filter(i => (i.tipo === 'arma' || i.tipo === 'instrumento') && !temAprimoDourado(i));
+  if (!elegiveis.length) { alert('Esse personagem não tem nenhuma arma/instrumento elegível (todas já têm um Aprimoramento Dourado).'); return; }
 
   const opcoesHtml = elegiveis.map(i => `<button class="tm-opcao tm-opcao-blue" onclick="abrirOrigemComumDouradoModal(${p.id},'${i.id}')">
     <span class="tm-opcao-nome">${escHtml(i.name)}</span>
