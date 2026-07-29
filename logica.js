@@ -1862,6 +1862,9 @@ function rolarOrigemComum(pid) {
   if (!currentUser) return;
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
+  p.origemComumPendente = false;
+  saveState();
+  renderAll();
 
   const sides = 10;
   const d1 = 1 + Math.floor(Math.random() * sides);
@@ -1950,6 +1953,14 @@ function concederDouradoOrigemComum(pid, itemId, catalogId) {
   const cat = APRIMORAMENTOS_DOURADO.find(a => a.id === catalogId);
   if (!item || !cat) return;
   if (!Array.isArray(item.aprimoramentos)) item.aprimoramentos = [];
+  // Regra: cada arma só pode ter 1 Aprimoramento Dourado — a única exceção é
+  // uma arma fundida pela Criação de Anão (item.fusaoAnao), que acumula os
+  // Dourados combinados das 2 armas originais.
+  if (!item.fusaoAnao && temAprimoDourado(item)) {
+    const ok = confirm(`"${item.name}" já tem um Aprimoramento Dourado. Escolher um novo substitui o atual. Continuar?`);
+    if (!ok) return;
+    item.aprimoramentos = item.aprimoramentos.filter(a => !(a.dourado || a.name === 'Dourado'));
+  }
   item.aprimoramentos.push({ catalogId: cat.id, name: cat.name, desc: cat.desc, custo: 0, dourado: true });
   fecharCriacaoAnaoModal();
   saveState();
@@ -1988,6 +1999,7 @@ function confirmarCriacaoAnao(pid) {
     efeito: 'Arma fundida pela Criação de Anão. Só o dono sabe como usá-la — ajuste os detalhes abaixo.',
     aprimoramentos: dourados,
     usos: usosHerdados,
+    fusaoAnao: true, // única exceção que pode ter mais de 1 Aprimoramento Dourado
   });
   p.criacaoAnaoUsada = true;
   fecharCriacaoAnaoModal();
@@ -4935,11 +4947,10 @@ function onLevelUp(p) {
     p.hpMax = (p.hpMax || 0) + TAUREN_HP_POR_NIVEL;
     p.hp = (p.hp || 0) + TAUREN_HP_POR_NIVEL;
   }
-  // Anão (Origem Comum): ao subir de Nível, rola 1d10 com Mega Vantagem de
-  // verdade — pequeno atraso pra deixar o saveState/renderAll do level-up
-  // terminar antes de abrir o feed de dados e o modal de escolha.
+  // Anão (Origem Comum): ao subir de Nível, libera 1 rolagem de 1d10 com Mega
+  // Vantagem — o botão só aparece até ser usado (ver rolarOrigemComum).
   if (p.race === 'Anão' && p.origemId === 'anao_origem_comum') {
-    setTimeout(() => rolarOrigemComum(p.id), 400);
+    p.origemComumPendente = true;
   }
 }
 function onLevelDown(p) {
@@ -5052,7 +5063,7 @@ function renderNarrador() {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -5633,7 +5644,7 @@ function renderJogador() {
       </div>
       <div class="passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>
       ${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:6px">✓ Já usada</div>` : `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}
-      ${pas.racialId === 'anao_origem_comum_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}
+      ${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}
     </div>`;
   }).join('');
 
