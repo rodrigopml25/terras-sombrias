@@ -1575,6 +1575,13 @@ function temCarregamentoAprimorado(item) {
   return Array.isArray(item.aprimoramentos) && item.aprimoramentos.some(a => a.catalogId === 'carregamento_aprimorado' || a.name === 'Carregamento Aprimorado');
 }
 
+// Aprimoramento Dourado "Encantamento Aprimorado": armas com "Usar (Nx)"
+// restauram TODOS os usos ao final da sessão, mesmo os de escopo "Por Arma"
+// (que normalmente só recarregam manualmente) — ver resetSessao.
+function temEncantamentoAprimorado(item) {
+  return Array.isArray(item.aprimoramentos) && item.aprimoramentos.some(a => a.catalogId === 'encantamento_aprimorado' || a.name === 'Encantamento Aprimorado');
+}
+
 function construirUsosBoxHtml(item, p) {
   if (!item.usos || !item.usos.length) return '';
   return `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-target-arrow" style="color:var(--accent2)"></i> Usos</div>${item.usos.map((u, ui) => {
@@ -4537,6 +4544,14 @@ function resetSessao() {
     });
     // Usos de Arma ("Usar Nx") com escopo "Por Sessão"
     resetUsosArmaPorEscopo(p, ['sessao']);
+    // Aprimoramento Dourado "Encantamento Aprimorado": restaura TODOS os usos
+    // da arma/instrumento/proteção que tiver esse Aprimoramento, mesmo os
+    // de escopo "Por Arma" (que normalmente não recarregam sozinhos).
+    (p.inventario || []).forEach(item => {
+      if ((item.tipo === 'arma' || item.tipo === 'instrumento' || item.tipo === 'protecao') && Array.isArray(item.usos) && temEncantamentoAprimorado(item)) {
+        item.usos.forEach(u => { u.usosAtuais = u.usosMax; });
+      }
+    });
     // Notas do Bardo: resetar também no reset de sessão
     if (p.classeBase === 'Bardo' && p.notasBardo) {
       NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
