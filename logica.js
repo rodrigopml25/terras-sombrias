@@ -1582,6 +1582,12 @@ function temEncantamentoAprimorado(item) {
   return Array.isArray(item.aprimoramentos) && item.aprimoramentos.some(a => a.catalogId === 'encantamento_aprimorado' || a.name === 'Encantamento Aprimorado');
 }
 
+// Aprimoramento Dourado "Afiação Aprimorada": +1d6 de dano na arma — exibido
+// junto ao Dano no card (ver statsRow, dentro de renderArmaCard).
+function temAfiacaoAprimorada(item) {
+  return Array.isArray(item.aprimoramentos) && item.aprimoramentos.some(a => a.catalogId === 'afiacao_aprimorada' || a.name === 'Afiação Aprimorada');
+}
+
 function construirUsosBoxHtml(item, p) {
   if (!item.usos || !item.usos.length) return '';
   return `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-target-arrow" style="color:var(--accent2)"></i> Usos</div>${item.usos.map((u, ui) => {
@@ -6080,7 +6086,8 @@ function renderInventarioArea(p, readOnly) {
       const bonus = mb && mb.val > 0
         ? `<span style="font-size:11px;color:${mb.color};margin-left:2px" title="Bônus de Maestria de ${mb.attr}">+${mb.val} <span style="font-size:10px;opacity:.8">${mb.attr}</span></span>`
         : (mb && mb.val === 0 ? `<span style="font-size:10px;color:var(--text3);margin-left:2px" title="Maestria de ${mb.attr} ainda é 0">+0 <span style="opacity:.7">${mb.attr}</span></span>` : '');
-      const danoPart = item.dano ? `<div class="inv-stat"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}</div>` : '';
+      const afiacaoBonus = temAfiacaoAprimorada(item) ? `<span style="font-size:11px;color:#e8c53a;margin-left:2px" title="Aprimoramento Dourado: Afiação Aprimorada">+1d6 <span style="font-size:10px;opacity:.8">✨</span></span>` : '';
+      const danoPart = item.dano ? `<div class="inv-stat"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}${afiacaoBonus}</div>` : '';
       const precoPart = item.preco != null ? `<div class="inv-stat"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val" style="color:var(--amber)">${item.preco}</span></div>` : '';
       if (!danoPart && !precoPart) return '';
       return `<div class="inv-stats-row">${danoPart}${precoPart}</div>`;
