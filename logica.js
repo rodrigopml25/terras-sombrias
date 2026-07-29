@@ -1846,6 +1846,11 @@ function confirmarCriacaoAnao(pid) {
   if (itens.length !== 2) { fecharCriacaoAnaoModal(); return; }
 
   const dourados = itens.map(i => i.aprimoramentos.find(a => a.dourado || a.name === 'Dourado')).filter(Boolean);
+  // Herda os "Usos" (Usar) das 2 armas originais, clonados com as cargas
+  // cheias (usosAtuais = usosMax) — a arma fundida acumula os dois.
+  const usosHerdados = itens.flatMap(i => Array.isArray(i.usos)
+    ? JSON.parse(JSON.stringify(i.usos)).map(u => ({ ...u, usosAtuais: u.usosMax || 1 }))
+    : []);
   // Peso da arma fundida = o maior peso entre as 2 armas originais.
   const ORDEM_PESO = { leve: 1, encantada: 2, media: 3, exotica: 4, pesada: 5, mega: 6 };
   const pesoFundido = (ORDEM_PESO[itens[0].peso] || 0) >= (ORDEM_PESO[itens[1].peso] || 0) ? itens[0].peso : itens[1].peso;
@@ -1859,6 +1864,7 @@ function confirmarCriacaoAnao(pid) {
     preco: 0, equipado: false,
     efeito: 'Arma fundida pela Criação de Anão. Só o dono sabe como usá-la — ajuste os detalhes abaixo.',
     aprimoramentos: dourados,
+    usos: usosHerdados,
   });
   p.criacaoAnaoUsada = true;
   fecharCriacaoAnaoModal();
