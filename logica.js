@@ -1901,6 +1901,41 @@ function rolarOrigemComum(pid) {
   }, ROLL_ANIM_MS + 150);
 }
 
+// Draenei (Origem Demoníaca): rola 1d8 de Insanidade de verdade ao subir de
+// Nível, publica no feed de dados e aplica o resultado em p.ins.
+function rolarInsanidadeOrigemDemoniaca(pid) {
+  if (!currentUser) return;
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  const sides = 8;
+  const d1 = 1 + Math.floor(Math.random() * sides);
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: 'Origem Demoníaca — Insanidade ao subir de Nível',
+    tree: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null },
+    total: d1,
+    hidden: false,
+    rolling: true,
+    ts: Date.now()
+  };
+
+  spinDiceFab(true, sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  p.ins = Math.max(0, Math.min(getInsanidadeMax(p), (p.ins || 0) + d1));
+  saveState();
+  renderAll();
+}
+
 function abrirOrigemComumModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
@@ -4979,7 +5014,9 @@ function recomputeProtMax(p) {
   // pra cima) em Passos, enquanto a armadura com esse Aprimoramento estiver equipada.
   const temLigeirinho = equipadas.some(i => Array.isArray(i.aprimoramentos) && i.aprimoramentos.some(a => a.catalogId === 'ligeirinho'));
   const bonusLigeirinho = temLigeirinho ? Math.ceil(maestriaDe(p, 'agi') / 2) : 0;
-  p.passos = Math.max(0, p.passosBase - penalidadeTotal + bonusLigeirinho);
+  // Origem Demoníaca (Draenei): +2 de Passos fixo, sempre que tiver essa origem.
+  const bonusOrigemDemoniaca = (p.race === 'Draenei' && p.origemId === 'draenei_origem_demoniaco') ? 2 : 0;
+  p.passos = Math.max(0, p.passosBase - penalidadeTotal + bonusLigeirinho + bonusOrigemDemoniaca);
 }
 
 // Efeitos automáticos de subida/queda de Nível dependentes de raça.
@@ -5000,6 +5037,13 @@ function onLevelUp(p) {
   // mesmo nome) — ver abrirOrigemProfundezasModal.
   if (p.race === 'Anão' && p.origemId === 'anao_origem_profundezas') {
     p.origemProfundezasPendente = true;
+  }
+  // Draenei (Origem Demoníaca): ao subir de Nível, +1 de Passos permanente
+  // (acumula no passosBase) e 1d8 de Insanidade — rolado de verdade e
+  // publicado no feed de dados (ver rolarInsanidadeOrigemDemoniaca).
+  if (p.race === 'Draenei' && p.origemId === 'draenei_origem_demoniaco') {
+    p.passosBase = (p.passosBase || 10) + 1;
+    setTimeout(() => rolarInsanidadeOrigemDemoniaca(p.id), 400);
   }
 }
 function onLevelDown(p) {
