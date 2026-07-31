@@ -841,6 +841,23 @@ function ensureRaceWeapons(p) {
       p.inventario.push({ ...def, racialId: def.id, id: 'inv_racial_' + def.id });
     }
   });
+
+  // Garras Dracônicas — a partir do Nível 3, se o Dragão for Bardo, ganham
+  // uma Tatuagem Arcana que libera "Qualquer Nota" no Ataque (mesmo
+  // mecanismo de escolha de nota do "Tocar Instrumento").
+  if (p.race === 'Dragão') {
+    const garras = p.inventario.find(it => it.racialId === 'racial_dragao_garras_draconicas');
+    if (garras) {
+      const temTatuagemArcana = (p.level || 1) >= 3 && p.classeBase === 'Bardo';
+      if (!Array.isArray(garras.usos)) garras.usos = [];
+      const jaTemUso = garras.usos.some(u => u.idInterno === 'garras_tatuagem_arcana');
+      if (temTatuagemArcana && !jaTemUso) {
+        garras.usos.push({ idInterno: 'garras_tatuagem_arcana', name: 'Tatuagem Arcana', desc: 'Ataque com as Garras Dracônicas e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true });
+      } else if (!temTatuagemArcana && jaTemUso) {
+        garras.usos = garras.usos.filter(u => u.idInterno !== 'garras_tatuagem_arcana');
+      }
+    }
+  }
 }
 
 // Armas exclusivas de subclasse — mesmo padrão de RACAS_WEAPONS, mas
@@ -3601,6 +3618,21 @@ function toggleWizardSkill(bancoId) {
 // entra nessa lista, pois é a habilidade usada para entrar/sair da forma.
 const DRAGAO_FORMA_SKILL_IDS = ['sk_racial_dragao_iniciar_voo', 'sk_racial_dragao_impacto_pouso'];
 
+// Habilidades de Classe: escolhidas do banco de subclasse (bancoId), fixas
+// de Subclasse/Classe-base (SUBCLASSES_SKILLS/CLASSES_SKILLS), ou vinculadas
+// a uma arma/instrumento (Encantamento, Feitiço Lendário, Ritual Macabro).
+// Todas ficam indisponíveis na Forma de Dragão.
+function isHabilidadeDeClasse(p, sk) {
+  if (sk.bancoId || sk.lendario || sk.ritualMacabro || sk.encantamentoItemId) return true;
+  if ((SUBCLASSES_SKILLS[p.cls] || []).some(d => d.id === sk.id)) return true;
+  if ((CLASSES_SKILLS[p.classeBase] || []).some(d => d.id === sk.id)) return true;
+  return false;
+}
+
+// Valores da Armadura/Elmo Dracônicos, escalando com o Nível atual.
+function valorArmaduraDraconica(p) { return 7 + (p.level || 1); }
+function valorElmoDraconico(p) { return 5 + (p.level || 1); }
+
 // Fora da forma de Dragão, remove do personagem: Iniciar Voo, Impacto de
 // Pouso, o Sopro da sua Revoada (cor correspondente à origem escolhida) e a
 // arma Garras Dracônicas. Enquanto p.formaDragao estiver ativo, não faz nada
@@ -3621,13 +3653,83 @@ function syncFormaDragaoLock(p) {
   }
 }
 
-// Ativa ou desativa a forma de Dragão. Ao ativar, reinjeta o Sopro da
-// Revoada, Iniciar Voo, Impacto de Pouso e as Garras Dracônicas (via
-// ensureRacePassivas, que é idempotente). Ao desativar, syncFormaDragaoLock
-// (chamado dentro de ensureRacePassivas) remove tudo de novo.
+// Ativa ou desativa a forma de Dragão.
+// Ao ATIVAR: guarda as Habilidades de Classe e todas as Armas/Instrumentos em
+// p.formaDragaoBackup, remove tudo isso do personagem, concede a Armadura e o
+// Elmo Dracônicos (valor = 7/5 + Nível), e reinjeta o Sopro da Revoada,
+// Iniciar Voo, Impacto de Pouso e as Garras Dracônicas (via
+// ensureRacePassivas, que é idempotente).
+// Ao DESATIVAR: remove a Armadura/Elmo Dracônicos e devolve as Habilidades de
+// Classe e Armas/Instrumentos guardadas; syncFormaDragaoLock (chamado dentro
+// de ensureRacePassivas) remove o Sopro/Iniciar Voo/Impacto/Garras de novo.
 function setFormaDragao(p, active) {
-  p.formaDragao = !!active;
+  const estava = !!p.formaDragao;
+  const vaiFicar = !!active;
+  if (estava === vaiFicar) { p.formaDragao = vaiFicar; ensureRacePassivas(p); return; }
+
+  if (!Array.isArray(p.skills)) p.skills = [];
+  if (!Array.isArray(p.inventario)) p.inventario = [];
+
+  if (vaiFicar) {
+    // Entrando na Forma de Dragão: guarda e remove Habilidades de Classe e
+    // Armas/Instrumentos, e concede a Armadura/Elmo Dracônicos.
+    // Exceção — "Espectro Dracônico" (passiva liberada no Nível 3): a partir
+    // daí, as Habilidades de Classe continuam disponíveis na Forma de
+    // Dragão, então não são removidas (só as Armas/Instrumentos, que viram
+    // as Garras Dracônicas normalmente).
+    const temEspectroDraconico = p.race === 'Dragão' && (p.level || 1) >= 3;
+    const skillsClasse = temEspectroDraconico ? [] : p.skills.filter(sk => isHabilidadeDeClasse(p, sk));
+    const armasInstrumentos = p.inventario.filter(it => it.tipo === 'arma' || it.tipo === 'instrumento');
+    const protecaoEquipadaIds = p.inventario
+      .filter(it => it.tipo === 'protecao' && it.equipado && (it.subtipo === 'armadura' || it.subtipo === 'elmo'))
+      .map(it => it.id);
+    p.formaDragaoBackup = {
+      skills: JSON.parse(JSON.stringify(skillsClasse)),
+      inventario: JSON.parse(JSON.stringify(armasInstrumentos)),
+      protecaoEquipadaIds,
+    };
+    if (!temEspectroDraconico) {
+      p.skills = p.skills.filter(sk => !isHabilidadeDeClasse(p, sk));
+    }
+    p.inventario = p.inventario.filter(it => !(it.tipo === 'arma' || it.tipo === 'instrumento'));
+
+    // Desequipa qualquer Armadura/Elmo normal antes de equipar os Dracônicos
+    // (só 1 equipado por subtipo, mesma regra do resto do app).
+    p.inventario.forEach(it => {
+      if (it.tipo === 'protecao' && (it.subtipo === 'armadura' || it.subtipo === 'elmo')) it.equipado = false;
+    });
+
+    p.inventario.push({
+      id: 'inv_dragao_armadura_' + p.id, tipo: 'protecao', subtipo: 'armadura', peso: 'encantada',
+      name: 'Armadura Dracônica', valor: valorArmaduraDraconica(p), preco: 0, equipado: true,
+      efeito: 'Armadura natural da Forma de Dragão (7 + Nível de Armadura). Enquanto equipada, sua Armadura nunca pode ser reduzida para menos de 5.',
+      dragaoForma: true,
+    });
+    p.inventario.push({
+      id: 'inv_dragao_elmo_' + p.id, tipo: 'protecao', subtipo: 'elmo', peso: 'encantada',
+      name: 'Elmo Dracônico', valor: valorElmoDraconico(p), preco: 0, equipado: true,
+      efeito: 'Elmo natural da Forma de Dragão (5 + Nível de Armadura). Enquanto equipado, seu Elmo nunca pode ser reduzido para menos de 5.',
+      dragaoForma: true,
+    });
+    if ((p.armadura || 0) < 5) p.armadura = 5;
+    if ((p.elmo || 0) < 5) p.elmo = 5;
+  } else {
+    // Saindo da Forma de Dragão: remove Armadura/Elmo Dracônicos e devolve
+    // as Habilidades de Classe e Armas/Instrumentos guardadas.
+    p.inventario = p.inventario.filter(it => !it.dragaoForma);
+    const backup = p.formaDragaoBackup || { skills: [], inventario: [], protecaoEquipadaIds: [] };
+    (backup.skills || []).forEach(sk => { if (!p.skills.some(s => s.id === sk.id)) p.skills.push(sk); });
+    (backup.inventario || []).forEach(it => { if (!p.inventario.some(i => i.id === it.id)) p.inventario.push(it); });
+    (backup.protecaoEquipadaIds || []).forEach(id => {
+      const it = p.inventario.find(i => i.id === id);
+      if (it) it.equipado = true;
+    });
+    p.formaDragaoBackup = null;
+  }
+
+  p.formaDragao = vaiFicar;
   ensureRacePassivas(p);
+  recomputeProtMax(p);
 }
 
 // ═══════════════════════════════════════
@@ -4947,9 +5049,21 @@ function restaurarArmaduraAntiMagia(id) {
   saveState(); renderAll();
 }
 
+// Armadura/Elmo Dracônicos: enquanto equipados, a Armadura/Elmo do
+// personagem nunca pode ser reduzida abaixo de 5 (mas ainda pode ser
+// recuperada normalmente, e o teto continua sendo o Máximo de cada um).
+function temArmaduraDraconicaEquipada(p) {
+  return (p.inventario || []).some(it => it.dragaoForma && it.subtipo === 'armadura' && it.equipado);
+}
+function temElmoDraconicoEquipado(p) {
+  return (p.inventario || []).some(it => it.dragaoForma && it.subtipo === 'elmo' && it.equipado);
+}
+
 function adjArmadura(id, d) {
   const p = PLAYERS.find(x => x.id === id);
-  if (!p) return; p.armadura = Math.max(0, Math.min(p.armaduraMax || 0, (p.armadura || 0) + d));
+  if (!p) return;
+  const piso = temArmaduraDraconicaEquipada(p) ? 5 : 0;
+  p.armadura = Math.max(piso, Math.min(p.armaduraMax || 0, (p.armadura || 0) + d));
   saveState(); renderAll();
 }
 
@@ -4958,13 +5072,16 @@ function setArmadura(id, val) {
   if (!p) return;
   const v = parseInt(val);
   if (isNaN(v)) { renderAll(); return; }
-  p.armadura = Math.max(0, Math.min(p.armaduraMax || 0, v));
+  const piso = temArmaduraDraconicaEquipada(p) ? 5 : 0;
+  p.armadura = Math.max(piso, Math.min(p.armaduraMax || 0, v));
   saveState(); renderAll();
 }
 
 function adjElmo(id, d) {
   const p = PLAYERS.find(x => x.id === id);
-  if (!p) return; p.elmo = Math.max(0, Math.min(p.elmoMax || 0, (p.elmo || 0) + d));
+  if (!p) return;
+  const piso = temElmoDraconicoEquipado(p) ? 5 : 0;
+  p.elmo = Math.max(piso, Math.min(p.elmoMax || 0, (p.elmo || 0) + d));
   saveState(); renderAll();
 }
 
@@ -4973,7 +5090,8 @@ function setElmo(id, val) {
   if (!p) return;
   const v = parseInt(val);
   if (isNaN(v)) { renderAll(); return; }
-  p.elmo = Math.max(0, Math.min(p.elmoMax || 0, v));
+  const piso = temElmoDraconicoEquipado(p) ? 5 : 0;
+  p.elmo = Math.max(piso, Math.min(p.elmoMax || 0, v));
   saveState(); renderAll();
 }
 
@@ -5088,6 +5206,14 @@ function onLevelUp(p) {
   if (p.race === 'Draenei' && p.origemId === 'draenei_origem_demoniaco') {
     p.passosBase = (p.passosBase || 10) + 1;
     setTimeout(() => rolarInsanidadeOrigemDemoniaca(p.id), 400);
+  }
+  // Dragão: se estiver na Forma de Dragão ao subir de Nível, atualiza o
+  // valor da Armadura/Elmo Dracônicos (escalam com o Nível).
+  if (p.race === 'Dragão' && p.formaDragao && Array.isArray(p.inventario)) {
+    p.inventario.forEach(it => {
+      if (it.id === 'inv_dragao_armadura_' + p.id) it.valor = valorArmaduraDraconica(p);
+      if (it.id === 'inv_dragao_elmo_' + p.id) it.valor = valorElmoDraconico(p);
+    });
   }
 }
 function onLevelDown(p) {
