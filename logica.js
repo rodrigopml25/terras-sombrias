@@ -1936,6 +1936,31 @@ function rolarInsanidadeOrigemDemoniaca(pid) {
   renderAll();
 }
 
+// Draenei (Forjado a Luz): mostra as 3 Bênçãos da Luz (mesmo catálogo do
+// Clérigo, DEUSES_CLERIGO['Luz'].bencaos) pra escolher qual lançar.
+function abrirForjadoLuzModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const bencaos = (DEUSES_CLERIGO['Luz'] && DEUSES_CLERIGO['Luz'].bencaos) || [];
+
+  const opcoesHtml = bencaos.map(b => `<button class="tm-opcao tm-opcao-blue" onclick="fecharCriacaoAnaoModal()" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+    <span class="tm-opcao-nome">✨ ${escHtml(b.name)}</span>
+    <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">${escHtml(b.desc)}</span>
+  </button>`).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:440px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-sun"></i> Forjado a Luz — ${escHtml(p.name)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha qual Bênção da Luz você lança.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
 function abrirOrigemComumModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
@@ -4497,11 +4522,21 @@ function bindCampaign(campaignId) {
     if (data) {
       applyData(data);
     } else {
+      // ATENÇÃO: NÃO escrever de volta no Firebase aqui. Uma leitura vazia
+      // pode ser uma campanha genuinamente nova, MAS também pode ser uma
+      // falha passageira de conexão (ex.: reconectando logo após reiniciar o
+      // navegador) — nesse segundo caso, os dados reais da campanha ainda
+      // existem no servidor. Como dataRef.set() é uma sobrescrita TOTAL e
+      // destrutiva, escrever aqui apagaria a campanha inteira (foi
+      // exatamente esse bug que zerou os personagens de uma campanha real).
+      // Em vez disso, só preenche o estado LOCAL com o padrão vazio; se for
+      // mesmo uma campanha nova, o primeiro saveState() real (ex.: ao
+      // adicionar um personagem) já cria os dados no Firebase. Se os dados
+      // reais existirem, o listener abaixo (dataRef.on) os traz assim que a
+      // sincronização se estabilizar, sem nada ter sido perdido.
       PLAYERS = JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
       turnGlobal = 1; INITIATIVE = []; turnoAtualId = null; combatAtivo = false;
       notes = {geral:'', missão:'', inimigos:'', locais:''};
-      lastWrittenJSON = JSON.stringify(snapshotState());
-      dataRef.set(snapshotState());
     }
     firebaseOnline = true;
     setSyncStatus('on');
@@ -4687,6 +4722,15 @@ function useSkill(pid, skid) {
   // Teste de Emoção — pergunta qual rolar, em vez de decidir sozinho.
   if (sk.id === 'sk_geral_teste_mental') {
     abrirTesteMentalModal(pid);
+    return;
+  }
+
+  // "Forjado a Luz" (origem racial Draenei): mostra as Bênçãos da Luz (mesmo
+  // catálogo do Clérigo, ver DEUSES_CLERIGO['Luz'].bencaos) pra escolher qual
+  // lançar. É só referência/narrativa — o custo de Ação e o uso já foram
+  // aplicados acima, igual qualquer outra Habilidade.
+  if (sk.id === 'sk_origem_draenei_forjado_luz') {
+    abrirForjadoLuzModal(pid);
     return;
   }
 
