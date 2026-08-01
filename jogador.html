@@ -208,6 +208,15 @@
           </div>
         </div>
 
+        <!-- Tipo de proteção (Armadura/Elmo) — decide o catálogo abaixo, por isso aparece antes dele -->
+        <div class="form-row" id="inv-sec-protecao-sub" style="display:none">
+          <label class="form-label">Tipo de proteção</label>
+          <div class="inv-tipo-group">
+            <button class="inv-subtipo-btn active" data-sub="armadura" onclick="invSelectSub('armadura')">🛡 Armadura</button>
+            <button class="inv-subtipo-btn"        data-sub="elmo"     onclick="invSelectSub('elmo')">⛑ Elmo</button>
+          </div>
+        </div>
+
         <!-- Catálogo de itens pré-definidos -->
         <div class="form-row" id="inv-sec-catalogo">
           <label class="form-label">Catálogo <span style="font-size:10px;color:var(--text3)">(opcional — escolha um item pronto ou preencha manualmente abaixo)</span></label>
@@ -291,13 +300,6 @@
 
         <!-- Seção: PROTEÇÃO -->
         <div id="inv-sec-protecao" style="display:none">
-          <div class="form-row">
-            <label class="form-label">Tipo de proteção</label>
-            <div class="inv-tipo-group">
-              <button class="inv-subtipo-btn active" data-sub="armadura" onclick="invSelectSub('armadura')">🛡 Armadura</button>
-              <button class="inv-subtipo-btn"        data-sub="elmo"     onclick="invSelectSub('elmo')">⛑ Elmo</button>
-            </div>
-          </div>
           <div class="form-row">
             <label class="form-label">Peso / Categoria</label>
             <div class="inv-peso-group">
