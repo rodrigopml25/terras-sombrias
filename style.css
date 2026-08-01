@@ -994,6 +994,7 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .modal.editmode .modal-step[data-step="9"] { display: none !important; }
 .modal.editmode .modal-step .step-nav { display: none; }
 .modal.editmode .modal-step[data-step="4"] .modal-btns { display: flex; }
+.modal.editmode #c-btn-back-step4 { display: none; }
 .modal.editmode #c-creation-level-container { display: none; }
 
 .color-picker { display: flex; gap: 6px; margin-top: 4px; }
