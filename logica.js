@@ -9898,12 +9898,16 @@ function saveCharacter() {
 document.addEventListener('DOMContentLoaded', () => {
   const overlay = document.getElementById('modal-overlay');
   if(overlay) overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
-  const charOverlay = document.getElementById('modal-char-overlay');
-  if(charOverlay) charOverlay.addEventListener('click', e => { if (e.target === charOverlay) closeCharModal(); });
+  // O modal de Criação/Edição de Personagem (o "wizard") NÃO fecha ao
+  // clicar fora dele — vários usuários reclamaram de perder o progresso
+  // (várias etapas preenchidas) ao clicar sem querer na área escura ao
+  // redor. Ele só fecha pelos botões "Cancelar" de cada passo.
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeModal(); closeCharModal(); }
+  // Mesmo motivo acima: Esc não fecha o wizard de Personagem, só o modal
+  // genérico (itens, habilidades, etc.), pra evitar perda de progresso.
+  if (e.key === 'Escape') { closeModal(); }
 });
 
 // ═══════════════════════════════════════
