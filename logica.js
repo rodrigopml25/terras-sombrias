@@ -1978,6 +1978,48 @@ function abrirForjadoLuzModal(pid) {
   overlay.classList.add('open');
 }
 
+// "Adaptação do Espaço" (Draenei): possui +3 de Vantagem fixo em 1 Teste
+// (nunca Emoção). Usar troca qual Teste recebe o bônus — limpa o "+3" do
+// Teste anterior (p.adaptacaoTesteId) e aplica no novo escolhido.
+function abrirAdaptacaoEspacoModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  getTestePersonagem(p);
+
+  const opcoesHtml = TESTES_LISTA.filter(t => t.id !== 'emocao').map(t => {
+    const atual = p.adaptacaoTesteId === t.id;
+    return `<button class="tm-opcao tm-opcao-blue" onclick="escolherAdaptacaoEspaco(${p.id},'${t.id}')">
+      <span class="tm-opcao-nome">${escHtml(t.name)}</span>
+      ${atual ? `<span class="tm-opcao-info">atual</span>` : ''}
+    </button>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-target-arrow"></i> Adaptação do Espaço</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha em qual Teste ficam os +3 de Vantagem.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherAdaptacaoEspaco(pid, testeId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || testeId === 'emocao') return;
+  // Não mexe em p.testes[...].bonus — os +3 são aplicados como um termo à
+  // parte na rolagem (ver construirRolagemTeste), então qualquer Bônus
+  // manual que o jogador já tenha configurado (ex: -1d2) se mantém intacto.
+  p.adaptacaoTesteId = testeId;
+
+  fecharCriacaoAnaoModal();
+  saveState();
+  renderAll();
+}
+
 function abrirOrigemComumModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
@@ -4822,6 +4864,12 @@ function useSkill(pid, skid) {
 
   if (!isReady(sk, p)) return;
 
+  // "Adaptação do Espaço" (Draenei): não pode ser usada durante uma Luta.
+  if (sk.id === 'sk_racial_draenei_adaptacao' && combatAtivo) {
+    alert('Adaptação do Espaço não pode ser usada durante uma Luta.');
+    return;
+  }
+
   // Ações do turno: habilidades com custo (0/1/2 ações) descontam do saldo
   // atual do personagem. Sem saldo suficiente, a ativação é bloqueada.
   const custo = sk.cost || 0;
@@ -4874,6 +4922,13 @@ function useSkill(pid, skid) {
   // aplicados acima, igual qualquer outra Habilidade.
   if (sk.id === 'sk_origem_draenei_forjado_luz') {
     abrirForjadoLuzModal(pid);
+    return;
+  }
+
+  // "Adaptação do Espaço" (Draenei): abre o seletor de Teste (nunca Emoção)
+  // pra escolher em qual Teste ficam os +3 de Vantagem fixos.
+  if (sk.id === 'sk_racial_draenei_adaptacao') {
+    abrirAdaptacaoEspacoModal(pid);
     return;
   }
 
@@ -5665,6 +5720,7 @@ function renderTestes(p, readonly) {
       const def  = TESTES_LISTA.find(t => t.id === tid);
       const t    = p.testes[tid];
       const hasMV = t.mv, hasMD = t.md, hasBonus = t.bonus && t.bonus.trim();
+      const hasAdaptacao = p.adaptacaoTesteId === tid;
 
       if (readonly) {
         // Narrador: chip estilizado igual às habilidades
@@ -5672,6 +5728,7 @@ function renderTestes(p, readonly) {
         if (hasMV)    badges.push(`<span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)">MV</span>`);
         if (hasMD)    badges.push(`<span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)">MD</span>`);
         if (hasBonus) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)">${t.bonus}</span>`);
+        if (hasAdaptacao) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>`);
         const hasConfig = badges.length > 0;
         return `<div class="skill-chip sc-${g.cor}">
           <button class="teste-roll-btn" onclick="event.stopPropagation();rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name}"><i class="ti ti-dice"></i></button>
@@ -5684,7 +5741,7 @@ function renderTestes(p, readonly) {
       // Jogador: editável
       return `<div class="teste-row">
         <button class="teste-roll-btn" onclick="rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name} (${tid === 'emocao' ? '1d100 − insanidade' : tid === 'devocao' ? '1d100 − (20×pecado)' : '1d20' + (mst ? '+' + mst + ' maestria' : '')})"><i class="ti ti-dice"></i></button>
-        <span class="teste-nome">${def.name}</span>
+        <span class="teste-nome">${def.name}${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}</span>
         <div class="teste-ctrl">
           <button class="teste-mv-btn ${hasMV ? 'ativo' : ''}" onclick="setTesteMV(${p.id},'${tid}',${!hasMV})" title="Mega Vantagem">MV</button>
           <button class="teste-md-btn ${hasMD ? 'ativo' : ''}" onclick="setTesteMD(${p.id},'${tid}',${!hasMD})" title="Mega Desvantagem">MD</button>
@@ -11057,6 +11114,13 @@ function construirRolagemTeste(p, testeId) {
   if (mst) {
     terms.push({ sign: '+', node: { type: 'labeled_const', value: mst, label: 'maestria' } });
     total += mst;
+  }
+
+  // "Adaptação do Espaço" (Draenei): +3 fixo no Teste escolhido — é um termo
+  // à parte, nunca mexe no Bônus manual configurado pelo jogador.
+  if (p.adaptacaoTesteId === testeId && testeId !== 'emocao') {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: 3, label: 'Adaptação' } });
+    total += 3;
   }
 
   // Teste de Emoção: subtrai a Insanidade atual do personagem (0-100)
