@@ -2716,6 +2716,23 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .dice-char { font-size: 12px; color: var(--text2); font-weight: 400; }
 .dice-time { margin-left: auto; font-size: 11px; color: var(--text3); }
 
+.dice-del-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.dice-del-btn:hover { background: rgba(224,90,90,0.15); color: #e05a5a; }
+
 .dice-entry-label { font-size: 12.5px; color: var(--text2); margin-bottom: 5px; font-style: italic; }
 
 .dice-entry-mid { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
