@@ -11162,6 +11162,22 @@ function revelarRolagem(key) {
   }
 }
 
+// Narrador exclui uma rolagem individual do histórico (ex: alguém errou a
+// rolagem ou clicou sem querer). Some do chat de dados para todo mundo,
+// diferente de limparChatDados() que apaga a mesa inteira.
+function excluirRolagem(key) {
+  if (!IS_NARRADOR) return;
+  if (!confirm('Excluir esta rolagem do histórico?')) return;
+  if (firebaseConfigured && activeCampaignId && activeCampaignId !== 'local') {
+    firebase.database().ref('campaigns/' + activeCampaignId + '/rolls/' + key).remove();
+  } else {
+    DICE_ROLLS = DICE_ROLLS.filter(r => r.key !== key);
+    renderedEntryKeys.delete(key);
+    justRevealedKeys.delete(key);
+    renderDiceFeed();
+  }
+}
+
 function formatDiceTime(ts) {
   if (!ts) return '';
   const d = new Date(ts);
@@ -11200,10 +11216,12 @@ function renderRollEntry(r, isNew) {
   // Ainda rolando: mostra o dado girando, sem revelar o resultado ainda.
   // (para fórmulas, r.sides é undefined — cai no ícone/animação genéricos)
   if (r.rolling) {
+    const delBtnRolling = IS_NARRADOR ? `<button class="dice-del-btn" onclick="excluirRolagem('${r.key}')" title="Excluir rolagem"><i class="ti ti-trash"></i></button>` : '';
     return `<div class="dice-entry dice-entry-rolling ${r.isNarrator ? 'dice-entry-nar' : ''}${newCls}">
       <div class="dice-entry-top">
         <span class="dice-who ${r.isNarrator ? 'dice-who-nar' : ''}">${escHtml(who)}${charTag}</span>
         <span class="dice-time">${timeStr}</span>
+        ${delBtnRolling}
       </div>
       ${labelHtml}
       <div class="dice-entry-mid">
@@ -11217,6 +11235,9 @@ function renderRollEntry(r, isNew) {
   const hiddenBadge = r.hidden ? `<span class="dice-badge-oculta">oculta p/ jogadores</span>` : '';
   const revealBtn = (r.hidden && IS_NARRADOR)
     ? `<button class="dice-reveal-btn" onclick="revelarRolagem('${r.key}')"><i class="ti ti-eye"></i> Revelar para os jogadores</button>`
+    : '';
+  const delBtn = IS_NARRADOR
+    ? `<button class="dice-del-btn" onclick="excluirRolagem('${r.key}')" title="Excluir rolagem"><i class="ti ti-trash"></i></button>`
     : '';
   const justRevealed = justRevealedKeys.has(r.key);
   if (justRevealed) justRevealedKeys.delete(r.key);
@@ -11234,6 +11255,7 @@ function renderRollEntry(r, isNew) {
     <div class="dice-entry-top">
       <span class="dice-who ${r.isNarrator ? 'dice-who-nar' : ''}">${escHtml(who)}${charTag}</span>
       <span class="dice-time">${timeStr}</span>
+      ${delBtn}
     </div>
     ${labelHtml}
     <div class="dice-entry-mid">
