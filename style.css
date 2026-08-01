@@ -990,6 +990,8 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .modal.editmode .modal-step[data-step="5"] { display: none !important; }
 .modal.editmode .modal-step[data-step="6"] { display: none !important; }
 .modal.editmode .modal-step[data-step="7"] { display: none !important; }
+.modal.editmode .modal-step[data-step="8"] { display: none !important; }
+.modal.editmode .modal-step[data-step="9"] { display: none !important; }
 .modal.editmode .modal-step .step-nav { display: none; }
 .modal.editmode .modal-step[data-step="4"] .modal-btns { display: flex; }
 .modal.editmode #c-creation-level-container { display: none; }
