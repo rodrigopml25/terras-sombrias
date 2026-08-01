@@ -4859,14 +4859,7 @@ function useSkill(pid, skid) {
   if (testeVinculado) rolarTeste(pid, testeVinculado);
 }
 
-// Reset de recursos de turno: incrementa o contador global (turnGlobal),
-// devolve as Ações de todos os Jogadores, recarrega habilidades "Por Turno"
-// e reduz 1 turno de recarga das habilidades "turno_N" (liberando-as quando
-// zerarem). É o "coração" da passagem de turno — chamado tanto pelo botão
-// "Próximo Turno" do cabeçalho (uso manual, fora de combate) quanto
-// automaticamente pelo avancarTurno() quando uma rodada de iniciativa se
-// completa (ver unificação abaixo).
-function aplicarResetDeTurno() {
+function nextTurnGlobal() {
   turnGlobal++;
   PLAYERS.forEach(p => {
     p.acoesAtuais = p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
@@ -4880,13 +4873,6 @@ function aplicarResetDeTurno() {
     // Usos de Arma ("Usar Nx") com escopo "Por Turno"
     resetUsosArmaPorEscopo(p, ['turno']);
   });
-}
-
-// Botão "Próximo Turno" do cabeçalho do Narrador — avança o turno global
-// manualmente, sem depender da ordem de iniciativa (útil fora de combate,
-// ou para forçar um reset de recursos a qualquer momento).
-function nextTurnGlobal() {
-  aplicarResetDeTurno();
   saveState();
   renderAll();
 }
@@ -8223,30 +8209,13 @@ function rolarIniciativaJogador(pid) {
 }
 
 // Avança/retrocede quem age agora, seguindo a ordem por maior iniciativa.
-// Unificado com a passagem de turno global: ao avançar (dir=1) e a ordem
-// "dar a volta" — ou seja, o próximo a agir é de novo o primeiro da lista,
-// fechando uma rodada completa — dispara automaticamente o mesmo reset do
-// botão "Próximo Turno" (turnGlobal++, ações e recargas de todos). Assim
-// não é preciso clicar nos dois botões separadamente durante o combate.
-// Retroceder (dir=-1) nunca dispara o reset, só corrige quem está na vez.
 function avancarTurno(dir) {
   const ordem = ordemIniciativa();
   if (!ordem.length) return;
   let idx = ordem.findIndex(e => e.id === turnoAtualId);
-  const idxAnterior = idx; // -1 = ninguém estava com o turno ainda (começo do combate)
   if (idx === -1) idx = dir > 0 ? -1 : 0;
   idx = (idx + dir + ordem.length) % ordem.length;
   turnoAtualId = ordem[idx].id;
-
-  // Nova rodada: só conta quando já havia alguém com o turno (idxAnterior
-  // !== -1, senão seria o primeiro "Próximo" do combate) e avançamos para
-  // frente "voltando" ao início da lista (idx <= idxAnterior).
-  const novaRodada = dir > 0 && idxAnterior !== -1 && idx <= idxAnterior;
-  if (novaRodada) {
-    aplicarResetDeTurno();
-    showRodadaToast();
-  }
-
   saveState();
   renderAll();
 }
@@ -8358,7 +8327,7 @@ function renderInit() {
     </div>
     <div class="init-btns">
       <button class="btn" onclick="avancarTurno(-1)"><i class="ti ti-chevron-left"></i> Anterior</button>
-      <button class="btn" onclick="avancarTurno(1)" title="Ao completar a volta na ordem, reseta ações e recargas de todos automaticamente">Próximo <i class="ti ti-chevron-right"></i></button>
+      <button class="btn" onclick="avancarTurno(1)">Próximo <i class="ti ti-chevron-right"></i></button>
     </div>
     <button class="btn btn-danger" style="width:100%;margin-top:8px" onclick="encerrarCombate()"><i class="ti ti-x"></i> Encerrar Combate</button>`;
   restaurarFocoIniciativa(el, foco);
@@ -9909,29 +9878,6 @@ function showLevelUpToast(p) {
   setTimeout(() => el.remove(), 4700);
 }
 
-// Toast rápido pro Narrador quando a iniciativa fecha uma rodada completa e
-// os recursos (ações, recargas "Por Turno" e turno_N) são resetados sozinhos.
-function showRodadaToast() {
-  if (IS_JOGADOR) return; // só faz sentido avisar no lado do Narrador
-  let wrap = document.getElementById('toast-wrap');
-  if (!wrap) {
-    wrap = document.createElement('div');
-    wrap.id = 'toast-wrap';
-    wrap.className = 'toast-wrap';
-    document.body.appendChild(wrap);
-  }
-  const el = document.createElement('div');
-  el.className = 'toast-rodada';
-  el.innerHTML = `
-    <div class="toast-icon">🔄</div>
-    <div class="toast-body">
-      <div class="toast-title">Turno ${turnGlobal}</div>
-      <div class="toast-sub">Rodada completa — ações e recargas resetadas.</div>
-    </div>`;
-  wrap.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-}
-
 // Compara o nível atual dos personagens do jogador com o último nível visto
 // e dispara o toast quando detecta um aumento — não importa se a subida veio
 // de um clique do próprio jogador (+XP) ou de uma sincronização vinda do
@@ -10510,6 +10456,82 @@ function initDiceWidget() {
   document.body.appendChild(panel);
 
   renderDiceFeed();
+  makeDicePanelDraggable(panel);
+}
+
+// Deixa o painel de dados arrastável pelo cabeçalho (menos os botões de
+// ação, que continuam clicáveis normalmente). A posição é salva no
+// localStorage do próprio navegador — cada pessoa move pro lugar que
+// preferir, sem afetar ninguém mais (não é sincronizado com a campanha).
+const DICE_PANEL_POS_KEY = 'dice_panel_pos';
+
+function makeDicePanelDraggable(panel) {
+  const header = panel.querySelector('.dice-panel-header');
+  if (!header) return;
+
+  // Aplica uma posição salva, se existir.
+  try {
+    const saved = JSON.parse(localStorage.getItem(DICE_PANEL_POS_KEY) || 'null');
+    if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
+      aplicarPosicaoPainelDados(panel, saved.left, saved.top);
+    }
+  } catch (e) { /* posição salva inválida — ignora e usa o padrão */ }
+
+  let arrastando = false;
+  let offsetX = 0, offsetY = 0;
+
+  function pontoDoEvento(e) {
+    return e.touches ? e.touches[0] : e;
+  }
+
+  function iniciar(e) {
+    if (e.target.closest('.dice-panel-actions')) return; // não arrasta clicando nos botões
+    arrastando = true;
+    const pt = pontoDoEvento(e);
+    const rect = panel.getBoundingClientRect();
+    offsetX = pt.clientX - rect.left;
+    offsetY = pt.clientY - rect.top;
+    header.classList.add('dragging');
+    e.preventDefault();
+  }
+
+  function mover(e) {
+    if (!arrastando) return;
+    const pt = pontoDoEvento(e);
+    aplicarPosicaoPainelDados(panel, pt.clientX - offsetX, pt.clientY - offsetY);
+  }
+
+  function soltar() {
+    if (!arrastando) return;
+    arrastando = false;
+    header.classList.remove('dragging');
+    const rect = panel.getBoundingClientRect();
+    try {
+      localStorage.setItem(DICE_PANEL_POS_KEY, JSON.stringify({ left: rect.left, top: rect.top }));
+    } catch (e) { /* localStorage indisponível — só não salva a posição */ }
+  }
+
+  header.addEventListener('mousedown', iniciar);
+  header.addEventListener('touchstart', iniciar, { passive: false });
+  window.addEventListener('mousemove', mover);
+  window.addEventListener('touchmove', mover, { passive: false });
+  window.addEventListener('mouseup', soltar);
+  window.addEventListener('touchend', soltar);
+}
+
+// Move o painel pra (left, top), sempre mantendo ele dentro da tela, e troca
+// o posicionamento de right/bottom (padrão) pra left/top (arrastado).
+function aplicarPosicaoPainelDados(panel, left, top) {
+  const largura = panel.offsetWidth || 380;
+  const altura = panel.offsetHeight || 400;
+  const maxLeft = Math.max(0, window.innerWidth - largura);
+  const maxTop = Math.max(0, window.innerHeight - altura);
+  const leftClamp = Math.min(Math.max(0, left), maxLeft);
+  const topClamp = Math.min(Math.max(0, top), maxTop);
+  panel.style.left = leftClamp + 'px';
+  panel.style.top = topClamp + 'px';
+  panel.style.right = 'auto';
+  panel.style.bottom = 'auto';
 }
 
 // Alterna entre a aba de Histórico (feed grande, fácil de ler) e a aba de
