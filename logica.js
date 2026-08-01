@@ -3713,6 +3713,19 @@ function setFormaDragao(p, active) {
     });
     if ((p.armadura || 0) < 5) p.armadura = 5;
     if ((p.elmo || 0) < 5) p.elmo = 5;
+
+    // Passos ficam congelados no valor de antes de se transformar (a Forma
+    // de Dragão não recalcula Passos pela Armadura/Elmo Dracônicos — ver
+    // recomputeProtMax, que pula o recálculo enquanto p.formaDragao=true).
+    p.formaDragaoBackup.passosAntes = p.passos;
+
+    // Mega Desvantagem em Desviar, sempre que estiver na Forma de Dragão —
+    // guarda o estado anterior do Teste de Desviar (mv/md) pra restaurar ao
+    // voltar à forma normal.
+    getTestePersonagem(p);
+    p.formaDragaoBackup.desviarMvMd = { mv: p.testes.desviar.mv, md: p.testes.desviar.md };
+    p.testes.desviar.mv = false;
+    p.testes.desviar.md = true;
   } else {
     // Saindo da Forma de Dragão: remove Armadura/Elmo Dracônicos e devolve
     // as Habilidades de Classe e Armas/Instrumentos guardadas.
@@ -3724,6 +3737,11 @@ function setFormaDragao(p, active) {
       const it = p.inventario.find(i => i.id === id);
       if (it) it.equipado = true;
     });
+    // Restaura o Teste de Desviar (mv/md) de antes da transformação.
+    getTestePersonagem(p);
+    const desviarAntes = backup.desviarMvMd || { mv: false, md: false };
+    p.testes.desviar.mv = desviarAntes.mv;
+    p.testes.desviar.md = desviarAntes.md;
     p.formaDragaoBackup = null;
   }
 
@@ -5169,7 +5187,10 @@ function recomputeProtMax(p) {
   // Passos: proteções equipadas podem ter uma penalidade de Passos (ex.: armaduras
   // mais pesadas reduzem o deslocamento). p.passosBase guarda o valor original do
   // personagem (definido na ficha); p.passos é sempre recalculado a partir dele.
+  // Exceção: na Forma de Dragão, os Passos ficam CONGELADOS no valor de antes
+  // de se transformar (ver setFormaDragao) — não recalcula aqui.
   if (typeof p.passosBase !== 'number') p.passosBase = typeof p.passos === 'number' ? p.passos : 10;
+  if (p.race === 'Dragão' && p.formaDragao) return;
   const equipadas = p.inventario.filter(i => i.tipo === 'protecao' && i.equipado);
   const penalidadeTotal = equipadas.reduce((acc, i) => acc + (Number(i.passosPenalidade) || 0), 0);
   // Aprimoramento de Armadura "Ligeirinho": +maestria de Agilidade/2 (arredondado
