@@ -1987,7 +1987,7 @@ function abrirAdaptacaoEspacoModal(pid) {
   if (!overlay || !p) return;
   getTestePersonagem(p);
 
-  const opcoesHtml = TESTES_LISTA.filter(t => t.id !== 'emocao').map(t => {
+  const opcoesHtml = TESTES_LISTA.filter(t => !['emocao', 'iniciativa', 'devocao'].includes(t.id)).map(t => {
     const atual = p.adaptacaoTesteId === t.id;
     return `<button class="tm-opcao tm-opcao-blue" onclick="escolherAdaptacaoEspaco(${p.id},'${t.id}')">
       <span class="tm-opcao-nome">${escHtml(t.name)}</span>
@@ -2009,11 +2009,12 @@ function abrirAdaptacaoEspacoModal(pid) {
 
 function escolherAdaptacaoEspaco(pid, testeId) {
   const p = PLAYERS.find(x => x.id === pid);
-  if (!p || testeId === 'emocao') return;
+  if (!p || ['emocao', 'iniciativa', 'devocao'].includes(testeId)) return;
   // Não mexe em p.testes[...].bonus — os +3 são aplicados como um termo à
   // parte na rolagem (ver construirRolagemTeste), então qualquer Bônus
   // manual que o jogador já tenha configurado (ex: -1d2) se mantém intacto.
   p.adaptacaoTesteId = testeId;
+  p.adaptacaoPrimeiraEscolhaPendente = false;
 
   fecharCriacaoAnaoModal();
   saveState();
@@ -5418,8 +5419,11 @@ function renderNarrador() {
         const recarregarBtn = podeRecarregar
           ? `<button class="chip-reload-btn" onclick="event.stopPropagation();recarregarHabilidadeNarrador(${p.id},'${sk.id}')" title="Recarregar agora"><i class="ti ti-reload"></i></button>`
           : '';
+        const adaptacaoPendenteBtn = (sk.id === 'sk_racial_draenei_adaptacao' && p.adaptacaoPrimeiraEscolhaPendente)
+          ? `<button class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd);cursor:pointer" onclick="event.stopPropagation();abrirAdaptacaoEspacoModal(${p.id})">Escolher Teste Inicial</button>`
+          : '';
         return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}${recarregarBtn}
+          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}${recarregarBtn}${adaptacaoPendenteBtn}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
@@ -5983,6 +5987,7 @@ function renderJogador() {
         </div>
         ${renderEfeitoSecundarioHtml(p, sk)}
         ${renderCorromperHtml(p.id + '-' + sk.id, sk)}
+        ${sk.id === 'sk_racial_draenei_adaptacao' && p.adaptacaoPrimeiraEscolhaPendente ? `<div style="margin-bottom:10px"><button class="btn" style="font-size:12px;padding:5px 12px" onclick="event.stopPropagation();abrirAdaptacaoEspacoModal(${p.id})">Escolher Teste Inicial</button></div>` : ''}
         <div class="sk-bottom">
           <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>
             Usar
@@ -9927,6 +9932,13 @@ function saveCharacter() {
       }
     }
     recomputeProtMax(novo);
+    // "Adaptação do Espaço" (Draenei): a primeira escolha de qual Teste
+    // recebe os +3 deve aparecer logo após a criação, sem gastar uma das 3
+    // trocas por sessão (ver botão "Escolher Teste Inicial" no card da
+    // Habilidade, que chama abrirAdaptacaoEspacoModal diretamente).
+    if (novo.race === 'Draenei' && novo.skills.some(sk => sk.id === 'sk_racial_draenei_adaptacao')) {
+      novo.adaptacaoPrimeiraEscolhaPendente = true;
+    }
     PLAYERS.push(novo);
     modalCharId = newId;
   }
@@ -11118,7 +11130,7 @@ function construirRolagemTeste(p, testeId) {
 
   // "Adaptação do Espaço" (Draenei): +3 fixo no Teste escolhido — é um termo
   // à parte, nunca mexe no Bônus manual configurado pelo jogador.
-  if (p.adaptacaoTesteId === testeId && testeId !== 'emocao') {
+  if (p.adaptacaoTesteId === testeId && !['emocao', 'iniciativa', 'devocao'].includes(testeId)) {
     terms.push({ sign: '+', node: { type: 'labeled_const', value: 3, label: 'Adaptação' } });
     total += 3;
   }
