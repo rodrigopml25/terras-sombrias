@@ -7105,6 +7105,8 @@ function _updateInvModalSections(tipo) {
   document.getElementById('inv-sec-instrumento').style.display  = tipo === 'instrumento' ? '' : 'none';
   document.getElementById('inv-sec-alcance').style.display      = ehArmaOuInstrumento     ? '' : 'none';
   document.getElementById('inv-sec-protecao').style.display     = tipo === 'protecao'    ? '' : 'none';
+  const secProtecaoSub = document.getElementById('inv-sec-protecao-sub');
+  if (secProtecaoSub) secProtecaoSub.style.display = tipo === 'protecao' ? '' : 'none';
   document.getElementById('inv-sec-item').style.display         = tipo === 'item'        ? '' : 'none';
 
   // Preço (dinheiro): disponível para armas, instrumentos e proteções (não para item genérico)
