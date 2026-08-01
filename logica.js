@@ -4859,7 +4859,14 @@ function useSkill(pid, skid) {
   if (testeVinculado) rolarTeste(pid, testeVinculado);
 }
 
-function nextTurnGlobal() {
+// Reset de recursos de turno: incrementa o contador global (turnGlobal),
+// devolve as Ações de todos os Jogadores, recarrega habilidades "Por Turno"
+// e reduz 1 turno de recarga das habilidades "turno_N" (liberando-as quando
+// zerarem). É o "coração" da passagem de turno — chamado tanto pelo botão
+// "Próximo Turno" do cabeçalho (uso manual, fora de combate) quanto
+// automaticamente pelo avancarTurno() quando uma rodada de iniciativa se
+// completa (ver unificação abaixo).
+function aplicarResetDeTurno() {
   turnGlobal++;
   PLAYERS.forEach(p => {
     p.acoesAtuais = p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
@@ -4873,6 +4880,13 @@ function nextTurnGlobal() {
     // Usos de Arma ("Usar Nx") com escopo "Por Turno"
     resetUsosArmaPorEscopo(p, ['turno']);
   });
+}
+
+// Botão "Próximo Turno" do cabeçalho do Narrador — avança o turno global
+// manualmente, sem depender da ordem de iniciativa (útil fora de combate,
+// ou para forçar um reset de recursos a qualquer momento).
+function nextTurnGlobal() {
+  aplicarResetDeTurno();
   saveState();
   renderAll();
 }
@@ -8209,13 +8223,30 @@ function rolarIniciativaJogador(pid) {
 }
 
 // Avança/retrocede quem age agora, seguindo a ordem por maior iniciativa.
+// Unificado com a passagem de turno global: ao avançar (dir=1) e a ordem
+// "dar a volta" — ou seja, o próximo a agir é de novo o primeiro da lista,
+// fechando uma rodada completa — dispara automaticamente o mesmo reset do
+// botão "Próximo Turno" (turnGlobal++, ações e recargas de todos). Assim
+// não é preciso clicar nos dois botões separadamente durante o combate.
+// Retroceder (dir=-1) nunca dispara o reset, só corrige quem está na vez.
 function avancarTurno(dir) {
   const ordem = ordemIniciativa();
   if (!ordem.length) return;
   let idx = ordem.findIndex(e => e.id === turnoAtualId);
+  const idxAnterior = idx; // -1 = ninguém estava com o turno ainda (começo do combate)
   if (idx === -1) idx = dir > 0 ? -1 : 0;
   idx = (idx + dir + ordem.length) % ordem.length;
   turnoAtualId = ordem[idx].id;
+
+  // Nova rodada: só conta quando já havia alguém com o turno (idxAnterior
+  // !== -1, senão seria o primeiro "Próximo" do combate) e avançamos para
+  // frente "voltando" ao início da lista (idx <= idxAnterior).
+  const novaRodada = dir > 0 && idxAnterior !== -1 && idx <= idxAnterior;
+  if (novaRodada) {
+    aplicarResetDeTurno();
+    showRodadaToast();
+  }
+
   saveState();
   renderAll();
 }
@@ -8327,7 +8358,7 @@ function renderInit() {
     </div>
     <div class="init-btns">
       <button class="btn" onclick="avancarTurno(-1)"><i class="ti ti-chevron-left"></i> Anterior</button>
-      <button class="btn" onclick="avancarTurno(1)">Próximo <i class="ti ti-chevron-right"></i></button>
+      <button class="btn" onclick="avancarTurno(1)" title="Ao completar a volta na ordem, reseta ações e recargas de todos automaticamente">Próximo <i class="ti ti-chevron-right"></i></button>
     </div>
     <button class="btn btn-danger" style="width:100%;margin-top:8px" onclick="encerrarCombate()"><i class="ti ti-x"></i> Encerrar Combate</button>`;
   restaurarFocoIniciativa(el, foco);
@@ -9876,6 +9907,29 @@ function showLevelUpToast(p) {
     </div>`;
   wrap.appendChild(el);
   setTimeout(() => el.remove(), 4700);
+}
+
+// Toast rápido pro Narrador quando a iniciativa fecha uma rodada completa e
+// os recursos (ações, recargas "Por Turno" e turno_N) são resetados sozinhos.
+function showRodadaToast() {
+  if (IS_JOGADOR) return; // só faz sentido avisar no lado do Narrador
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap';
+    wrap.className = 'toast-wrap';
+    document.body.appendChild(wrap);
+  }
+  const el = document.createElement('div');
+  el.className = 'toast-rodada';
+  el.innerHTML = `
+    <div class="toast-icon">🔄</div>
+    <div class="toast-body">
+      <div class="toast-title">Turno ${turnGlobal}</div>
+      <div class="toast-sub">Rodada completa — ações e recargas resetadas.</div>
+    </div>`;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
 }
 
 // Compara o nível atual dos personagens do jogador com o último nível visto
