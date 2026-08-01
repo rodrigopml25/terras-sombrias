@@ -2014,7 +2014,6 @@ function escolherAdaptacaoEspaco(pid, testeId) {
   // parte na rolagem (ver construirRolagemTeste), então qualquer Bônus
   // manual que o jogador já tenha configurado (ex: -1d2) se mantém intacto.
   p.adaptacaoTesteId = testeId;
-  p.adaptacaoPrimeiraEscolhaPendente = false;
 
   fecharCriacaoAnaoModal();
   saveState();
@@ -5419,11 +5418,8 @@ function renderNarrador() {
         const recarregarBtn = podeRecarregar
           ? `<button class="chip-reload-btn" onclick="event.stopPropagation();recarregarHabilidadeNarrador(${p.id},'${sk.id}')" title="Recarregar agora"><i class="ti ti-reload"></i></button>`
           : '';
-        const adaptacaoPendenteBtn = (sk.id === 'sk_racial_draenei_adaptacao' && p.adaptacaoPrimeiraEscolhaPendente)
-          ? `<button class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd);cursor:pointer" onclick="event.stopPropagation();abrirAdaptacaoEspacoModal(${p.id})">Escolher Teste Inicial</button>`
-          : '';
         return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}${recarregarBtn}${adaptacaoPendenteBtn}
+          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}${recarregarBtn}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
@@ -5987,7 +5983,6 @@ function renderJogador() {
         </div>
         ${renderEfeitoSecundarioHtml(p, sk)}
         ${renderCorromperHtml(p.id + '-' + sk.id, sk)}
-        ${sk.id === 'sk_racial_draenei_adaptacao' && p.adaptacaoPrimeiraEscolhaPendente ? `<div style="margin-bottom:10px"><button class="btn" style="font-size:12px;padding:5px 12px" onclick="event.stopPropagation();abrirAdaptacaoEspacoModal(${p.id})">Escolher Teste Inicial</button></div>` : ''}
         <div class="sk-bottom">
           <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>
             Usar
@@ -9932,15 +9927,14 @@ function saveCharacter() {
       }
     }
     recomputeProtMax(novo);
-    // "Adaptação do Espaço" (Draenei): a primeira escolha de qual Teste
-    // recebe os +3 deve aparecer logo após a criação, sem gastar uma das 3
-    // trocas por sessão (ver botão "Escolher Teste Inicial" no card da
-    // Habilidade, que chama abrirAdaptacaoEspacoModal diretamente).
-    if (novo.race === 'Draenei' && novo.skills.some(sk => sk.id === 'sk_racial_draenei_adaptacao')) {
-      novo.adaptacaoPrimeiraEscolhaPendente = true;
-    }
     PLAYERS.push(novo);
     modalCharId = newId;
+    // "Adaptação do Espaço" (Draenei): abre o seletor de Teste direto, sem
+    // precisar clicar em nada, assim que o personagem termina de ser criado.
+    // Pequeno atraso pra deixar o modal do wizard fechar primeiro.
+    if (novo.race === 'Draenei' && novo.skills.some(sk => sk.id === 'sk_racial_draenei_adaptacao')) {
+      setTimeout(() => abrirAdaptacaoEspacoModal(novo.id), 300);
+    }
   }
 
   wizardSkillsEscolhidas = [];
