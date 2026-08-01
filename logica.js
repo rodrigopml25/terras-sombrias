@@ -4784,6 +4784,29 @@ const SKILL_TESTE_LINK = {
   'sk_classe_clerigo_teste_devocao': 'devocao',
 };
 
+// Narrador recarrega manualmente uma Habilidade de um Jogador, a qualquer
+// momento — útil pra corrigir um engano, compensar algo da narrativa, ou só
+// dar uma folga pro grupo. Restaura os usos ao máximo e zera a recarga
+// pendente ("turno_N"). Habilidades "infinite" (sempre livres) e "notas"
+// (Campos Harmônicos do Bardo, que dependem das 7 Notas ativas) não têm o
+// que recarregar manualmente, então não fazem nada aqui.
+function recarregarHabilidadeNarrador(pid, skid) {
+  if (!IS_NARRADOR) return;
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skid);
+  if (!sk) return;
+  if (sk.tipo === 'turno_N') {
+    sk.cdRestante = 0;
+    sk.usosAtuais = sk.usosMax;
+  } else if (sk.tipo === 'luta' || sk.tipo === 'sessao' || sk.tipo === 'perturn') {
+    sk.usosAtuais = sk.usosMax;
+  } else {
+    return;
+  }
+  saveState();
+  renderAll();
+}
+
 function useSkill(pid, skid) {
   const p = PLAYERS.find(x => x.id === pid);
   const sk = p && p.skills.find(s => s.id === skid);
@@ -5336,8 +5359,12 @@ function renderNarrador() {
         const efeitoSecTxt = getEfeitoSecundarioTextoPlano(p, sk);
         const efeitoSecIcone = (sk.efeitoSecundario && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo] && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo].icone) || '✨';
         const efeitoSecBadge = efeitoSecTxt ? `<span class="chip-badge" style="background:rgba(124,92,191,0.25);color:#b89aff;border-color:rgba(155,125,224,0.45)">${efeitoSecIcone}</span>` : '';
+        const podeRecarregar = !ready && ['turno_N','luta','sessao','perturn'].includes(sk.tipo);
+        const recarregarBtn = podeRecarregar
+          ? `<button class="chip-reload-btn" onclick="event.stopPropagation();recarregarHabilidadeNarrador(${p.id},'${sk.id}')" title="Recarregar agora"><i class="ti ti-reload"></i></button>`
+          : '';
         return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}
+          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}${recarregarBtn}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
