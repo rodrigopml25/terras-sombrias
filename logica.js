@@ -2020,6 +2020,53 @@ function escolherAdaptacaoEspaco(pid, testeId) {
   renderAll();
 }
 
+// "Decréptico" (Elfo): escolhe 2 Testes de Intelecto — um recebe +1 de
+// Vantagem, o outro +3 (termos à parte na rolagem, iguais à Adaptação do
+// Espaço). A -2 de Desvantagem em Resistir é fixa e automática (ver
+// construirRolagemTeste), não depende de escolha nenhuma.
+function abrirDecrepticoModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const testesIntel = TESTES_LISTA.filter(t => t.attr === 'intel');
+
+  const opcoesHtml = testesIntel.map(t => {
+    const is1 = p.decrepticoTeste1 === t.id;
+    const is3 = p.decrepticoTeste2 === t.id;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)">
+      <span style="flex:1;font-size:13px;color:var(--text)">${escHtml(t.name)}</span>
+      <button class="btn" style="font-size:11px;padding:4px 10px;${is1 ? 'background:var(--accent);color:#fff' : ''}" onclick="event.stopPropagation();escolherDecreptico(${p.id},'${t.id}','um')">+1</button>
+      <button class="btn" style="font-size:11px;padding:4px 10px;${is3 ? 'background:var(--accent);color:#fff' : ''}" onclick="event.stopPropagation();escolherDecreptico(${p.id},'${t.id}','tres')">+3</button>
+    </div>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-brain"></i> Decréptico</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha 2 Testes de Intelecto: um recebe +1 de Vantagem, o outro +3.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherDecreptico(pid, testeId, papel) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (papel === 'um') {
+    if (p.decrepticoTeste2 === testeId) p.decrepticoTeste2 = null;
+    p.decrepticoTeste1 = testeId;
+  } else {
+    if (p.decrepticoTeste1 === testeId) p.decrepticoTeste1 = null;
+    p.decrepticoTeste2 = testeId;
+  }
+  saveState();
+  renderAll();
+  abrirDecrepticoModal(pid);
+}
+
 function abrirOrigemComumModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
@@ -5443,7 +5490,7 @@ function renderNarrador() {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -5729,6 +5776,8 @@ function renderTestes(p, readonly) {
         if (hasMD)    badges.push(`<span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)">MD</span>`);
         if (hasBonus) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)">${t.bonus}</span>`);
         if (hasAdaptacao) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>`);
+        if (p.decrepticoTeste1 === tid) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>`);
+        if (p.decrepticoTeste2 === tid) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>`);
         const hasConfig = badges.length > 0;
         return `<div class="skill-chip sc-${g.cor}">
           <button class="teste-roll-btn" onclick="event.stopPropagation();rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name}"><i class="ti ti-dice"></i></button>
@@ -5741,7 +5790,7 @@ function renderTestes(p, readonly) {
       // Jogador: editável
       return `<div class="teste-row">
         <button class="teste-roll-btn" onclick="rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name} (${tid === 'emocao' ? '1d100 − insanidade' : tid === 'devocao' ? '1d100 − (20×pecado)' : '1d20' + (mst ? '+' + mst + ' maestria' : '')})"><i class="ti ti-dice"></i></button>
-        <span class="teste-nome">${def.name}${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}</span>
+        <span class="teste-nome">${def.name}${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}</span>
         <div class="teste-ctrl">
           <button class="teste-mv-btn ${hasMV ? 'ativo' : ''}" onclick="setTesteMV(${p.id},'${tid}',${!hasMV})" title="Mega Vantagem">MV</button>
           <button class="teste-md-btn ${hasMD ? 'ativo' : ''}" onclick="setTesteMD(${p.id},'${tid}',${!hasMD})" title="Mega Desvantagem">MD</button>
@@ -6028,6 +6077,7 @@ function renderJogador() {
       ${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:6px">✓ Já usada</div>` : `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}
       ${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}
       ${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}
+      ${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}
     </div>`;
   }).join('');
 
@@ -9935,6 +9985,11 @@ function saveCharacter() {
     if (novo.race === 'Draenei' && novo.skills.some(sk => sk.id === 'sk_racial_draenei_adaptacao')) {
       setTimeout(() => abrirAdaptacaoEspacoModal(novo.id), 300);
     }
+    // "Decréptico" (Elfo): mesma lógica — abre o seletor dos 2 Testes de
+    // Intelecto direto, assim que o personagem termina de ser criado.
+    if (novo.race === 'Elfo' && (novo.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) {
+      setTimeout(() => abrirDecrepticoModal(novo.id), 300);
+    }
   }
 
   wizardSkillsEscolhidas = [];
@@ -11127,6 +11182,21 @@ function construirRolagemTeste(p, testeId) {
   if (p.adaptacaoTesteId === testeId && !['emocao', 'iniciativa', 'devocao'].includes(testeId)) {
     terms.push({ sign: '+', node: { type: 'labeled_const', value: 3, label: 'Adaptação' } });
     total += 3;
+  }
+
+  // "Decréptico" (Elfo): +1/+3 de Vantagem nos 2 Testes de Intelecto
+  // escolhidos, e -2 de Desvantagem fixa em Resistir (não depende de escolha).
+  if (p.decrepticoTeste1 === testeId) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: 1, label: 'Decréptico' } });
+    total += 1;
+  }
+  if (p.decrepticoTeste2 === testeId) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: 3, label: 'Decréptico' } });
+    total += 3;
+  }
+  if (testeId === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) {
+    terms.push({ sign: '-', node: { type: 'labeled_const', value: 2, label: 'Decréptico' } });
+    total -= 2;
   }
 
   // Teste de Emoção: subtrai a Insanidade atual do personagem (0-100)
