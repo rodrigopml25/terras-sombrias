@@ -10577,6 +10577,41 @@ const DICE_POLY = {
 // Ícone do dado no estilo "badge": forma preenchida com a cor do tipo e,
 // opcionalmente, o número do resultado desenhado dentro da forma.
 // Sem `number`, mostra a forma "vazia" (usado durante a animação de rolagem).
+// Acerto Crítico / Erro Crítico: destaque visual (sem efeito mecânico) quando
+// um d20 mostra 20 ou 1 natural — vale pra qualquer rolagem de d20 (Testes,
+// Ataques, rolagens manuais). Só se aplica a dados de 20 lados; em qualquer
+// outro tipo de dado (d6, d8, mega-dados de dano etc.) não faz nada.
+function diceCritClass(sides, value) {
+  if (sides !== 20) return '';
+  if (value === 20) return ' dice-badge-crit';
+  if (value === 1) return ' dice-badge-fumble';
+  return '';
+}
+
+// Varre uma rolagem inteira (simples ou fórmula com termos) procurando por
+// algum d20 que caiu 20 ou 1 natural, pra mostrar a etiqueta de Crítico /
+// Falha Crítica perto do total. Não tem efeito mecânico nenhum.
+function rollCritInfo(r) {
+  let hasCrit = false, hasFumble = false;
+  function walk(node) {
+    if (!node) return;
+    if (node.type === 'dice' && node.sides === 20) {
+      (node.results || []).forEach(v => { if (v === 20) hasCrit = true; if (v === 1) hasFumble = true; });
+      if (node.countNode) walk(node.countNode);
+    } else if (node.type === 'megaroll' && node.sides === 20) {
+      [node.d1, node.d2].forEach(v => { if (v === 20) hasCrit = true; if (v === 1) hasFumble = true; });
+    } else if (node.type === 'sum') {
+      node.terms.forEach(t => walk(t.node));
+    }
+  }
+  if (r.tree) {
+    walk(r.tree);
+  } else if (r.sides === 20 && Array.isArray(r.results)) {
+    r.results.forEach(v => { if (v === 20) hasCrit = true; if (v === 1) hasFumble = true; });
+  }
+  return { hasCrit, hasFumble };
+}
+
 function diceShapeSVG(sides, number) {
   const color = DICE_COLORS[sides] || DICE_COLORS[20];
   const label = (number != null) ? String(number) : '';
@@ -11021,7 +11056,7 @@ function renderDiceNode(node) {
     const badges = vals.map(v => {
       const isKept = !keptUsed && v === node.kept;
       if (isKept) keptUsed = true;
-      return `<span class="dice-badge ${isKept ? 'dice-badge-kept' : 'dice-badge-dropped'}">${diceShapeSVG(node.sides, v)}</span>`;
+      return `<span class="dice-badge ${isKept ? 'dice-badge-kept' : 'dice-badge-dropped'}${diceCritClass(node.sides, v)}">${diceShapeSVG(node.sides, v)}</span>`;
     }).join('');
     const modeLabel = node.mode === 'mv' ? 'mega vantagem — mantém o maior' : 'mega desvantagem — mantém o menor';
     return `<span class="dice-term"><span class="dice-badges-inline">${badges}</span><span class="dice-mega-label" title="${modeLabel}">${node.mode === 'mv' ? 'MV' : 'MD'}</span></span>`;
@@ -11030,7 +11065,7 @@ function renderDiceNode(node) {
     const nestedHtml = node.countNode
       ? `<span class="dice-nested">${renderDiceNode(node.countNode)}<span class="dice-arrow">→</span></span>`
       : '';
-    const badges = node.results.map(v => `<span class="dice-badge">${diceShapeSVG(node.sides, v)}</span>`).join('');
+    const badges = node.results.map(v => `<span class="dice-badge${diceCritClass(node.sides, v)}">${diceShapeSVG(node.sides, v)}</span>`).join('');
     return `<span class="dice-term">${nestedHtml}<span class="dice-badges-inline">${badges}</span></span>`;
   }
   if (node.type === 'sum') {
@@ -11419,10 +11454,15 @@ function renderRollEntry(r, isNew) {
   const badgesHtml = isFormula
     ? `<div class="dice-formula-tree">${renderDiceNode(r.tree)}</div>`
     : (() => {
-        const badges = r.results.map(v => `<span class="dice-badge">${diceShapeSVG(r.sides, v)}</span>`).join('');
+        const badges = r.results.map(v => `<span class="dice-badge${diceCritClass(r.sides, v)}">${diceShapeSVG(r.sides, v)}</span>`).join('');
         const modHtml = r.mod ? `<span class="dice-mod-txt">${r.mod > 0 ? '+' + r.mod : r.mod}</span>` : '';
         return `<div class="dice-badges-row">${badges}${modHtml}</div>`;
       })();
+
+  const critInfo = rollCritInfo(r);
+  const critTagHtml = critInfo.hasCrit
+    ? `<span class="dice-crit-tag">🎯 Crítico!</span>`
+    : (critInfo.hasFumble ? `<span class="dice-fumble-tag">💀 Falha Crítica!</span>` : '');
 
   return `<div class="dice-entry ${r.isNarrator ? 'dice-entry-nar' : ''}${newCls}">
     <div class="dice-entry-top">
@@ -11436,7 +11476,7 @@ function renderRollEntry(r, isNew) {
       ${hiddenBadge}
     </div>
     ${badgesHtml}
-    <div class="dice-entry-total${popCls}">${r.total}</div>
+    <div class="dice-entry-total${popCls}">${r.total}${critTagHtml}</div>
     ${revealBtn}
   </div>`;
 }
@@ -11504,11 +11544,16 @@ function renderLastRoll() {
   const badgesHtml = isFormula
     ? `<div class="dice-formula-tree">${renderDiceNode(r.tree)}</div>`
     : (() => {
-        const badges = r.results.map(v => `<span class="dice-badge">${diceShapeSVG(r.sides, v)}</span>`).join('');
+        const badges = r.results.map(v => `<span class="dice-badge${diceCritClass(r.sides, v)}">${diceShapeSVG(r.sides, v)}</span>`).join('');
         const modHtml = r.mod ? `<span class="dice-mod-txt">${r.mod > 0 ? '+' + r.mod : r.mod}</span>` : '';
         return `<div class="dice-badges-row">${badges}${modHtml}</div>`;
       })();
   const hiddenBadge = r.hidden ? `<span class="dice-badge-oculta">oculta p/ jogadores</span>` : '';
+
+  const critInfoLast = rollCritInfo(r);
+  const critTagHtmlLast = critInfoLast.hasCrit
+    ? `<span class="dice-crit-tag">🎯 Crítico!</span>`
+    : (critInfoLast.hasFumble ? `<span class="dice-fumble-tag">💀 Falha Crítica!</span>` : '');
 
   box.innerHTML = `
     <div class="dice-last-roll-label">Seu último lançamento <span class="dice-time">${timeStr}</span></div>
@@ -11519,6 +11564,6 @@ function renderLastRoll() {
       </div>
       ${labelHtml}
       ${badgesHtml}
-      <div class="dice-entry-total">${r.total}</div>
+      <div class="dice-entry-total">${r.total}${critTagHtmlLast}</div>
     </div>`;
 }
