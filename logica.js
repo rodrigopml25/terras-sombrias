@@ -2081,17 +2081,9 @@ function abrirOrigemSangrentaSkillModal(pid, className) {
   const classeObj = CLASSES.find(c => c.name === className);
   if (!overlay || !p || !classeObj) return;
 
-  const secoesHtml = classeObj.subs.map(sub => {
-    const itensSub = BANCO_HABILIDADES_SUBCLASSE[sub.name] || [];
-    const opcoesSub = itensSub.map(item => `<button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();confirmarOrigemSangrenta(${p.id},'${className}','${sub.name}','${item.id}')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
-      <span class="tm-opcao-nome">${escHtml(item.name)}</span>
-      <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">${escHtml(item.desc)}</span>
-    </button>`).join('');
-    return `<div style="margin-bottom:12px">
-      <div style="font-size:11.5px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;padding-left:2px">${escHtml(sub.name)}</div>
-      <div style="display:flex;flex-direction:column;gap:6px">${opcoesSub}</div>
-    </div>`;
-  }).join('');
+  origemSangrentaPid = pid;
+  origemSangrentaClasseAtiva = className;
+  origemSangrentaTabAtiva = classeObj.subs[0] ? classeObj.subs[0].name : null;
 
   overlay.innerHTML = `
     <div class="modal" style="max-width:460px" onclick="event.stopPropagation()">
@@ -2099,10 +2091,49 @@ function abrirOrigemSangrentaSkillModal(pid, className) {
       <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
         Escolha a Habilidade. Ao confirmar, ${escHtml(className)} fica travada pra sempre.
       </div>
-      <div style="max-height:400px;overflow-y:auto">${secoesHtml}</div>
+      <div class="banco-tabs" id="os-tabs"></div>
+      <div id="os-lista" style="max-height:360px;overflow-y:auto"></div>
       <button class="tm-cancelar" style="margin-top:10px" onclick="abrirOrigemSangrentaModal(${p.id})">Voltar</button>
     </div>`;
   overlay.classList.add('open');
+  renderOrigemSangrentaSkillModal();
+}
+
+// Troca a aba (subclasse) ativa dentro do modal de Origem Sangrenta, sem
+// fechar/reabrir — mesmo padrão de abas do Banco de Habilidades.
+function trocarAbaOrigemSangrenta(subNome) {
+  origemSangrentaTabAtiva = subNome;
+  renderOrigemSangrentaSkillModal();
+}
+
+// Repinta as abas (uma por subclasse de ${className}) e a lista de
+// Habilidades da aba ativa. Antes essas Habilidades ficavam todas
+// empilhadas numa lista corrida só (uma seção por subclasse, sem separação
+// visual de verdade); agora cada subclasse é uma aba própria, igual ao
+// Banco de Habilidades normal.
+function renderOrigemSangrentaSkillModal() {
+  const p = PLAYERS.find(x => x.id === origemSangrentaPid);
+  const classeObj = CLASSES.find(c => c.name === origemSangrentaClasseAtiva);
+  const tabsEl = document.getElementById('os-tabs');
+  const lista = document.getElementById('os-lista');
+  if (!p || !classeObj || !tabsEl || !lista) return;
+
+  if (!origemSangrentaTabAtiva || !classeObj.subs.some(s => s.name === origemSangrentaTabAtiva)) {
+    origemSangrentaTabAtiva = classeObj.subs[0] ? classeObj.subs[0].name : null;
+  }
+
+  tabsEl.innerHTML = classeObj.subs.map(sub => {
+    const ativa = sub.name === origemSangrentaTabAtiva;
+    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaOrigemSangrenta('${sub.name}')">${sub.name}</button>`;
+  }).join('');
+
+  const itensSub = BANCO_HABILIDADES_SUBCLASSE[origemSangrentaTabAtiva] || [];
+  lista.innerHTML = itensSub.length
+    ? `<div style="display:flex;flex-direction:column;gap:6px">${itensSub.map(item => `<button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();confirmarOrigemSangrenta(${p.id},'${origemSangrentaClasseAtiva}','${origemSangrentaTabAtiva}','${item.id}')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+        <span class="tm-opcao-nome">${escHtml(item.name)}</span>
+        <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">${escHtml(item.desc)}</span>
+      </button>`).join('')}</div>`
+    : `<div style="font-size:12px;color:var(--text3);padding:10px 0">Nenhuma Habilidade cadastrada ainda para ${escHtml(origemSangrentaTabAtiva || '')}.</div>`;
 }
 
 function confirmarOrigemSangrenta(pid, className, subclasseOrigem, bancoId) {
@@ -8784,6 +8815,9 @@ function closeModal() {
 // ═══════════════════════════════════════
 let bancoPid = null;
 let bancoTabAtiva = null;
+let origemSangrentaPid = null;
+let origemSangrentaClasseAtiva = null;
+let origemSangrentaTabAtiva = null;
 
 function openBancoModal(pid) {
   bancoPid = pid;
