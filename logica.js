@@ -1981,6 +1981,28 @@ function abrirForjadoLuzModal(pid) {
 // "Adaptação do Espaço" (Draenei): possui +3 de Vantagem fixo em 1 Teste
 // (nunca Emoção). Usar troca qual Teste recebe o bônus — limpa o "+3" do
 // Teste anterior (p.adaptacaoTesteId) e aplica no novo escolhido.
+// Abre o próximo seletor racial pendente do personagem (só 1 de cada vez,
+// pra não competir pelo mesmo overlay — ver comentário na criação do
+// personagem). Ordem: Adaptação do Espaço → Decréptico → Origem Sangrenta.
+// Chamada tanto na criação do personagem quanto ao fechar/concluir cada um
+// desses seletores, encadeando pro próximo.
+function abrirProximoSeletorRacial(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (p.race === 'Draenei' && (p.skills || []).some(sk => sk.id === 'sk_racial_draenei_adaptacao') && !p.adaptacaoTesteId) {
+    abrirAdaptacaoEspacoModal(pid);
+    return;
+  }
+  if (p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico') && !(p.decrepticoTeste1 && p.decrepticoTeste2)) {
+    abrirDecrepticoModal(pid);
+    return;
+  }
+  if (p.origemId === 'elfo_origem_sangrento' && !p.origemSangrentaUsado) {
+    abrirOrigemSangrentaModal(pid);
+    return;
+  }
+}
+
 function abrirAdaptacaoEspacoModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
@@ -2018,6 +2040,7 @@ function escolherAdaptacaoEspaco(pid, testeId) {
   fecharCriacaoAnaoModal();
   saveState();
   renderAll();
+  abrirProximoSeletorRacial(pid);
 }
 
 // "Decréptico" (Elfo): escolhe 2 Testes de Intelecto — um recebe +1 de
@@ -2058,17 +2081,17 @@ function abrirOrigemSangrentaSkillModal(pid, className) {
   const classeObj = CLASSES.find(c => c.name === className);
   if (!overlay || !p || !classeObj) return;
 
-  const itens = [];
-  classeObj.subs.forEach(sub => {
-    (BANCO_HABILIDADES_SUBCLASSE[sub.name] || []).forEach(item => {
-      itens.push({ ...item, subclasseOrigem: sub.name });
-    });
-  });
-
-  const opcoesHtml = itens.map(item => `<button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();confirmarOrigemSangrenta(${p.id},'${className}','${item.subclasseOrigem}','${item.id}')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
-    <span class="tm-opcao-nome">${escHtml(item.name)} <span style="font-size:10.5px;color:var(--text3);font-weight:400">— ${escHtml(item.subclasseOrigem)}</span></span>
-    <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">${escHtml(item.desc)}</span>
-  </button>`).join('');
+  const secoesHtml = classeObj.subs.map(sub => {
+    const itensSub = BANCO_HABILIDADES_SUBCLASSE[sub.name] || [];
+    const opcoesSub = itensSub.map(item => `<button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();confirmarOrigemSangrenta(${p.id},'${className}','${sub.name}','${item.id}')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+      <span class="tm-opcao-nome">${escHtml(item.name)}</span>
+      <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">${escHtml(item.desc)}</span>
+    </button>`).join('');
+    return `<div style="margin-bottom:12px">
+      <div style="font-size:11.5px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;padding-left:2px">${escHtml(sub.name)}</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesSub}</div>
+    </div>`;
+  }).join('');
 
   overlay.innerHTML = `
     <div class="modal" style="max-width:460px" onclick="event.stopPropagation()">
@@ -2076,7 +2099,7 @@ function abrirOrigemSangrentaSkillModal(pid, className) {
       <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
         Escolha a Habilidade. Ao confirmar, ${escHtml(className)} fica travada pra sempre.
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto">${opcoesHtml}</div>
+      <div style="max-height:400px;overflow-y:auto">${secoesHtml}</div>
       <button class="tm-cancelar" style="margin-top:10px" onclick="abrirOrigemSangrentaModal(${p.id})">Voltar</button>
     </div>`;
   overlay.classList.add('open');
@@ -2099,6 +2122,7 @@ function confirmarOrigemSangrenta(pid, className, subclasseOrigem, bancoId) {
   fecharCriacaoAnaoModal();
   saveState();
   renderAll();
+  abrirProximoSeletorRacial(pid);
 }
 
 function abrirDecrepticoModal(pid) {
@@ -2124,7 +2148,7 @@ function abrirDecrepticoModal(pid) {
         Escolha 2 Testes de Intelecto: um recebe +1 de Vantagem, o outro +3.
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">${opcoesHtml}</div>
-      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal();abrirProximoSeletorRacial(${p.id})">Fechar</button>
     </div>`;
   overlay.classList.add('open');
 }
@@ -10082,23 +10106,14 @@ function saveCharacter() {
     recomputeProtMax(novo);
     PLAYERS.push(novo);
     modalCharId = newId;
-    // "Adaptação do Espaço" (Draenei): abre o seletor de Teste direto, sem
-    // precisar clicar em nada, assim que o personagem termina de ser criado.
-    // Pequeno atraso pra deixar o modal do wizard fechar primeiro.
-    if (novo.race === 'Draenei' && novo.skills.some(sk => sk.id === 'sk_racial_draenei_adaptacao')) {
-      setTimeout(() => abrirAdaptacaoEspacoModal(novo.id), 300);
-    }
-    // "Decréptico" (Elfo): mesma lógica — abre o seletor dos 2 Testes de
-    // Intelecto direto, assim que o personagem termina de ser criado.
-    if (novo.race === 'Elfo' && (novo.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) {
-      setTimeout(() => abrirDecrepticoModal(novo.id), 300);
-    }
-    // "Origem Sangrenta" (Elfo Sangrento): abre o seletor de Classe+Habilidade
-    // direto — precisa ser resolvido antes de qualquer escolha de outra
-    // Classe pela Aprendizagem Élfica (ver getBancoHabilidades).
-    if (novo.origemId === 'elfo_origem_sangrento' && !novo.origemSangrentaUsado) {
-      setTimeout(() => abrirOrigemSangrentaModal(novo.id), 300);
-    }
+    // Seletores raciais que abrem sozinhos após a criação (Adaptação do
+    // Espaço, Decréptico, Origem Sangrenta): antes cada um tinha seu próprio
+    // setTimeout mirando o MESMO overlay, então quando um personagem tinha
+    // mais de um, o último a disparar sobrescrevia os outros e só ele
+    // aparecia. Agora só dispara UM de cada vez, em ordem — ver
+    // abrirProximoSeletorRacial, que também é chamado ao fechar cada um
+    // desses seletores, encadeando pro próximo pendente.
+    setTimeout(() => abrirProximoSeletorRacial(novo.id), 300);
   }
 
   wizardSkillsEscolhidas = [];
