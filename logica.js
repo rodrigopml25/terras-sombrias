@@ -10599,7 +10599,10 @@ function rollCritInfo(r) {
       (node.results || []).forEach(v => { if (v === node.sides) hasCrit = true; if (v === 1) hasFumble = true; });
       if (node.countNode) walk(node.countNode);
     } else if (node.type === 'megaroll' && (node.sides === 20 || node.sides === 100)) {
-      [node.d1, node.d2].forEach(v => { if (v === node.sides) hasCrit = true; if (v === 1) hasFumble = true; });
+      // Mega Vantagem/Desvantagem: só o dado MANTIDO conta pra Crítico/Falha
+      // Crítica — o descartado não vale, mesmo que tenha caído 1 ou no máximo.
+      if (node.kept === node.sides) hasCrit = true;
+      if (node.kept === 1) hasFumble = true;
     } else if (node.type === 'sum') {
       node.terms.forEach(t => walk(t.node));
     }
