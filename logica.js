@@ -2024,6 +2024,83 @@ function escolherAdaptacaoEspaco(pid, testeId) {
 // Vantagem, o outro +3 (termos à parte na rolagem, iguais à Adaptação do
 // Espaço). A -2 de Desvantagem em Resistir é fixa e automática (ver
 // construirRolagemTeste), não depende de escolha nenhuma.
+// "Origem Sangrenta" (Elfo Sangrento): escolhe 1 Habilidade de outra Classe
+// (de graça, sem contar na cota da Aprendizagem Élfica) e trava essa Classe
+// pra sempre — nunca mais pode escolher Habilidade dela (nem pela cota
+// normal de outra Classe). Passo 1: escolhe a Classe; Passo 2: escolhe a
+// Habilidade específica dentro dela.
+function abrirOrigemSangrentaModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  if (p.origemSangrentaUsado) { alert('Origem Sangrenta já foi usada por este personagem.'); return; }
+
+  const classesElegiveis = CLASSES.filter(c => c.name !== p.classeBase);
+  const opcoesHtml = classesElegiveis.map(c => `<button class="tm-opcao tm-opcao-blue" onclick="abrirOrigemSangrentaSkillModal(${p.id},'${c.name}')">
+    <span class="tm-opcao-nome">${escHtml(c.name)}</span>
+  </button>`).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-droplet"></i> Origem Sangrenta</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha de qual Classe você aprende 1 Habilidade de graça. Depois disso, você nunca mais poderá escolher Habilidades dessa Classe.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function abrirOrigemSangrentaSkillModal(pid, className) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  const classeObj = CLASSES.find(c => c.name === className);
+  if (!overlay || !p || !classeObj) return;
+
+  const itens = [];
+  classeObj.subs.forEach(sub => {
+    (BANCO_HABILIDADES_SUBCLASSE[sub.name] || []).forEach(item => {
+      itens.push({ ...item, subclasseOrigem: sub.name });
+    });
+  });
+
+  const opcoesHtml = itens.map(item => `<button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();confirmarOrigemSangrenta(${p.id},'${className}','${item.subclasseOrigem}','${item.id}')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+    <span class="tm-opcao-nome">${escHtml(item.name)} <span style="font-size:10.5px;color:var(--text3);font-weight:400">— ${escHtml(item.subclasseOrigem)}</span></span>
+    <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">${escHtml(item.desc)}</span>
+  </button>`).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:460px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-droplet"></i> Origem Sangrenta — ${escHtml(className)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha a Habilidade. Ao confirmar, ${escHtml(className)} fica travada pra sempre.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="abrirOrigemSangrentaModal(${p.id})">Voltar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function confirmarOrigemSangrenta(pid, className, subclasseOrigem, bancoId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || p.origemSangrentaUsado) return;
+  const item = (BANCO_HABILIDADES_SUBCLASSE[subclasseOrigem] || []).find(i => i.id === bancoId);
+  if (!item) return;
+
+  if (!Array.isArray(p.skills)) p.skills = [];
+  const sk = construirSkillDoBanco(item);
+  sk.origemSangrenta = true; // não conta na cota da Aprendizagem Élfica nem no Banco normal
+  p.skills.push(sk);
+
+  p.origemSangrentaClasseBloqueada = className;
+  p.origemSangrentaUsado = true;
+
+  fecharCriacaoAnaoModal();
+  saveState();
+  renderAll();
+}
+
 function abrirDecrepticoModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
@@ -2870,9 +2947,20 @@ function getBancoHabilidades(p) {
   // - Conjurador (Transcendência Intelectual): só Subclasses baseadas em
   //   Intelecto (attr: 'intel') de outras Classes.
   if (p.race === 'Elfo' || p.cls === 'Conjurador') {
+    // "Origem Sangrenta" (Elfo Sangrento): precisa escolher a Habilidade de
+    // outra Classe (e travar essa Classe) ANTES de poder usar a cota normal
+    // de outra Classe da Aprendizagem Élfica — enquanto isso não acontece,
+    // a lista de outra Classe fica vazia (força a ordem: 1º Habilidades da
+    // própria Classe/Subclasse, 2º Origem Sangrenta, 3º outra Classe livre).
+    const aguardandoOrigemSangrenta = p.origemId === 'elfo_origem_sangrento' && !p.origemSangrentaUsado;
+    if (aguardandoOrigemSangrenta) return itens;
+
     const jaAdicionado = new Set(itens.map(it => it.subclasseOrigem + '::' + it.id));
     CLASSES.forEach(outraCls => {
       if (cls && outraCls.name === cls.name) return;
+      // "Origem Sangrenta" (Elfo Sangrento): a Classe bloqueada nunca mais
+      // pode ser escolhida, nem pela cota normal de outra Classe.
+      if (p.origemSangrentaClasseBloqueada === outraCls.name) return;
       outraCls.subs.forEach(sub => {
         const valeParaElfo = p.race === 'Elfo';
         const valeParaConjurador = p.cls === 'Conjurador' && sub.attr === 'intel';
@@ -2912,7 +3000,7 @@ function contarBancoEscolhas(p) {
   const catalogo = getBancoHabilidades(p);
   let propria = 0, outras = 0;
   (p.skills || []).forEach(sk => {
-    if (!sk.bancoId || sk.bancoOutraClasse) return;
+    if (!sk.bancoId || sk.bancoOutraClasse || sk.origemSangrenta) return;
     const item = catalogo.find(it => it.id === sk.bancoId);
     const origem = item ? item.subclasseOrigem : null;
     if (origem === p.cls) propria++;
@@ -2934,7 +3022,17 @@ function temFonteOutraClasse(p) {
 }
 function getLimiteOutraClasse(p) {
   let limite = 0;
-  if (p.race === 'Elfo') limite += Math.max(1, Math.min(5, p.level || 1));
+  // "Origem Sangrenta": precisa resolver a escolha própria antes de poder
+  // usar a cota normal de outra Classe (ver getBancoHabilidades).
+  if (p.origemId === 'elfo_origem_sangrento' && !p.origemSangrentaUsado) return 0;
+  // Elfo "Aprendizagem Élfica": o texto diz "Ao subir de Nível" — só conta a
+  // partir do Nível 2 (0 no Nível 1, +1 por Nível seguinte, até o Nível 5).
+  // Um personagem CRIADO já num Nível acima do 1 recebe a cota equivalente
+  // de uma vez (ex: criado no Nível 3 → 2 escolhas de outra Classe).
+  if (p.race === 'Elfo') limite += Math.max(0, Math.min(5, p.level || 1) - 1);
+  // Conjurador "Transcendência Intelectual": o texto já concede a primeira
+  // escolha de imediato ("Aprenda um feitiço de outra Classe... Ao subir de
+  // Nível, repita esse efeito") — continua valendo desde o Nível 1.
   if (p.cls === 'Conjurador') limite += Math.max(1, Math.min(4, p.level || 1));
   return limite;
 }
@@ -5490,7 +5588,7 @@ function renderNarrador() {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -6078,6 +6176,7 @@ function renderJogador() {
       ${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}
       ${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}
       ${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}
+      ${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}
     </div>`;
   }).join('');
 
@@ -9863,13 +9962,17 @@ function saveCharacter() {
     }
   } else {
     const newId = PLAYERS.length > 0 ? Math.max(...PLAYERS.map(p => p.id)) + 1 : 1;
+    // "Origem Sangrenta" (Elfo Sangrento): começa o jogo com +200 de Dinheiro.
+    // Só se aplica na criação (aqui, no branch "novo personagem") — reeditar
+    // a ficha depois não deve dar +200 de novo.
+    const dinheiroComOrigem = origemId === 'elfo_origem_sangrento' ? dinheiro + 200 : dinheiro;
     const novo = {
       id: newId, name, race, cls, classeBase, level: editLevel, xp: 0,
       hp: hpMax, hpMax, agi, forca, intel,
       armadura: 0, armaduraMax: 0,
       elmo: 0, elmoMax: 0,
       acoesMax: ACOES_POR_TURNO_PADRAO, acoesAtuais: ACOES_POR_TURNO_PADRAO,
-      passos, passosBase: passos, dinheiro, origemId, deus, trollMaestriaEscolha, skills: [], passivas: [], inventario: [],
+      passos, passosBase: passos, dinheiro: dinheiroComOrigem, origemId, deus, trollMaestriaEscolha, skills: [], passivas: [], inventario: [],
       jogNotas: Object.fromEntries(JOG_NOTA_TAGS.map(t => [t.toLowerCase(), ''])),
       ownerId: currentUser ? currentUser.id : null,
       ownerName: currentUser ? currentUser.name : null
@@ -9989,6 +10092,12 @@ function saveCharacter() {
     // Intelecto direto, assim que o personagem termina de ser criado.
     if (novo.race === 'Elfo' && (novo.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) {
       setTimeout(() => abrirDecrepticoModal(novo.id), 300);
+    }
+    // "Origem Sangrenta" (Elfo Sangrento): abre o seletor de Classe+Habilidade
+    // direto — precisa ser resolvido antes de qualquer escolha de outra
+    // Classe pela Aprendizagem Élfica (ver getBancoHabilidades).
+    if (novo.origemId === 'elfo_origem_sangrento' && !novo.origemSangrentaUsado) {
+      setTimeout(() => abrirOrigemSangrentaModal(novo.id), 300);
     }
   }
 
