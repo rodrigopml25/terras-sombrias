@@ -10581,10 +10581,12 @@ const DICE_POLY = {
 // um d20 mostra 20 ou 1 natural, ou um d100 mostra 100 ou 1 natural — vale
 // pra qualquer rolagem desses dados (Testes, Ataques, rolagens manuais). Em
 // qualquer outro tipo de dado (d6, d8, mega-dados de dano etc.) não faz nada.
-function diceCritClass(sides, value) {
+function diceCritClass(sides, value, critMin, fumbleMax, fumbleImune) {
   if (sides !== 20 && sides !== 100) return '';
-  if (value === sides) return ' dice-badge-crit';
-  if (value === 1) return ' dice-badge-fumble';
+  const cMin = critMin != null ? critMin : sides;
+  const fMax = fumbleMax != null ? fumbleMax : 1;
+  if (value >= cMin) return ' dice-badge-crit';
+  if (!fumbleImune && value <= fMax) return ' dice-badge-fumble';
   return '';
 }
 
@@ -10592,17 +10594,22 @@ function diceCritClass(sides, value) {
 // algum d20 que caiu 20 ou 1 natural, pra mostrar a etiqueta de Crítico /
 // Falha Crítica perto do total. Não tem efeito mecânico nenhum.
 function rollCritInfo(r) {
+  const fumbleImune = !!r.fumbleImune;
   let hasCrit = false, hasFumble = false;
   function walk(node) {
     if (!node) return;
     if (node.type === 'dice' && (node.sides === 20 || node.sides === 100)) {
-      (node.results || []).forEach(v => { if (v === node.sides) hasCrit = true; if (v === 1) hasFumble = true; });
+      const cMin = r.critMin != null ? r.critMin : node.sides;
+      const fMax = r.fumbleMax != null ? r.fumbleMax : 1;
+      (node.results || []).forEach(v => { if (v >= cMin) hasCrit = true; if (!fumbleImune && v <= fMax) hasFumble = true; });
       if (node.countNode) walk(node.countNode);
     } else if (node.type === 'megaroll' && (node.sides === 20 || node.sides === 100)) {
       // Mega Vantagem/Desvantagem: só o dado MANTIDO conta pra Crítico/Falha
       // Crítica — o descartado não vale, mesmo que tenha caído 1 ou no máximo.
-      if (node.kept === node.sides) hasCrit = true;
-      if (node.kept === 1) hasFumble = true;
+      const cMin = r.critMin != null ? r.critMin : node.sides;
+      const fMax = r.fumbleMax != null ? r.fumbleMax : 1;
+      if (node.kept >= cMin) hasCrit = true;
+      if (!fumbleImune && node.kept <= fMax) hasFumble = true;
     } else if (node.type === 'sum') {
       node.terms.forEach(t => walk(t.node));
     }
@@ -10610,7 +10617,9 @@ function rollCritInfo(r) {
   if (r.tree) {
     walk(r.tree);
   } else if ((r.sides === 20 || r.sides === 100) && Array.isArray(r.results)) {
-    r.results.forEach(v => { if (v === r.sides) hasCrit = true; if (v === 1) hasFumble = true; });
+    const cMin = r.critMin != null ? r.critMin : r.sides;
+    const fMax = r.fumbleMax != null ? r.fumbleMax : 1;
+    r.results.forEach(v => { if (v >= cMin) hasCrit = true; if (!fumbleImune && v <= fMax) hasFumble = true; });
   }
   return { hasCrit, hasFumble };
 }
@@ -11044,7 +11053,8 @@ function parseFormula(str) {
 // Desenha (em HTML) a árvore de uma rolagem por fórmula, mostrando cada
 // grupo de dados como badges com o número dentro, e rolagens aninhadas
 // como "grupo → quantidade de dados do próximo grupo".
-function renderDiceNode(node) {
+function renderDiceNode(node, ctx) {
+  ctx = ctx || {};
   if (node.type === 'const') {
     return `<span class="dice-const-txt">${node.value}</span>`;
   }
@@ -11059,16 +11069,16 @@ function renderDiceNode(node) {
     const badges = vals.map(v => {
       const isKept = !keptUsed && v === node.kept;
       if (isKept) keptUsed = true;
-      return `<span class="dice-badge ${isKept ? 'dice-badge-kept' : 'dice-badge-dropped'}${diceCritClass(node.sides, v)}">${diceShapeSVG(node.sides, v)}</span>`;
+      return `<span class="dice-badge ${isKept ? 'dice-badge-kept' : 'dice-badge-dropped'}${diceCritClass(node.sides, v, ctx.critMin, ctx.fumbleMax, ctx.fumbleImune)}">${diceShapeSVG(node.sides, v)}</span>`;
     }).join('');
     const modeLabel = node.mode === 'mv' ? 'mega vantagem — mantém o maior' : 'mega desvantagem — mantém o menor';
     return `<span class="dice-term"><span class="dice-badges-inline">${badges}</span><span class="dice-mega-label" title="${modeLabel}">${node.mode === 'mv' ? 'MV' : 'MD'}</span></span>`;
   }
   if (node.type === 'dice') {
     const nestedHtml = node.countNode
-      ? `<span class="dice-nested">${renderDiceNode(node.countNode)}<span class="dice-arrow">→</span></span>`
+      ? `<span class="dice-nested">${renderDiceNode(node.countNode, ctx)}<span class="dice-arrow">→</span></span>`
       : '';
-    const badges = node.results.map(v => `<span class="dice-badge${diceCritClass(node.sides, v)}">${diceShapeSVG(node.sides, v)}</span>`).join('');
+    const badges = node.results.map(v => `<span class="dice-badge${diceCritClass(node.sides, v, ctx.critMin, ctx.fumbleMax, ctx.fumbleImune)}">${diceShapeSVG(node.sides, v)}</span>`).join('');
     return `<span class="dice-term">${nestedHtml}<span class="dice-badges-inline">${badges}</span></span>`;
   }
   if (node.type === 'sum') {
@@ -11076,7 +11086,7 @@ function renderDiceNode(node) {
       const signHtml = (idx === 0)
         ? (t.sign === '-' ? '<span class="dice-sign">−</span>' : '')
         : `<span class="dice-sign">${t.sign === '-' ? '−' : '+'}</span>`;
-      return signHtml + renderDiceNode(t.node);
+      return signHtml + renderDiceNode(t.node, ctx);
     }).join('');
   }
   return '';
@@ -11185,6 +11195,45 @@ function finishRollEntry(key) {
 // fixo (ex: "+3") ou uma fórmula de dados (ex: "-1d4", "1d6").
 // Exceção: o Teste de Emoção usa 1d100 no lugar do 1d20 e subtrai a
 // Insanidade atual do personagem (1d100 − Insanidade).
+// ─── Limiares de Crítico / Falha Crítica (ponto de extensão p/ passivas) ──
+// Por padrão, Crítico só acontece no valor máximo do dado (20 no d20, 100 no
+// d100) e Falha Crítica só no 1. Esta função é o ÚNICO lugar que decide os
+// limiares de UM personagem para UM Teste específico — quando as
+// passivas/talentos de "+X% de chance de Crítico" (cumulativo entre vários
+// talentos) e "sem Falha Crítica em certos Testes" forem cadastradas, é AQUI
+// que a lógica entra. O resto do sistema (renderização, badges, etiquetas
+// "Crítico!"/"Falha Crítica!") já lê esses valores prontos — não precisa
+// mexer em mais nada.
+//
+// Retorno:
+//   critMin     → menor valor do dado que já conta como Crítico (padrão: sides)
+//   fumbleMax   → maior valor do dado que já conta como Falha Crítica (padrão: 1)
+//   fumbleImune → true se esse personagem/Teste nunca pode ter Falha Crítica
+//
+// Exemplo (ainda NÃO ativo) de como uma passiva cumulativa de "+5% de chance
+// de Crítico" entraria — cada +5% amplia a faixa em 1 valor no d20 (20→19→18…)
+// ou em 5 valores no d100 (100→95→90…), somando entre todos os talentos:
+//   let bonusPassos = 0;
+//   (p.passivas || []).forEach(pas => {
+//     if (pas.tipo === 'critBonusPct') bonusPassos += Math.round(pas.valor / (sides === 100 ? 1 : 5) * (sides === 100 ? 5 : 1));
+//   });
+//   critMin = Math.max(fumbleMax + 1, sides - bonusPassos);
+//
+// Exemplo (ainda NÃO ativo) de talento que remove Falha Crítica só em certos
+// Testes (ex: só em Furtividade, ou só em Testes de Força):
+//   if ((p.passivas || []).some(pas => pas.tipo === 'semFalhaCritica' && (pas.testes || []).includes(testeId))) {
+//     fumbleImune = true;
+//   }
+function getCritThresholds(p, testeId, sides) {
+  let critMin = sides;
+  let fumbleMax = 1;
+  let fumbleImune = false;
+
+  // ── Nada aplicado ainda — as passivas entram aqui quando você cadastrar. ──
+
+  return { critMin, fumbleMax, fumbleImune };
+}
+
 function construirRolagemTeste(p, testeId) {
   getTestePersonagem(p);
   const def = TESTES_LISTA.find(t => t.id === testeId);
@@ -11275,8 +11324,9 @@ function construirRolagemTeste(p, testeId) {
   const tree = { type: 'sum', terms };
   const megaLabel = t.mv ? ' (Mega Vantagem)' : (t.md ? ' (Mega Desvantagem)' : '');
   const formula = `Teste de ${def.name}${megaLabel}`;
+  const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, testeId, sides);
 
-  return { def, sides, total, tree, formula };
+  return { def, sides, total, tree, formula, critMin, fumbleMax, fumbleImune };
 }
 
 // Rola um Teste e publica o resultado no feed de dados. Retorna o total
@@ -11295,6 +11345,10 @@ function rolarTeste(pid, testeId) {
     formula: r.formula,
     tree: r.tree,
     total: r.total,
+    sides: r.sides,
+    critMin: r.critMin,
+    fumbleMax: r.fumbleMax,
+    fumbleImune: r.fumbleImune,
     hidden: false,
     rolling: true,
     ts: Date.now()
@@ -11455,9 +11509,9 @@ function renderRollEntry(r, isNew) {
   const popCls = justRevealed ? ' dice-total-pop' : '';
 
   const badgesHtml = isFormula
-    ? `<div class="dice-formula-tree">${renderDiceNode(r.tree)}</div>`
+    ? `<div class="dice-formula-tree">${renderDiceNode(r.tree, { critMin: r.critMin, fumbleMax: r.fumbleMax, fumbleImune: r.fumbleImune })}</div>`
     : (() => {
-        const badges = r.results.map(v => `<span class="dice-badge${diceCritClass(r.sides, v)}">${diceShapeSVG(r.sides, v)}</span>`).join('');
+        const badges = r.results.map(v => `<span class="dice-badge${diceCritClass(r.sides, v, r.critMin, r.fumbleMax, r.fumbleImune)}">${diceShapeSVG(r.sides, v)}</span>`).join('');
         const modHtml = r.mod ? `<span class="dice-mod-txt">${r.mod > 0 ? '+' + r.mod : r.mod}</span>` : '';
         return `<div class="dice-badges-row">${badges}${modHtml}</div>`;
       })();
@@ -11545,9 +11599,9 @@ function renderLastRoll() {
 
   const labelHtml = r.label ? `<div class="dice-entry-label">${escHtml(r.label)}</div>` : '';
   const badgesHtml = isFormula
-    ? `<div class="dice-formula-tree">${renderDiceNode(r.tree)}</div>`
+    ? `<div class="dice-formula-tree">${renderDiceNode(r.tree, { critMin: r.critMin, fumbleMax: r.fumbleMax, fumbleImune: r.fumbleImune })}</div>`
     : (() => {
-        const badges = r.results.map(v => `<span class="dice-badge${diceCritClass(r.sides, v)}">${diceShapeSVG(r.sides, v)}</span>`).join('');
+        const badges = r.results.map(v => `<span class="dice-badge${diceCritClass(r.sides, v, r.critMin, r.fumbleMax, r.fumbleImune)}">${diceShapeSVG(r.sides, v)}</span>`).join('');
         const modHtml = r.mod ? `<span class="dice-mod-txt">${r.mod > 0 ? '+' + r.mod : r.mod}</span>` : '';
         return `<div class="dice-badges-row">${badges}${modHtml}</div>`;
       })();
