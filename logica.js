@@ -3171,7 +3171,14 @@ function getWizardPseudoPlayer() {
   const cls = getSelectedSubclasse() || '';
   const classeBase = getBaseClass(cls) || cls;
   const race = document.getElementById('c-race')?.value || '';
-  const pseudo = { cls, classeBase, level: creationLevel, race };
+  // origemId precisa estar aqui pra getBancoHabilidades saber travar a
+  // Aprendizagem Élfica (Habilidade de outra Classe) enquanto a Origem
+  // Sangrenta ainda não foi resolvida — sem isso, o wizard deixava escolher
+  // Habilidades de outra Classe livremente na criação, mesmo pra quem tem
+  // Origem Sangrenta (bug: dava pra pegar depois mais Habilidades da mesma
+  // Classe que ficaria travada).
+  const origemId = document.getElementById('c-origem')?.value || null;
+  const pseudo = { cls, classeBase, level: creationLevel, race, origemId, origemSangrentaUsado: false };
   const catalogo = getBancoHabilidades(pseudo);
   pseudo.skills = wizardSkillsEscolhidas.map(id => {
     const item = catalogo.find(it => it.id === id);
