@@ -10578,12 +10578,12 @@ const DICE_POLY = {
 // opcionalmente, o número do resultado desenhado dentro da forma.
 // Sem `number`, mostra a forma "vazia" (usado durante a animação de rolagem).
 // Acerto Crítico / Erro Crítico: destaque visual (sem efeito mecânico) quando
-// um d20 mostra 20 ou 1 natural — vale pra qualquer rolagem de d20 (Testes,
-// Ataques, rolagens manuais). Só se aplica a dados de 20 lados; em qualquer
-// outro tipo de dado (d6, d8, mega-dados de dano etc.) não faz nada.
+// um d20 mostra 20 ou 1 natural, ou um d100 mostra 100 ou 1 natural — vale
+// pra qualquer rolagem desses dados (Testes, Ataques, rolagens manuais). Em
+// qualquer outro tipo de dado (d6, d8, mega-dados de dano etc.) não faz nada.
 function diceCritClass(sides, value) {
-  if (sides !== 20) return '';
-  if (value === 20) return ' dice-badge-crit';
+  if (sides !== 20 && sides !== 100) return '';
+  if (value === sides) return ' dice-badge-crit';
   if (value === 1) return ' dice-badge-fumble';
   return '';
 }
@@ -10595,19 +10595,19 @@ function rollCritInfo(r) {
   let hasCrit = false, hasFumble = false;
   function walk(node) {
     if (!node) return;
-    if (node.type === 'dice' && node.sides === 20) {
-      (node.results || []).forEach(v => { if (v === 20) hasCrit = true; if (v === 1) hasFumble = true; });
+    if (node.type === 'dice' && (node.sides === 20 || node.sides === 100)) {
+      (node.results || []).forEach(v => { if (v === node.sides) hasCrit = true; if (v === 1) hasFumble = true; });
       if (node.countNode) walk(node.countNode);
-    } else if (node.type === 'megaroll' && node.sides === 20) {
-      [node.d1, node.d2].forEach(v => { if (v === 20) hasCrit = true; if (v === 1) hasFumble = true; });
+    } else if (node.type === 'megaroll' && (node.sides === 20 || node.sides === 100)) {
+      [node.d1, node.d2].forEach(v => { if (v === node.sides) hasCrit = true; if (v === 1) hasFumble = true; });
     } else if (node.type === 'sum') {
       node.terms.forEach(t => walk(t.node));
     }
   }
   if (r.tree) {
     walk(r.tree);
-  } else if (r.sides === 20 && Array.isArray(r.results)) {
-    r.results.forEach(v => { if (v === 20) hasCrit = true; if (v === 1) hasFumble = true; });
+  } else if ((r.sides === 20 || r.sides === 100) && Array.isArray(r.results)) {
+    r.results.forEach(v => { if (v === r.sides) hasCrit = true; if (v === 1) hasFumble = true; });
   }
   return { hasCrit, hasFumble };
 }
