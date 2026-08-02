@@ -2776,6 +2776,19 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35));
 }
 .dice-badge svg { width: 100%; height: 100%; display: block; }
+
+/* Acerto Crítico (20 natural) / Erro Crítico (1 natural) em d20 — só visual */
+.dice-badge-crit {
+  filter: drop-shadow(0 0 7px rgba(255,196,64,0.85)) drop-shadow(0 2px 3px rgba(0,0,0,0.35));
+  animation: dice-crit-pulse 1.4s ease-in-out infinite;
+}
+.dice-badge-fumble {
+  filter: drop-shadow(0 0 7px rgba(224,90,90,0.85)) drop-shadow(0 2px 3px rgba(0,0,0,0.35));
+}
+@keyframes dice-crit-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
 .dice-mod-txt {
   font-size: 16px;
   font-weight: 700;
@@ -2789,6 +2802,28 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   font-weight: 700;
   color: var(--accent2);
   margin-top: 4px;
+}
+
+.dice-crit-tag, .dice-fumble-tag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.dice-crit-tag {
+  color: #ffc440;
+  background: rgba(255,196,64,0.14);
+  border: 1px solid rgba(255,196,64,0.4);
+}
+.dice-fumble-tag {
+  color: #e05a5a;
+  background: rgba(224,90,90,0.14);
+  border: 1px solid rgba(224,90,90,0.4);
 }
 
 .dice-hidden-msg { font-size: 11px; color: var(--text3); font-style: italic; }
