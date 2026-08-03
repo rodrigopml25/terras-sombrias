@@ -11740,6 +11740,19 @@ function spinDiceFab(on, sides) {
 }
 
 function pushRollEntry(entry, afterKeyKnown) {
+  // "Entropia Constante" (Etéreo): qualquer d20 ou d100 (em Testes, Ações,
+  // Habilidades, ou uma rolagem manual qualquer) que dê Acerto Crítico ou
+  // Erro Crítico dispara sozinho a rolagem da Expressão Etérea (1d6).
+  // rollCritInfo já procura por qualquer dado d20/d100 dentro da árvore da
+  // rolagem, então isso cobre qualquer fonte, não só Testes.
+  const rolador = PLAYERS.find(x => x.name === entry.charName && x.race === 'Etéreo');
+  if (rolador) {
+    const critInfo = rollCritInfo(entry);
+    if (critInfo.hasCrit || critInfo.hasFumble) {
+      setTimeout(() => rolarExpressaoEterea(rolador.id, critInfo.hasCrit ? 'crit' : 'fumble'), ROLL_ANIM_MS + 250);
+    }
+  }
+
   if (firebaseConfigured && diceBaseRef) {
     const newRef = diceBaseRef.push();
     newRef.set(entry).then(() => {
@@ -11949,16 +11962,6 @@ function rolarTeste(pid, testeId) {
     setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
-
-  // "Entropia Constante" (Etéreo): Acerto Crítico ou Erro Crítico nesse
-  // Teste dispara a rolagem da Expressão Etérea (1d6) sozinho, logo depois
-  // do resultado do Teste aparecer.
-  if (p.race === 'Etéreo') {
-    const critInfo = rollCritInfo(entry);
-    if (critInfo.hasCrit || critInfo.hasFumble) {
-      setTimeout(() => rolarExpressaoEterea(pid, critInfo.hasCrit ? 'crit' : 'fumble'), ROLL_ANIM_MS + 250);
-    }
-  }
 
   // Abre o painel de dados na aba Histórico para o resultado aparecer na hora.
   if (!dicePanelOpen) toggleDicePanel();
