@@ -4231,6 +4231,50 @@ function getExpressoesEtereas(p) {
   return [...ETEREO_EXPRESSOES_PADRAO, ...extras];
 }
 
+// "Entropia Constante" (Etéreo): ao tirar Acerto Crítico ou Erro Crítico
+// numa Ação ou Teste, rola 1d6 na hora pra saber qual Expressão Etérea se
+// manifesta (índice do dado = índice da Expressão em getExpressoesEtereas).
+// Disparado automaticamente pelo rolarTeste logo após o resultado do Teste
+// (ver ali). Publica a rolagem no chat de dados, igual a qualquer outra, e
+// revela o resultado com um alerta explicando qual Expressão saiu — os
+// efeitos de cada Expressão são narrativos/manuais, o app só sorteia qual é.
+function rolarExpressaoEterea(pid, tipo) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || p.race !== 'Etéreo') return;
+  const expressoes = getExpressoesEtereas(p);
+  if (!expressoes.length) return;
+
+  const sides = 6;
+  const d1 = 1 + Math.floor(Math.random() * sides);
+  const tipoLabelTxt = tipo === 'crit' ? 'Acerto Crítico' : 'Erro Crítico';
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Expressão Etérea — ${tipoLabelTxt} (1d6)`,
+    tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null } }] },
+    total: d1,
+    hidden: false,
+    rolling: true,
+    ts: Date.now()
+  };
+
+  spinDiceFab(true, sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  setTimeout(() => {
+    const exp = expressoes.find(e => e.indice === d1);
+    if (!exp) return;
+    alert(`Expressão Etérea (${tipoLabelTxt}): ${p.name} tirou ${d1} no 1d6 — "${exp.name}"${exp.origemName ? ` (${exp.origemName})` : ''}.\n\n${exp.desc}`);
+  }, ROLL_ANIM_MS + 150);
+}
+
 // ═══════════════════════════════════════
 // CAMPOS HARMÔNICOS — exclusivo do Bardo
 // ═══════════════════════════════════════
@@ -4877,6 +4921,23 @@ let activeCampaignMeta = null;   // { name, code, ownerId }
 let dataListenerRef = null;      // ref do listener .on('value') atual (p/ poder desligar ao trocar campanha)
 let dataListenerHandler = null;
 
+// ─── Banco de NPCs do Narrador ───────────────────────────────────────────────
+// NPCs guardados aqui pertencem à CONTA do Narrador (ts_users/{id}/npc_bank),
+// não a uma campanha específica — ficam disponíveis pra serem "chamados"
+// (copiados) em qualquer campanha que o Narrador esteja rodando.
+//
+// Truque usado: enquanto o modal do Banco está aberto, a variável global
+// PLAYERS passa a APONTAR para NPC_BANK. Isso deixa reaproveitar 100% do
+// wizard de criação, o card completo do Narrador e todos os modais auxiliares
+// (habilidades, passivas, inventário) sem duplicar nenhuma dessas funções —
+// todas elas já operam sobre "PLAYERS", então passam a operar sobre o banco
+// automaticamente. Por segurança, o listener de sincronização da campanha
+// atual fica pausado enquanto isso (bankModeActive), pra uma atualização em
+// tempo real da campanha não sobrescrever o array errado no meio do caminho.
+let NPC_BANK = [];
+let bankModeActive = false;
+let campaignPlayersBackup = null; // guarda o PLAYERS real da campanha enquanto o banco está aberto
+
 function snapshotState() {
   return { PLAYERS, turnGlobal, INITIATIVE, turnoAtualId, combatAtivo, notes };
 }
@@ -5114,6 +5175,11 @@ function trocarCampanha() {
 }
 
 function saveState() {
+  // Enquanto o Banco de NPCs está aberto, PLAYERS aponta para NPC_BANK — o
+  // que precisa ser persistido é o banco do Narrador, não os dados da
+  // campanha (que continuam intocados em campaignPlayersBackup).
+  if (bankModeActive) { saveNpcBank(); return; }
+
   const localKey = 'rpg_dashboard_data_' + (activeCampaignId || 'local');
   localStorage.setItem(localKey, JSON.stringify(snapshotState()));
   if (!firebaseRef) return;
@@ -5735,25 +5801,34 @@ function setXPDirect(id, val) {
 // RENDER NARRADOR
 // ═══════════════════════════════════════
 function renderNarrador() {
-  renderNarradorGroup(PLAYERS.filter(p => !p.isNPC), 'nar-players', false);
-  renderNarradorGroup(PLAYERS.filter(p => p.isNPC), 'nar-npcs', true);
+  // Enquanto o Banco de NPCs está aberto, PLAYERS aponta pro banco — não é a
+  // lista de personagens desta campanha, então não há o que renderizar aqui.
+  if (bankModeActive) return;
+  renderNarradorGroup(PLAYERS.filter(p => !p.isNPC), 'nar-players', false, false);
+  renderNarradorGroup(PLAYERS.filter(p => p.isNPC), 'nar-npcs', true, false);
 }
 
-// Renderiza um grupo de personagens (jogadores OU NPCs) no container indicado.
+// Renderiza um grupo de personagens (jogadores, NPCs desta campanha, ou os
+// NPCs do Banco) no container indicado.
 // `editable` diferencia os NPCs: além dos controles que o Narrador já tem
 // para qualquer personagem (vida, ações, insanidade, armadura...), NPCs
 // também ganham os botões de gerenciamento completo da ficha — adicionar
 // habilidade, escolher da Subclasse, adicionar passiva/talento, e edição de
 // inventário — os mesmos que o próprio Jogador usa na ficha dele, já que o
 // NPC não tem um jogador do outro lado pra fazer isso.
-function renderNarradorGroup(list, containerId, editable) {
+// `isBank` (só true quando chamado de dentro do modal do Banco) troca o botão
+// de excluir por "excluir do banco" e acrescenta o botão "Chamar para a
+// campanha".
+function renderNarradorGroup(list, containerId, editable, isBank) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
   if (!list.length) {
-    container.innerHTML = editable
-      ? '<div style="text-align:center; padding: 40px; color: var(--text3);">Nenhum NPC criado ainda. Clique em "Novo NPC" para começar.</div>'
-      : '<div style="text-align:center; padding: 40px; color: var(--text3);">Nenhum jogador na campanha ainda.</div>';
+    container.innerHTML = isBank
+      ? '<div style="text-align:center; padding: 40px; color: var(--text3);">Seu Banco de NPCs está vazio. Clique em "Criar NPC" para começar.</div>'
+      : (editable
+        ? '<div style="text-align:center; padding: 40px; color: var(--text3);">Nenhum NPC chamado nesta campanha ainda. Abra o Banco de NPCs para chamar um.</div>'
+        : '<div style="text-align:center; padding: 40px; color: var(--text3);">Nenhum jogador na campanha ainda.</div>');
     return;
   }
 
@@ -5860,7 +5935,8 @@ function renderNarradorGroup(list, containerId, editable) {
         <button class="prow-edit-btn ${inventarioExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarInventario(${p.id})" title="Ver inventário"><i class="ti ti-backpack"></i></button>
         <button class="prow-edit-btn ${narTestesCollapsed[p.id] === false ? 'prow-passiva-on' : ''}" onclick="toggleNarTestes(${p.id})" title="Ver testes"><i class="ti ti-hexagon-letter-d"></i></button>
         <button class="prow-edit-btn" onclick="editCharacter(${p.id})" title="Editar ficha do personagem"><i class="ti ti-edit"></i></button>
-        ${editable ? `<button class="prow-edit-btn" onclick="deleteCharacter(${p.id})" title="Excluir NPC" style="color:var(--red)"><i class="ti ti-trash"></i></button>` : ''}
+        ${editable ? `<button class="prow-edit-btn" onclick="deleteCharacter(${p.id})" title="${isBank ? 'Excluir do Banco' : 'Excluir NPC desta campanha'}" style="color:var(--red)"><i class="ti ti-trash"></i></button>` : ''}
+        ${isBank ? `<button class="prow-edit-btn" onclick="summonNpcToCampaign(${p.id})" title="Chamar para esta campanha" style="color:var(--green)"><i class="ti ti-send"></i></button>` : ''}
       </div>
       <div class="bars">
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
@@ -6751,6 +6827,93 @@ function switchJogTab(tab) {
 // Mesmo padrão de switchJogTab, mas trocando os containers do lado esquerdo
 // do nar-layout — o painel da direita (Iniciativa / Anotações) continua
 // sempre visível, pois vale tanto pra jogadores quanto NPCs.
+// Salva NPC_BANK na conta do Narrador (ts_users/{id}/npc_bank), independente
+// de qual campanha estiver ativa.
+function saveNpcBank() {
+  if (!currentUser) return;
+  try { localStorage.setItem('rpg_npc_bank_' + currentUser.id, JSON.stringify(NPC_BANK)); } catch (e) {}
+  if (!firebaseConfigured || typeof firebase === 'undefined') return;
+  firebase.database().ref('ts_users/' + currentUser.id + '/npc_bank')
+    .set(JSON.parse(JSON.stringify(NPC_BANK)))
+    .catch(err => console.error('Erro ao salvar Banco de NPCs:', err));
+}
+
+// Abre o modal do Banco de NPCs: busca o banco mais recente do Narrador no
+// Firebase e só então faz o "swap" de PLAYERS -> NPC_BANK (ver comentário na
+// declaração de NPC_BANK acima). Pausa a sincronização da campanha atual
+// enquanto o banco estiver aberto.
+function openNpcBankModal() {
+  const abrir = () => {
+    if (dataListenerRef && dataListenerHandler) dataListenerRef.off('value', dataListenerHandler);
+    campaignPlayersBackup = PLAYERS;
+    PLAYERS = NPC_BANK;
+    bankModeActive = true;
+    document.getElementById('modal-npc-bank-overlay').classList.add('open');
+    renderAll();
+  };
+  if (!currentUser || !firebaseConfigured || typeof firebase === 'undefined') { abrir(); return; }
+  firebase.database().ref('ts_users/' + currentUser.id + '/npc_bank').once('value').then(snap => {
+    let data = snap.val() || [];
+    if (!Array.isArray(data)) data = Object.values(data);
+    data.forEach(p => {
+      if (!Array.isArray(p.skills)) p.skills = [];
+      if (!Array.isArray(p.passivas)) p.passivas = [];
+      if (!Array.isArray(p.inventario)) p.inventario = [];
+    });
+    NPC_BANK = data;
+    abrir();
+  }).catch(err => {
+    console.error('Erro ao carregar Banco de NPCs:', err);
+    abrir();
+  });
+}
+
+// Fecha o modal do Banco de NPCs: devolve PLAYERS pra campanha e retoma a
+// sincronização em tempo real que tinha sido pausada.
+function closeNpcBankModal() {
+  NPC_BANK = PLAYERS;
+  PLAYERS = campaignPlayersBackup || [];
+  campaignPlayersBackup = null;
+  bankModeActive = false;
+  const overlay = document.getElementById('modal-npc-bank-overlay');
+  if (overlay) overlay.classList.remove('open');
+  if (dataListenerRef && dataListenerHandler) dataListenerRef.on('value', dataListenerHandler);
+  renderAll();
+}
+
+// Escreve só o campo PLAYERS da campanha ativa, sem depender da variável
+// global PLAYERS (que pode estar apontando pro banco no momento da chamada).
+function saveCampaignPlayersNow(playersArr) {
+  const localKey = 'rpg_dashboard_data_' + (activeCampaignId || 'local');
+  try {
+    const cur = JSON.parse(localStorage.getItem(localKey) || '{}');
+    cur.PLAYERS = playersArr;
+    localStorage.setItem(localKey, JSON.stringify(cur));
+  } catch (e) {}
+  if (!firebaseRef) return;
+  firebaseRef.child('PLAYERS').set(JSON.parse(JSON.stringify(playersArr)))
+    .catch(err => console.error('Erro ao chamar NPC para a campanha:', err));
+}
+
+// Copia um NPC do banco pra dentro da campanha ativa (campaignPlayersBackup,
+// que é sempre o PLAYERS real da campanha, esteja o banco aberto ou não).
+function summonNpcToCampaign(id) {
+  const template = NPC_BANK.find(x => x.id === id);
+  if (!template) return;
+  const destino = bankModeActive ? campaignPlayersBackup : PLAYERS;
+  if (!destino) { alert('Abra uma campanha antes de chamar um NPC.'); return; }
+  const clone = JSON.parse(JSON.stringify(template));
+  clone.id = destino.length ? Math.max(...destino.map(x => x.id)) + 1 : 1;
+  clone.isNPC = true;
+  clone.ownerId = null;
+  clone.ownerName = null;
+  clone.bancoOrigemId = template.id;
+  destino.push(clone);
+  saveCampaignPlayersNow(destino);
+  if (!bankModeActive) { PLAYERS = destino; saveState(); renderAll(); }
+  alert(`"${clone.name}" foi chamado para esta campanha! Veja na aba "NPCs".`);
+}
+
 function switchNarTab(tab) {
   narActiveTab = tab;
   const jogView = document.getElementById('nar-view-jogadores');
@@ -10520,6 +10683,12 @@ function renderAll() {
   const tn = document.getElementById('turn-num');
   if (tn) tn.textContent = turnGlobal;
   renderNarrador();
+  if (bankModeActive) {
+    // PLAYERS aponta pro Banco de NPCs agora — só o card do banco faz
+    // sentido; Iniciativa/Notas são da campanha e ficam intocados.
+    renderNarradorGroup(PLAYERS, 'npc-bank-list', true, true);
+    return;
+  }
   renderNoteTags();
   renderInit();
   if (IS_JOGADOR) {
@@ -11780,6 +11949,16 @@ function rolarTeste(pid, testeId) {
     setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
+
+  // "Entropia Constante" (Etéreo): Acerto Crítico ou Erro Crítico nesse
+  // Teste dispara a rolagem da Expressão Etérea (1d6) sozinho, logo depois
+  // do resultado do Teste aparecer.
+  if (p.race === 'Etéreo') {
+    const critInfo = rollCritInfo(entry);
+    if (critInfo.hasCrit || critInfo.hasFumble) {
+      setTimeout(() => rolarExpressaoEterea(pid, critInfo.hasCrit ? 'crit' : 'fumble'), ROLL_ANIM_MS + 250);
+    }
+  }
 
   // Abre o painel de dados na aba Histórico para o resultado aparecer na hora.
   if (!dicePanelOpen) toggleDicePanel();
