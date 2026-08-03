@@ -180,6 +180,7 @@ button {
   gap: 14px;
 }
 .nar-players { display: flex; flex-direction: column; gap: 10px; }
+.nar-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
 /* player row */
 .prow {
