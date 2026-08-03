@@ -1940,6 +1940,18 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   color: var(--text);
   border: 1px solid var(--border);
 }
+/* 1º nível (Classe) — levemente mais destacado que o 2º nível (Subclasse),
+   pra deixar clara a hierarquia: escolhe a Classe, depois o Caminho. */
+.banco-classe-tabs {
+  background: var(--bg2);
+  margin-bottom: 8px;
+}
+.banco-classe-tabs .banco-tab { font-weight: 600; }
+.banco-classe-tabs .banco-tab.active {
+  background: var(--accent-bg);
+  color: var(--accent2);
+  border: 1px solid var(--accent-bd);
+}
 
 /* ═══════════════════════════════════════════
    ANOTAÇÕES DO JOGADOR
