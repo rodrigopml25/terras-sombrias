@@ -11578,7 +11578,16 @@ function getCritThresholds(p, testeId, sides) {
   let fumbleMax = 1;
   let fumbleImune = false;
 
-  // ── Nada aplicado ainda — as passivas entram aqui quando você cadastrar. ──
+  // "Entropia Constante" (Etéreo): passiva racial fixa — todo Etéreo tem
+  // automaticamente, sem precisar escolher (ver RACAS['Etéreo']). Concede
+  // +5% de chance tanto de Acerto Crítico quanto de Erro Crítico, em
+  // qualquer Ação ou Teste. No d20 amplia a faixa em 1 pra cada lado (crita
+  // com 19+, falha com 1-2); no d100 amplia 6 pra cima (crita com 94+) e 5
+  // pra baixo (falha com 1-6).
+  if (p.race === 'Etéreo') {
+    if (sides === 20) { critMin -= 1; fumbleMax += 1; }
+    else if (sides === 100) { critMin -= 6; fumbleMax += 5; }
+  }
 
   return { critMin, fumbleMax, fumbleImune };
 }
