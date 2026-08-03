@@ -11661,7 +11661,8 @@ function renderDiceNode(node, ctx) {
       ? `<span class="dice-nested">${renderDiceNode(node.countNode, ctx)}<span class="dice-arrow">→</span></span>`
       : '';
     const badges = node.results.map(v => `<span class="dice-badge${diceCritClass(node.sides, v, ctx.critMin, ctx.fumbleMax, ctx.fumbleImune)}">${diceShapeSVG(node.sides, v)}</span>`).join('');
-    return `<span class="dice-term">${nestedHtml}<span class="dice-badges-inline">${badges}</span></span>`;
+    const labelHtml = node.label ? `<span class="dice-mega-label" title="${escHtml(node.label)}">${escHtml(node.label)}</span>` : '';
+    return `<span class="dice-term">${nestedHtml}<span class="dice-badges-inline">${badges}</span>${labelHtml}</span>`;
   }
   if (node.type === 'sum') {
     return node.terms.map((t, idx) => {
@@ -11897,6 +11898,17 @@ function construirRolagemTeste(p, testeId) {
     const bonusNormal = isEmocao ? 10 : 2;
     terms.push({ sign: '+', node: { type: 'labeled_const', value: bonusNormal, label: 'Normal' } });
     total += bonusNormal;
+  }
+
+  // "Ambição Humana" (Humano): passiva racial fixa — na Beira da Morte
+  // (HP 0), soma um dado extra de Vantagem: +1d8 em Resistir, +1d20 em
+  // Emoção. É uma rolagem de verdade (aparece como um dado a mais no
+  // breakdown), não um bônus fixo.
+  if (p.race === 'Humano' && p.hp === 0 && (testeId === 'resistir' || isEmocao)) {
+    const ambSides = testeId === 'resistir' ? 8 : 20;
+    const ambRoll = 1 + Math.floor(Math.random() * ambSides);
+    terms.push({ sign: '+', node: { type: 'dice', sides: ambSides, count: 1, results: [ambRoll], sum: ambRoll, countNode: null, label: 'Ambição Humana' } });
+    total += ambRoll;
   }
 
   // Teste de Emoção: subtrai a Insanidade atual do personagem (0-100)
