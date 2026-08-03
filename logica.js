@@ -3123,6 +3123,11 @@ function getBancoHabilidades(p) {
     // própria Classe/Subclasse, 2º Origem Sangrenta, 3º outra Classe livre).
     const aguardandoOrigemSangrenta = p.origemId === 'elfo_origem_sangrento' && !p.origemSangrentaUsado;
     if (aguardandoOrigemSangrenta) return itens;
+    // "Origem Noturna" (Elfo Noturno): mesma lógica — precisa escolher o
+    // Caminho e receber a Habilidade sorteada ANTES de poder usar a cota
+    // normal de outra Classe da Aprendizagem Élfica.
+    const aguardandoOrigemNoturna = p.origemId === 'elfo_origem_noturno' && !p.origemNoturnaUsada;
+    if (aguardandoOrigemNoturna) return itens;
 
     const jaAdicionado = new Set(itens.map(it => it.subclasseOrigem + '::' + it.id));
     CLASSES.forEach(outraCls => {
@@ -3327,7 +3332,7 @@ function getWizardPseudoPlayer() {
   // Origem Sangrenta (bug: dava pra pegar depois mais Habilidades da mesma
   // Classe que ficaria travada).
   const origemId = document.getElementById('c-origem')?.value || null;
-  const pseudo = { cls, classeBase, level: creationLevel, race, origemId, origemSangrentaUsado: false };
+  const pseudo = { cls, classeBase, level: creationLevel, race, origemId, origemSangrentaUsado: false, origemNoturnaUsada: false };
   const catalogo = getBancoHabilidades(pseudo);
   pseudo.skills = wizardSkillsEscolhidas.map(id => {
     const item = catalogo.find(it => it.id === id);
