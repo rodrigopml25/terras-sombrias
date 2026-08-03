@@ -34,7 +34,7 @@
               <button class="jog-tab nar-tab active" id="nar-tab-jogadores" onclick="switchNarTab('jogadores')"><i class="ti ti-users"></i> Jogadores</button>
               <button class="jog-tab nar-tab" id="nar-tab-npcs" onclick="switchNarTab('npcs')"><i class="ti ti-ghost"></i> NPCs</button>
             </div>
-            <button class="btn btn-success" id="nar-btn-novo-npc" style="display:none" onclick="openCharModal(true)"><i class="ti ti-user-plus"></i> Novo NPC</button>
+            <button class="btn btn-success" id="nar-btn-novo-npc" style="display:none" onclick="openNpcBankModal()"><i class="ti ti-archive"></i> Banco de NPCs</button>
           </div>
           <div id="nar-view-jogadores">
             <div class="nar-players" id="nar-players"></div>
@@ -395,6 +395,22 @@
             <button class="btn" onclick="closeInvModal()">Cancelar</button>
             <button class="btn btn-primary" onclick="saveInvItem()">Salvar</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-npc-bank-overlay">
+      <div class="modal" style="max-width: 720px;">
+        <h3><i class="ti ti-archive"></i> Banco de NPCs</h3>
+        <div style="font-size: 12px; color: var(--text2); margin-bottom: 16px; line-height: 1.5;">
+          NPCs criados aqui ficam vinculados à sua conta de Narrador e podem ser chamados em qualquer campanha que você rodar — chamar um NPC cria uma cópia dele nesta campanha, e o original continua salvo no banco.
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-bottom: 14px;">
+          <button class="btn btn-success" onclick="openCharModal(true)"><i class="ti ti-user-plus"></i> Criar NPC</button>
+        </div>
+        <div class="nar-players" id="npc-bank-list"></div>
+        <div class="modal-btns" style="margin-top: 18px;">
+          <button class="btn" onclick="closeNpcBankModal()">Fechar</button>
         </div>
       </div>
     </div>
