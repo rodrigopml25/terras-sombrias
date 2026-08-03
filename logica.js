@@ -4847,6 +4847,13 @@ let jogInvCollapsed = {}; // { [playerId]: { armas, protecoes, itens } } — cad
 let jogActiveTab = 'ficha'; // 'ficha' | 'anotacoes'
 let modalInvPid = null;
 let modalInvId = null;
+// Aba ativa na tela do Narrador: 'jogadores' (personagens dos jogadores) ou
+// 'npcs' (bonecos controlados só pelo Narrador). Ver switchNarTab.
+let narActiveTab = 'jogadores';
+// true quando o wizard de criação/edição (#modal-char-overlay) foi aberto a
+// partir do botão "Novo NPC" — controla o título do modal e, em
+// saveCharacter(), se o personagem novo nasce com p.isNPC = true (sem dono).
+let wizardIsNPC = false;
 
 // Controla a notificação (toast) de "subiu de nível" no lado do Jogador.
 // null = ainda não inicializado (primeiro render após carregar dados);
@@ -5728,10 +5735,29 @@ function setXPDirect(id, val) {
 // RENDER NARRADOR
 // ═══════════════════════════════════════
 function renderNarrador() {
-  const container = document.getElementById('nar-players');
+  renderNarradorGroup(PLAYERS.filter(p => !p.isNPC), 'nar-players', false);
+  renderNarradorGroup(PLAYERS.filter(p => p.isNPC), 'nar-npcs', true);
+}
+
+// Renderiza um grupo de personagens (jogadores OU NPCs) no container indicado.
+// `editable` diferencia os NPCs: além dos controles que o Narrador já tem
+// para qualquer personagem (vida, ações, insanidade, armadura...), NPCs
+// também ganham os botões de gerenciamento completo da ficha — adicionar
+// habilidade, escolher da Subclasse, adicionar passiva/talento, e edição de
+// inventário — os mesmos que o próprio Jogador usa na ficha dele, já que o
+// NPC não tem um jogador do outro lado pra fazer isso.
+function renderNarradorGroup(list, containerId, editable) {
+  const container = document.getElementById(containerId);
   if (!container) return;
 
-  container.innerHTML = PLAYERS.map((p, i) => {
+  if (!list.length) {
+    container.innerHTML = editable
+      ? '<div style="text-align:center; padding: 40px; color: var(--text3);">Nenhum NPC criado ainda. Clique em "Novo NPC" para começar.</div>'
+      : '<div style="text-align:center; padding: 40px; color: var(--text3);">Nenhum jogador na campanha ainda.</div>';
+    return;
+  }
+
+  container.innerHTML = list.map((p, i) => {
     const av = AVATARS[i % AVATARS.length];
     const hpPct = Math.round(p.hp / p.hpMax * 100);
     const insPct = Math.round(p.ins / getInsanidadeMax(p) * 100);
@@ -5834,6 +5860,7 @@ function renderNarrador() {
         <button class="prow-edit-btn ${inventarioExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarInventario(${p.id})" title="Ver inventário"><i class="ti ti-backpack"></i></button>
         <button class="prow-edit-btn ${narTestesCollapsed[p.id] === false ? 'prow-passiva-on' : ''}" onclick="toggleNarTestes(${p.id})" title="Ver testes"><i class="ti ti-hexagon-letter-d"></i></button>
         <button class="prow-edit-btn" onclick="editCharacter(${p.id})" title="Editar ficha do personagem"><i class="ti ti-edit"></i></button>
+        ${editable ? `<button class="prow-edit-btn" onclick="deleteCharacter(${p.id})" title="Excluir NPC" style="color:var(--red)"><i class="ti ti-trash"></i></button>` : ''}
       </div>
       <div class="bars">
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
@@ -5951,11 +5978,23 @@ function renderNarrador() {
           </div>
         </div>
       </div>
-      ${skillsExpanded ? `<div class="nar-skills-box">${gruposHtml}</div>` : ''}
-      ${inventarioExpanded ? renderInventarioArea(p, true) : ''}
+      ${skillsExpanded ? `<div class="nar-skills-box">${gruposHtml}
+        ${editable ? `<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="add-skill-btn" onclick="openModal(${p.id})"><i class="ti ti-plus"></i> Adicionar habilidade</button>
+          ${p.cls ? `<button class="add-skill-btn" onclick="openBancoModal(${p.id})"><i class="ti ti-book"></i> Escolher da Subclasse</button>` : ''}
+        </div>` : ''}
+      </div>` : ''}
+      ${inventarioExpanded ? renderInventarioArea(p, !editable) : ''}
       ${passivasExpanded ? `<div class="nar-passivas-box">
         <div class="nar-passivas-title"><i class="ti ti-sparkles"></i> Passivas / Talentos</div>
         ${passivasHtml}
+        ${editable ? `<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="add-skill-btn" onclick="openPassivaModal(${p.id})"><i class="ti ti-plus"></i> Adicionar passiva / talento</button>
+          <button class="add-skill-btn" onclick="openTalentosModal(${p.id})"><i class="ti ti-award"></i> Escolher Talento Inferior</button>
+          <button class="add-skill-btn" onclick="openTalentosSuperioresModal(${p.id})"><i class="ti ti-crown"></i> Escolher Talento Superior</button>
+          ${temAcessoFeiticoLendario(p) ? `<button class="add-skill-btn" onclick="openFeiticosLendariosModal(${p.id})"><i class="ti ti-sparkles"></i> Escolher Feitiço Lendário</button>` : ''}
+          ${temAcessoRitualMacabro(p) ? `<button class="add-skill-btn" onclick="openRituaisMacabrosModal(${p.id})"><i class="ti ti-eye"></i> Escolher Ritual Macabro</button>` : ''}
+        </div>` : ''}
         ${getExpressoesEtereas(p).length ? `
         <div class="nar-passivas-title" style="margin-top:14px;color:var(--eter)"><i class="ti ti-atom-2"></i> Expressões Etéreas <span style="font-size:10px;color:var(--text3);font-weight:400">(crítico → 1d6)</span></div>
         <div class="expressoes-grid">${getExpressoesEtereas(p).map(ex => {
@@ -6005,8 +6044,8 @@ function renderNarrador() {
 // RENDER JOGADOR
 // ═══════════════════════════════════════
 function getMyPlayers() {
-  if (!currentUser || currentUser.role === 'narrator') return PLAYERS;
-  return PLAYERS.filter(p => p.ownerId === currentUser.id || p.ownerId == null);
+  if (!currentUser || currentUser.role === 'narrator') return PLAYERS.filter(p => !p.isNPC);
+  return PLAYERS.filter(p => !p.isNPC && (p.ownerId === currentUser.id || p.ownerId == null));
 }
 
 function renderPsel() {
@@ -6705,6 +6744,24 @@ function switchJogTab(tab) {
   if (btn) btn.classList.add('active');
   // Renderiza a aba de anotações quando ativada
   if (tab === 'anotacoes') renderJogNotas();
+}
+
+// Alterna entre as sub-páginas do Narrador: "Jogadores" (personagens dos
+// jogadores, como já era) e "NPCs" (bonecos controlados só pelo Narrador).
+// Mesmo padrão de switchJogTab, mas trocando os containers do lado esquerdo
+// do nar-layout — o painel da direita (Iniciativa / Anotações) continua
+// sempre visível, pois vale tanto pra jogadores quanto NPCs.
+function switchNarTab(tab) {
+  narActiveTab = tab;
+  const jogView = document.getElementById('nar-view-jogadores');
+  const npcView = document.getElementById('nar-view-npcs');
+  if (jogView) jogView.style.display = tab === 'jogadores' ? '' : 'none';
+  if (npcView) npcView.style.display = tab === 'npcs' ? '' : 'none';
+  document.querySelectorAll('.nar-tab').forEach(el => el.classList.remove('active'));
+  const btn = document.getElementById('nar-tab-' + tab);
+  if (btn) btn.classList.add('active');
+  const btnNovoNpc = document.getElementById('nar-btn-novo-npc');
+  if (btnNovoNpc) btnNovoNpc.style.display = tab === 'npcs' ? '' : 'none';
 }
 
 // Cada personagem tem seu próprio objeto de notas: { geral:'', missão:'', ... }
@@ -8551,6 +8608,7 @@ function saveInvItem() {
 
   saveState();
   renderJogador();
+  renderNarrador();
   closeInvModal();
 }
 
@@ -8567,6 +8625,7 @@ function deleteInvItem() {
   }
   saveState();
   renderJogador();
+  renderNarrador();
   closeInvModal();
 }
 
@@ -9969,11 +10028,12 @@ function wizardBack() {
 }
 
 // ─── Modal Personagem ──────────────────────────────────────────────────────────
-function openCharModal() {
+function openCharModal(isNPC) {
   modalCharId = null;
+  wizardIsNPC = !!isNPC;
   document.getElementById('modal-char-overlay').classList.add('open');
   const titleEl = document.getElementById('modal-char-title');
-  if (titleEl) titleEl.textContent = 'Novo Personagem';
+  if (titleEl) titleEl.textContent = wizardIsNPC ? 'Novo NPC' : 'Novo Personagem';
   const saveBtn = document.getElementById('c-btn-save');
   if (saveBtn) saveBtn.textContent = 'Próximo';
   document.getElementById('c-name').value = '';
@@ -10034,9 +10094,10 @@ function editCharacter(id) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return;
   modalCharId = id;
+  wizardIsNPC = !!p.isNPC;
   document.getElementById('modal-char-overlay').classList.add('open');
   const titleEl = document.getElementById('modal-char-title');
-  if (titleEl) titleEl.textContent = 'Editar Personagem';
+  if (titleEl) titleEl.textContent = wizardIsNPC ? 'Editar NPC' : 'Editar Personagem';
   const saveBtn = document.getElementById('c-btn-save');
   if (saveBtn) saveBtn.textContent = 'Salvar';
   document.getElementById('c-name').value = p.name;
@@ -10223,8 +10284,9 @@ function saveCharacter() {
       acoesMax: ACOES_POR_TURNO_PADRAO, acoesAtuais: ACOES_POR_TURNO_PADRAO,
       passos, passosBase: passos, dinheiro: dinheiroComOrigem, origemId, deus, trollMaestriaEscolha, skills: [], passivas: [], inventario: [],
       jogNotas: Object.fromEntries(JOG_NOTA_TAGS.map(t => [t.toLowerCase(), ''])),
-      ownerId: currentUser ? currentUser.id : null,
-      ownerName: currentUser ? currentUser.name : null
+      isNPC: wizardIsNPC,
+      ownerId: wizardIsNPC ? null : (currentUser ? currentUser.id : null),
+      ownerName: wizardIsNPC ? null : (currentUser ? currentUser.name : null)
     };
     novo.ins = Math.max(0, Math.min(getInsanidadeMax(novo), ins));
     if (classeBase === 'Bruxo') novo.humanidade = HUMANIDADE_MAX;
@@ -10352,6 +10414,7 @@ function saveCharacter() {
   wizardElmoEscolhidaId = null;
   wizardArmaEscolhidaId = null;
   wizardArmaEscolhidaTipo = null;
+  wizardIsNPC = false;
 
   saveState();
   renderAll();
