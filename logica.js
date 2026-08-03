@@ -2001,6 +2001,10 @@ function abrirProximoSeletorRacial(pid) {
     abrirOrigemSangrentaModal(pid);
     return;
   }
+  if (p.origemId === 'elfo_origem_noturno' && !p.origemNoturnaUsada) {
+    abrirOrigemNoturnaModal(pid);
+    return;
+  }
 }
 
 function abrirAdaptacaoEspacoModal(pid) {
@@ -2154,6 +2158,116 @@ function confirmarOrigemSangrenta(pid, className, subclasseOrigem, bancoId) {
   saveState();
   renderAll();
   abrirProximoSeletorRacial(pid);
+}
+
+// ─── "Origem Noturna" (Elfo Noturno): escolhe um Caminho (subclasse) de
+// outra Classe e rola 1d10 na hora — o resultado decide, pelo índice (1ª a
+// 10ª Habilidade cadastrada daquele Caminho), qual Habilidade aleatória o
+// personagem recebe de graça. Diferente da Origem Sangrenta (que trava a
+// Classe inteira e deixa o jogador escolher a Habilidade específica), aqui
+// só o Caminho escolhido fica travado pra sempre — as outras Subclasses da
+// mesma Classe continuam livres — e a Habilidade em si é sorteada, não
+// escolhida. Passo 1: escolhe a Classe; Passo 2: escolhe o Caminho, o que já
+// dispara a rolagem e a concessão automaticamente (sem passo 3 manual).
+function abrirOrigemNoturnaModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  if (p.origemNoturnaUsada) { alert('Origem Noturna já foi usada por este personagem.'); return; }
+
+  const classesElegiveis = CLASSES.filter(c => c.name !== p.classeBase);
+  const opcoesHtml = classesElegiveis.map(c => `<button class="tm-opcao tm-opcao-blue" onclick="abrirOrigemNoturnaSubModal(${p.id},'${c.name}')">
+    <span class="tm-opcao-nome">${escHtml(c.name)}</span>
+  </button>`).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-moon"></i> Origem Noturna</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha de qual Classe você vai sortear uma Habilidade aleatória de um Caminho. Depois disso, esse Caminho fica travado pra sempre.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function abrirOrigemNoturnaSubModal(pid, className) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  const classeObj = CLASSES.find(c => c.name === className);
+  if (!overlay || !p || !classeObj) return;
+
+  const opcoesHtml = classeObj.subs.map(sub => `<button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();confirmarOrigemNoturna(${p.id},'${className}','${sub.name}')">
+    <span class="tm-opcao-nome">${escHtml(sub.name)}</span>
+  </button>`).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-moon"></i> Origem Noturna — ${escHtml(className)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha o Caminho. Ao confirmar, um 1d10 decide na hora qual Habilidade aleatória daquele Caminho você recebe — e ele fica travado pra sempre.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="abrirOrigemNoturnaModal(${p.id})">Voltar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function confirmarOrigemNoturna(pid, className, subNome) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || p.origemNoturnaUsada) return;
+  const itensSub = BANCO_HABILIDADES_SUBCLASSE[subNome] || [];
+  if (!itensSub.length) { alert('Esse Caminho ainda não tem Habilidades cadastradas.'); return; }
+
+  fecharCriacaoAnaoModal();
+
+  const sides = 10;
+  const d1 = 1 + Math.floor(Math.random() * sides);
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Origem Noturna — ${subNome} (1d10)`,
+    tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null } }] },
+    total: d1,
+    hidden: false,
+    rolling: true,
+    ts: Date.now()
+  };
+
+  spinDiceFab(true, sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  setTimeout(() => {
+    // O 1d10 corresponde à posição da Habilidade cadastrada nesse Caminho
+    // (1ª, 2ª... 10ª). Cada Caminho tem exatamente 10 Habilidades — mesmo
+    // total usado como limite do Banco de Habilidades normal (ver
+    // getBancoLimites) — então o valor sempre cai numa posição válida; o
+    // clamp abaixo é só uma proteção extra caso algum Caminho ainda não
+    // tenha as 10 cadastradas.
+    const idx = Math.min(d1, itensSub.length) - 1;
+    const item = itensSub[idx];
+
+    if (!Array.isArray(p.skills)) p.skills = [];
+    const sk = construirSkillDoBanco(item);
+    sk.origemNoturna = true; // não conta na cota da Aprendizagem Élfica nem no Banco normal
+    p.skills.push(sk);
+
+    p.origemNoturnaSubBloqueada = subNome;
+    p.origemNoturnaUsada = true;
+
+    saveState();
+    renderAll();
+    alert(`Origem Noturna: tirou ${d1} no 1d10 — ${p.name} recebeu "${item.name}" (${subNome}). Esse Caminho fica travado pra sempre.`);
+    abrirProximoSeletorRacial(pid);
+  }, ROLL_ANIM_MS + 150);
 }
 
 function abrirDecrepticoModal(pid) {
@@ -3017,6 +3131,10 @@ function getBancoHabilidades(p) {
       // pode ser escolhida, nem pela cota normal de outra Classe.
       if (p.origemSangrentaClasseBloqueada === outraCls.name) return;
       outraCls.subs.forEach(sub => {
+        // "Origem Noturna" (Elfo Noturno): só o Caminho sorteado fica
+        // travado pra sempre — as outras Subclasses da mesma Classe
+        // continuam liberadas normalmente.
+        if (p.origemNoturnaSubBloqueada === sub.name) return;
         const valeParaElfo = p.race === 'Elfo';
         const valeParaConjurador = p.cls === 'Conjurador' && sub.attr === 'intel';
         if (!valeParaElfo && !valeParaConjurador) return;
@@ -3055,7 +3173,7 @@ function contarBancoEscolhas(p) {
   const catalogo = getBancoHabilidades(p);
   let propria = 0, outras = 0;
   (p.skills || []).forEach(sk => {
-    if (!sk.bancoId || sk.bancoOutraClasse || sk.origemSangrenta) return;
+    if (!sk.bancoId || sk.bancoOutraClasse || sk.origemSangrenta || sk.origemNoturna) return;
     const item = catalogo.find(it => it.id === sk.bancoId);
     const origem = item ? item.subclasseOrigem : null;
     if (origem === p.cls) propria++;
@@ -5650,7 +5768,7 @@ function renderNarrador() {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -6240,6 +6358,7 @@ function renderJogador() {
       ${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}
       ${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}
       ${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}
+      ${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}
     </div>`;
   }).join('');
 
