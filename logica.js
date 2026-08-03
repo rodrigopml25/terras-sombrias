@@ -3351,6 +3351,7 @@ function renderWizardBancoStep() {
   // antigas (podem não fazer mais sentido para a nova Classe).
   if (wizardSkillsClasseSnapshot !== null && wizardSkillsClasseSnapshot !== pseudo.cls) {
     wizardSkillsEscolhidas = [];
+    wizardBancoClasseAtiva = null;
     wizardBancoTabAtiva = null;
   }
   wizardSkillsClasseSnapshot = pseudo.cls;
@@ -3359,12 +3360,14 @@ function renderWizardBancoStep() {
   const COLOR_LABEL = { green: 'Técnica', red: 'Golpe', blue: 'Feitiço', gray: 'Neutra' };
   const clsBase = pseudo.classeBase || '';
 
+  const classeTabsEl = document.getElementById('c-skills-classe-tabs');
   const tabsEl = document.getElementById('c-skills-tabs');
   const lista = document.getElementById('c-skills-lista');
   const progressoEl = document.getElementById('c-skills-progresso');
   if (!tabsEl || !lista) return;
 
   if (!pseudo.cls || !todosItens.length) {
+    if (classeTabsEl) classeTabsEl.innerHTML = '';
     tabsEl.innerHTML = '';
     lista.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:10px 0">${pseudo.cls ? `Nenhuma Habilidade cadastrada ainda para ${clsBase || 'esta classe'}.` : 'Escolha uma Classe no passo anterior para ver as Habilidades disponíveis.'}</div>`;
     if (progressoEl) progressoEl.innerHTML = '';
@@ -3383,8 +3386,29 @@ function renderWizardBancoStep() {
       + (temOutraClasse ? `<br>✨ ${labelFontesOutraClasse(pseudo)} (Habilidade de outra Classe): <strong style="color:var(--text)">${usadoOutra}/${limiteOutra}</strong>` : '');
   }
 
+  // 1º nível — Classes presentes (a própria primeiro, depois as liberadas
+  // por Aprendizagem Élfica/Transcendência Intelectual).
+  const classesPresentes = [];
+  todosItens.forEach(item => {
+    if (!classesPresentes.includes(item.classeOrigem)) classesPresentes.push(item.classeOrigem);
+  });
+  if (!wizardBancoClasseAtiva || !classesPresentes.includes(wizardBancoClasseAtiva)) {
+    wizardBancoClasseAtiva = classesPresentes.includes(clsBase) ? clsBase : classesPresentes[0];
+  }
+
+  if (classeTabsEl) {
+    classeTabsEl.innerHTML = classesPresentes.map(cn => {
+      const ativa = cn === wizardBancoClasseAtiva;
+      const propria = cn === clsBase;
+      return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarClasseWizardBanco('${cn}')">${propria ? '★ ' : ''}${cn}</button>`;
+    }).join('');
+  }
+
+  // 2º nível — Subclasses (Caminhos) dentro da Classe ativa.
   const subsPresentes = [];
-  todosItens.forEach(item => { if (!subsPresentes.includes(item.subclasseOrigem)) subsPresentes.push(item.subclasseOrigem); });
+  todosItens.forEach(item => {
+    if (item.classeOrigem === wizardBancoClasseAtiva && !subsPresentes.includes(item.subclasseOrigem)) subsPresentes.push(item.subclasseOrigem);
+  });
   if (!wizardBancoTabAtiva || !subsPresentes.includes(wizardBancoTabAtiva)) {
     wizardBancoTabAtiva = subsPresentes.includes(pseudo.cls) ? pseudo.cls : subsPresentes[0];
   }
@@ -3392,9 +3416,7 @@ function renderWizardBancoStep() {
   tabsEl.innerHTML = subsPresentes.map(sub => {
     const ativa = sub === wizardBancoTabAtiva;
     const propriaSub = sub === pseudo.cls;
-    const itemRef = todosItens.find(i => i.subclasseOrigem === sub);
-    const outraClasseTab = temOutraClasse && itemRef && itemRef.classeOrigem !== clsBase;
-    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaWizardBanco('${sub}')">${propriaSub ? '★ ' : ''}${sub}${outraClasseTab ? ` <span style="opacity:.6">(${itemRef.classeOrigem})</span>` : ''}</button>`;
+    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaWizardBanco('${sub}')">${propriaSub ? '★ ' : ''}${sub}</button>`;
   }).join('');
 
   const itens = todosItens.filter(item => item.subclasseOrigem === wizardBancoTabAtiva);
@@ -3428,6 +3450,13 @@ function renderWizardBancoStep() {
       </button>
     </div>`;
   }).join('');
+}
+
+// Troca a Classe ativa (1º nível de aba) no passo de Habilidades do wizard.
+function trocarClasseWizardBanco(className) {
+  wizardBancoClasseAtiva = className;
+  wizardBancoTabAtiva = null;
+  renderWizardBancoStep();
 }
 
 function trocarAbaWizardBanco(subNome) {
@@ -4767,6 +4796,7 @@ let creationLevel = 1;
 // personagem é de fato criado em saveCharacter(). Reseta a cada abertura do
 // modal para um personagem novo (ver openCharModal).
 let wizardSkillsEscolhidas = [];
+let wizardBancoClasseAtiva = null;
 let wizardBancoTabAtiva = null;
 // Guarda qual subclasse estava selecionada da última vez que o passo de
 // Habilidades foi montado — se o jogador voltar e trocar de Classe/Subclasse,
@@ -8938,6 +8968,7 @@ function closeModal() {
 // MODAL — BANCO DE HABILIDADES DE SUBCLASSE
 // ═══════════════════════════════════════
 let bancoPid = null;
+let bancoClasseAtiva = null;
 let bancoTabAtiva = null;
 let origemSangrentaPid = null;
 let origemSangrentaClasseAtiva = null;
@@ -8946,7 +8977,9 @@ let origemSangrentaTabAtiva = null;
 function openBancoModal(pid) {
   bancoPid = pid;
   const p = PLAYERS.find(x => x.id === pid);
-  bancoTabAtiva = p ? p.cls : null; // abre já na aba da própria subclasse
+  // Abre já na própria Classe/Subclasse do personagem.
+  bancoClasseAtiva = p ? (p.classeBase || getBaseClass(p.cls) || null) : null;
+  bancoTabAtiva = p ? p.cls : null;
   renderBancoModal(pid);
   document.getElementById('modal-banco-overlay').classList.add('open');
 }
@@ -8956,16 +8989,27 @@ function closeBancoModal() {
   if (overlay) overlay.classList.remove('open');
 }
 
+// Troca a Classe ativa (1º nível de aba) — ao trocar de Classe, a Subclasse
+// ativa é zerada pra cair na primeira Subclasse dessa Classe automaticamente.
+function trocarClasseBanco(className) {
+  bancoClasseAtiva = className;
+  bancoTabAtiva = null;
+  renderBancoModal(bancoPid);
+}
+
 // Troca a aba (subclasse) ativa dentro do modal, sem fechar/reabrir.
 function trocarAbaBanco(subNome) {
   bancoTabAtiva = subNome;
   renderBancoModal(bancoPid);
 }
 
-// Repinta a lista do catálogo (chamado ao abrir, ao trocar de aba, e após
+// Repinta o catálogo (chamado ao abrir, ao trocar de Classe/aba, e após
 // adicionar algo, pra atualizar o estado "já adicionada" de cada item sem
-// fechar o modal). Divide as Habilidades em uma aba por subclasse, já que
-// uma lista corrida com todas juntas fica grande demais.
+// fechar o modal). Dois níveis de aba: 1º a Classe (própria + outras, via
+// Aprendizagem Élfica/Transcendência Intelectual), 2º a Subclasse dentro da
+// Classe escolhida — antes era uma lista só, corrida, com todas as
+// Subclasses de todas as Classes misturadas e marcadas "(NomeDaClasse)",
+// o que ficava poluído e difícil de navegar.
 function renderBancoModal(pid) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
@@ -8975,11 +9019,13 @@ function renderBancoModal(pid) {
 
   document.getElementById('banco-subclasse-nome').textContent = clsBase;
 
+  const classeTabsEl = document.getElementById('banco-classe-tabs');
   const tabsEl = document.getElementById('banco-tabs');
   const lista = document.getElementById('banco-lista');
   const progressoEl = document.getElementById('banco-progresso');
 
   if (!todosItens.length) {
+    classeTabsEl.innerHTML = '';
     tabsEl.innerHTML = '';
     lista.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:10px 0">Nenhuma Habilidade cadastrada ainda para ${clsBase || 'esta classe'}.</div>`;
     if (progressoEl) progressoEl.innerHTML = '';
@@ -9000,19 +9046,32 @@ function renderBancoModal(pid) {
       + (temOutraClasse ? `<br>✨ ${labelFontesOutraClasse(p)} (Habilidade de outra Classe): <strong style="color:var(--text)">${usadoOutra}/${limiteOutra}</strong>` : '');
   }
 
-  // Subclasses na ordem em que aparecem no catálogo (mesma ordem de CLASSES)
+  // 1º nível — Classes presentes (a própria primeiro, depois as liberadas
+  // por Aprendizagem Élfica/Transcendência Intelectual), na ordem em que
+  // aparecem no catálogo.
+  const classesPresentes = [];
+  todosItens.forEach(item => {
+    if (!classesPresentes.includes(item.classeOrigem)) classesPresentes.push(item.classeOrigem);
+  });
+  if (!bancoClasseAtiva || !classesPresentes.includes(bancoClasseAtiva)) bancoClasseAtiva = classesPresentes[0];
+
+  classeTabsEl.innerHTML = classesPresentes.map(cn => {
+    const ativa = cn === bancoClasseAtiva;
+    const propria = cn === clsBaseAtualProgresso;
+    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarClasseBanco('${cn}')">${propria ? '★ ' : ''}${cn}</button>`;
+  }).join('');
+
+  // 2º nível — Subclasses (Caminhos) dentro da Classe ativa.
   const subsPresentes = [];
   todosItens.forEach(item => {
-    if (!subsPresentes.includes(item.subclasseOrigem)) subsPresentes.push(item.subclasseOrigem);
+    if (item.classeOrigem === bancoClasseAtiva && !subsPresentes.includes(item.subclasseOrigem)) subsPresentes.push(item.subclasseOrigem);
   });
   if (!bancoTabAtiva || !subsPresentes.includes(bancoTabAtiva)) bancoTabAtiva = subsPresentes[0];
 
   tabsEl.innerHTML = subsPresentes.map(sub => {
     const ativa = sub === bancoTabAtiva;
     const propria = sub === p.cls;
-    const itemRef = todosItens.find(i => i.subclasseOrigem === sub);
-    const outraClasseTab = temOutraClasse && itemRef && itemRef.classeOrigem !== clsBaseAtualProgresso;
-    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaBanco('${sub}')">${propria ? '★ ' : ''}${sub}${outraClasseTab ? ` <span style="opacity:.6">(${itemRef.classeOrigem})</span>` : ''}</button>`;
+    return `<button type="button" class="banco-tab ${ativa ? 'active' : ''}" onclick="trocarAbaBanco('${sub}')">${propria ? '★ ' : ''}${sub}</button>`;
   }).join('');
 
   const itens = todosItens.filter(item => item.subclasseOrigem === bancoTabAtiva);
