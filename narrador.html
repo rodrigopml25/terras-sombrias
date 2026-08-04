@@ -436,6 +436,13 @@
             <label class="form-label">Nome</label>
             <input type="text" id="c-name" placeholder="Nome do personagem" onkeydown="if(event.key==='Enter'){event.preventDefault();wizardNext();}">
           </div>
+          <div class="form-row" id="c-npc-tipo-container" style="display:none">
+            <label class="form-label">Classificação do NPC</label>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="cls-btn npc-tipo-btn" data-tipo="aliado" onclick="selectNpcTipo('aliado')" style="flex:1; justify-content:center;">🛡️ Aliado</button>
+              <button type="button" class="cls-btn npc-tipo-btn" data-tipo="inimigo" onclick="selectNpcTipo('inimigo')" style="flex:1; justify-content:center;">⚔️ Inimigo</button>
+            </div>
+          </div>
           <div class="modal-btns step-nav">
             <button class="btn" onclick="closeCharModal()">Cancelar</button>
             <button class="btn btn-primary" onclick="wizardNext()">Próximo <i class="ti ti-arrow-right"></i></button>
