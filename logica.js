@@ -2018,6 +2018,11 @@ function abrirProximoSeletorRacial(pid) {
     abrirVentoBravoModal(pid);
     return;
   }
+  // "Origem de Kalindor" (Humano): mesma lógica de pendência da Vento Bravo.
+  if (kalindorTemPendencia(p)) {
+    abrirKalindorModal(pid);
+    return;
+  }
 }
 
 function abrirAdaptacaoEspacoModal(pid) {
@@ -2450,6 +2455,133 @@ function escolherVentoBravo(pid, nivel, tipo, testeId) {
   saveState();
   renderAll();
   abrirVentoBravoEscolhaModal(pid, nivel, tipo);
+}
+
+// ─── "Origem de Kalindor" (Humano): a cada Nível, escolhe 1 Teste pra
+// receber +1d4 de Vantagem e outro Teste (diferente) pra receber −1d4 de
+// Desvantagem. Não vale para Emoção, Iniciativa nem Devoção. Diferente da
+// Vento Bravo (que permite até 2 escolhas no mesmo Teste), aqui um Teste só
+// pode ser afetado 1 vez no total — seja como alvo do bônus ou da penalidade,
+// nunca os dois. É dado rolado (1d4), não bônus fixo.
+const KALINDOR_PAPEIS = [
+  { papel: 'bonus',      label: 'Vantagem (+1d4)' },
+  { papel: 'penalidade', label: 'Desvantagem (−1d4)' },
+];
+const KALINDOR_TESTES_EXCLUIDOS = ['emocao', 'iniciativa', 'devocao'];
+
+// Verdadeiro se ainda sobrar algum slot vazio (Nível 1 até o Nível atual,
+// um Vantagem + um Desvantagem por Nível).
+function kalindorTemPendencia(p) {
+  if (p.origemId !== 'humano_origem_kalindor') return false;
+  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  const escolhas = p.kalindorEscolhas || [];
+  for (let n = 1; n <= nivel; n++) {
+    for (const kp of KALINDOR_PAPEIS) {
+      if (!escolhas.some(e => e.nivel === n && e.papel === kp.papel)) return true;
+    }
+  }
+  return false;
+}
+
+// Retorna 'bonus', 'penalidade' ou null — cada Teste só pode ter 1 papel no total.
+function getKalindorPapel(p, testeId) {
+  if (p.origemId !== 'humano_origem_kalindor') return null;
+  const entry = (p.kalindorEscolhas || []).find(e => e.testeId === testeId);
+  return entry ? entry.papel : null;
+}
+
+function abrirKalindorModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (!Array.isArray(p.kalindorEscolhas)) p.kalindorEscolhas = [];
+  renderKalindorModal(pid);
+  document.getElementById('modal-criacao-anao-overlay').classList.add('open');
+}
+
+function renderKalindorModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  if (!Array.isArray(p.kalindorEscolhas)) p.kalindorEscolhas = [];
+
+  let niveisHtml = '';
+  for (let n = 1; n <= nivel; n++) {
+    const slotsHtml = KALINDOR_PAPEIS.map(kp => {
+      const entry = p.kalindorEscolhas.find(e => e.nivel === n && e.papel === kp.papel);
+      const teste = entry ? TESTES_LISTA.find(t => t.id === entry.testeId) : null;
+      return `<button class="tm-opcao tm-opcao-blue" style="width:100%;text-align:left" onclick="event.stopPropagation();abrirKalindorEscolhaModal(${p.id},${n},'${kp.papel}')">
+        <span class="tm-opcao-nome">${kp.label}</span>
+        <span class="tm-opcao-info">${teste ? `✓ ${escHtml(teste.name)}` : 'Escolher…'}</span>
+      </button>`;
+    }).join('');
+    niveisHtml += `<div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Nível ${n}</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${slotsHtml}</div>
+    </div>`;
+  }
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-anchor"></i> Origem de Kalindor</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        A cada Nível, escolha 1 Teste pra receber +1d4 de Vantagem e outro (diferente) pra receber −1d4 de Desvantagem. Um Teste só pode ser afetado 1 vez no total — nunca vale pra Emoção, Iniciativa ou Devoção.
+      </div>
+      <div style="max-height:400px;overflow-y:auto">${niveisHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+    </div>`;
+}
+
+function abrirKalindorEscolhaModal(pid, nivel, papel) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  if (!Array.isArray(p.kalindorEscolhas)) p.kalindorEscolhas = [];
+
+  const testesElegiveis = TESTES_LISTA.filter(t => !KALINDOR_TESTES_EXCLUIDOS.includes(t.id));
+  const atual = p.kalindorEscolhas.find(e => e.nivel === nivel && e.papel === papel);
+  const papelLabel = (KALINDOR_PAPEIS.find(kp => kp.papel === papel) || {}).label || papel;
+
+  const opcoesHtml = testesElegiveis.map(t => {
+    const usadoEm = p.kalindorEscolhas.find(e => e.testeId === t.id);
+    const jaNesseSlot = !!(atual && atual.testeId === t.id);
+    const bloqueado = !jaNesseSlot && !!usadoEm;
+    const usadoLabel = usadoEm && !jaNesseSlot
+      ? ` <span style="opacity:.6;font-size:11px">(já é ${usadoEm.papel === 'bonus' ? 'Vantagem' : 'Desvantagem'})</span>`
+      : '';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)">
+      <span style="flex:1;font-size:13px;color:var(--text)">${escHtml(t.name)}${usadoLabel}</span>
+      <button class="btn" style="font-size:11px;padding:4px 10px;${jaNesseSlot ? 'background:var(--accent);color:#fff' : ''}" ${bloqueado ? 'disabled' : ''} onclick="event.stopPropagation();escolherKalindor(${p.id},${nivel},'${papel}','${t.id}')">${jaNesseSlot ? '✓ Escolhido' : (bloqueado ? '🔒 Já usado' : 'Escolher')}</button>
+    </div>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-anchor"></i> Kalindor — Nível ${nivel} · ${papelLabel}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha o Teste que recebe ${papel === 'bonus' ? '+1d4 de Vantagem' : '−1d4 de Desvantagem'} neste Nível.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="event.stopPropagation();abrirKalindorModal(${p.id})">Voltar</button>
+    </div>`;
+}
+
+function escolherKalindor(pid, nivel, papel, testeId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (!Array.isArray(p.kalindorEscolhas)) p.kalindorEscolhas = [];
+
+  const atual = p.kalindorEscolhas.find(e => e.nivel === nivel && e.papel === papel);
+  if (!(atual && atual.testeId === testeId)) {
+    const jaUsado = p.kalindorEscolhas.some(e => e.testeId === testeId);
+    if (jaUsado) { alert('Esse Teste já foi escolhido em outro slot — só pode ser afetado 1 vez no total.'); return; }
+  }
+  if (atual) atual.testeId = testeId;
+  else p.kalindorEscolhas.push({ nivel, papel, testeId });
+
+  saveState();
+  renderAll();
+  abrirKalindorEscolhaModal(pid, nivel, papel);
 }
 
 function abrirOrigemComumModal(pid) {
@@ -5941,6 +6073,11 @@ function onLevelUp(p) {
   if (p.origemId === 'humano_origem_vento_bravo') {
     setTimeout(() => abrirVentoBravoModal(p.id), 300);
   }
+  // "Origem de Kalindor" (Humano): mesma ideia — subir de Nível libera 1
+  // escolha de Vantagem + 1 de Desvantagem novas.
+  if (p.origemId === 'humano_origem_kalindor') {
+    setTimeout(() => abrirKalindorModal(p.id), 300);
+  }
   // Draenei (Origem Demoníaca): ao subir de Nível, +1 de Passos permanente
   // (acumula no passosBase) e 1d8 de Insanidade — rolado de verdade e
   // publicado no feed de dados (ver rolarInsanidadeOrigemDemoniaca).
@@ -6099,7 +6236,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -6402,7 +6539,8 @@ function renderTestes(p, readonly) {
       // "Origem de Vento Bravo" (Humano): nunca tem Mega Vantagem em Teste nenhum.
       const mvBloqueadaOrigem = p.origemId === 'humano_origem_vento_bravo';
       const bonusVB = getVentoBravoBonus(p, tid);
-      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}`;
+      const papelKal = getKalindorPapel(p, tid);
+      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}`;
 
       if (readonly) {
         // Narrador: chip com os mesmos controles do Jogador (MV/MD/Bônus),
@@ -6720,6 +6858,7 @@ function renderJogador() {
       ${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}
       ${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}
       ${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}
+      ${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}
     </div>`;
   }).join('');
 
@@ -12242,6 +12381,20 @@ function construirRolagemTeste(p, testeId) {
   if (bonusVentoBravo > 0) {
     terms.push({ sign: '+', node: { type: 'labeled_const', value: bonusVentoBravo, label: 'Vento Bravo' } });
     total += bonusVentoBravo;
+  }
+
+  // "Origem de Kalindor" (Humano): o Teste escolhido como alvo recebe um
+  // 1d4 rolado de verdade — +1d4 se for o alvo de Vantagem, −1d4 se for o
+  // de Desvantagem. Nunca vale pra Emoção/Iniciativa/Devoção (a escolha em
+  // si já é bloqueada pra esses Testes, ver KALINDOR_TESTES_EXCLUIDOS).
+  if (!KALINDOR_TESTES_EXCLUIDOS.includes(testeId)) {
+    const papelKalindor = getKalindorPapel(p, testeId);
+    if (papelKalindor) {
+      const kalRoll = 1 + Math.floor(Math.random() * 4);
+      const kalSign = papelKalindor === 'bonus' ? '+' : '-';
+      terms.push({ sign: kalSign, node: { type: 'dice', sides: 4, count: 1, results: [kalRoll], sum: kalRoll, countNode: null, label: 'Kalindor' } });
+      total += (kalSign === '+' ? kalRoll : -kalRoll);
+    }
   }
 
   // Teste de Emoção: subtrai a Insanidade atual do personagem (0-100)
