@@ -2011,6 +2011,13 @@ function abrirProximoSeletorRacial(pid) {
     abrirOrigemNoturnaModal(pid);
     return;
   }
+  // "Origem de Vento Bravo" (Humano): diferente das outras, não tem "usado"
+  // — reabre sempre que sobrar algum slot vazio (Nível 1 recém-criado, ou
+  // Nível novo depois de subir), até o jogador preencher os 3 tipos.
+  if (ventoBravoTemPendencia(p)) {
+    abrirVentoBravoModal(pid);
+    return;
+  }
 }
 
 function abrirAdaptacaoEspacoModal(pid) {
@@ -2331,6 +2338,21 @@ const VENTO_BRAVO_TIPOS = [
   { tipo: 'forca',  label: 'Força' },
   { tipo: 'intel',  label: 'Intelecto' },
 ];
+
+// Verdadeiro se ainda sobrar algum slot vazio (Nível 1 até o Nível atual,
+// um por tipo) — usado tanto pra reabrir o modal automaticamente quanto,
+// futuramente, por qualquer outro ponto que precise checar pendência.
+function ventoBravoTemPendencia(p) {
+  if (p.origemId !== 'humano_origem_vento_bravo') return false;
+  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  const escolhas = p.ventoBravoEscolhas || [];
+  for (let n = 1; n <= nivel; n++) {
+    for (const vt of VENTO_BRAVO_TIPOS) {
+      if (!escolhas.some(e => e.nivel === n && e.tipo === vt.tipo)) return true;
+    }
+  }
+  return false;
+}
 
 // +2 por escolha que aponta pro Teste, capado em 2 escolhas (+4 no máximo).
 function getVentoBravoBonus(p, testeId) {
@@ -5912,6 +5934,12 @@ function onLevelUp(p) {
   // mesmo nome) — ver abrirOrigemProfundezasModal.
   if (p.race === 'Anão' && p.origemId === 'anao_origem_profundezas') {
     p.origemProfundezasPendente = true;
+  }
+  // "Origem de Vento Bravo" (Humano): subir de Nível libera 3 escolhas
+  // novas (1 Teste de cada tipo). Abre o modal sozinho na hora, em vez de
+  // só mostrar um botão — assim o jogador não esquece de preencher.
+  if (p.origemId === 'humano_origem_vento_bravo') {
+    setTimeout(() => abrirVentoBravoModal(p.id), 300);
   }
   // Draenei (Origem Demoníaca): ao subir de Nível, +1 de Passos permanente
   // (acumula no passosBase) e 1d8 de Insanidade — rolado de verdade e
