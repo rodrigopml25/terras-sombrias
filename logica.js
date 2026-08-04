@@ -1020,6 +1020,7 @@ function temTalentoSuperior(p, talentoSuperiorId) {
 // Talento Superior "Base Sólida" concede +2 Talentos Inferiores adicionais
 // (podendo repetir um que já possui — ver adicionarTalentoInferior).
 function getLimiteTalentosInferiores(p) {
+  if (p.isNPC) return Infinity;
   let limite = (p.level || 1) >= 2 ? 1 : 0;
   if (temTalentoSuperior(p, 'base_solida')) limite += 2;
   return limite;
@@ -1028,6 +1029,7 @@ function getLimiteTalentosInferiores(p) {
 // Quantas escolhas de Talento Inferior ainda faltam ser feitas — usado para
 // exibir o aviso na ficha, mesmo padrão de getHabilidadesPendentes.
 function getTalentosInferioresPendentes(p) {
+  if (p.isNPC) return 0;
   return Math.max(0, getLimiteTalentosInferiores(p) - getTalentosInferioresEscolhidos(p).length);
 }
 
@@ -1089,11 +1091,13 @@ function getTalentosSuperioresEscolhidos(p) {
 // Quantos Talentos Superiores o personagem tem direito de escolher. Regra
 // atual: recebe 1 ao chegar no Nível 4 (não escala com Níveis futuros).
 function getLimiteTalentosSuperiores(p) {
+  if (p.isNPC) return Infinity;
   return (p.level || 1) >= 4 ? 1 : 0;
 }
 
 // Quantas escolhas de Talento Superior ainda faltam ser feitas.
 function getTalentosSuperioresPendentes(p) {
+  if (p.isNPC) return 0;
   return Math.max(0, getLimiteTalentosSuperiores(p) - getTalentosSuperioresEscolhidos(p).length);
 }
 
@@ -1496,12 +1500,14 @@ function buscarEncantamentoPorId(id) {
 // O personagem tem o Talento Inferior "Equipamento Encantado"? Sem ele, não
 // pode aplicar (nem manter) Encantamentos em seus equipamentos.
 function temAcessoEquipamentoEncantado(p) {
+  if (p.isNPC) return true; // NPC: Narrador libera Equipamento Encantado sem precisar do Talento
   return getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'equipamento_encantado');
 }
 
 // O personagem tem o Talento Inferior "Equipamento Exótico"? Sem ele, não
 // tem acesso à compra de armaduras/elmos/armas exóticas no catálogo.
 function temAcessoEquipamentoExotico(p) {
+  if (p.isNPC) return true; // NPC: Narrador libera Equipamento Exótico sem precisar do Talento
   return getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'equipamento_exotico');
 }
 
@@ -2311,6 +2317,117 @@ function escolherDecreptico(pid, testeId, papel) {
   saveState();
   renderAll();
   abrirDecrepticoModal(pid);
+}
+
+// ─── "Origem de Vento Bravo" (Humano): a cada Nível, escolhe 1 Teste de
+// Agilidade + 1 de Força + 1 de Intelecto pra receber +2 de Vantagem cada.
+// Diferente da Decréptico (escolha única, feita uma vez), essa cresce junto
+// com o personagem — sobe de Nível, ganha 3 escolhas novas — por isso o
+// modal fica sempre acessível (sem "trava" de uso único) e mostra uma
+// seção por Nível já alcançado. Um mesmo Teste pode acumular no máximo 2
+// escolhas (+4 no total), mesmo vindas de Níveis diferentes.
+const VENTO_BRAVO_TIPOS = [
+  { tipo: 'agi',    label: 'Agilidade' },
+  { tipo: 'forca',  label: 'Força' },
+  { tipo: 'intel',  label: 'Intelecto' },
+];
+
+// +2 por escolha que aponta pro Teste, capado em 2 escolhas (+4 no máximo).
+function getVentoBravoBonus(p, testeId) {
+  if (p.origemId !== 'humano_origem_vento_bravo') return 0;
+  const count = (p.ventoBravoEscolhas || []).filter(e => e.testeId === testeId).length;
+  return Math.min(count, 2) * 2;
+}
+
+function abrirVentoBravoModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (!Array.isArray(p.ventoBravoEscolhas)) p.ventoBravoEscolhas = [];
+  renderVentoBravoModal(pid);
+  document.getElementById('modal-criacao-anao-overlay').classList.add('open');
+}
+
+function renderVentoBravoModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  if (!Array.isArray(p.ventoBravoEscolhas)) p.ventoBravoEscolhas = [];
+
+  let niveisHtml = '';
+  for (let n = 1; n <= nivel; n++) {
+    const slotsHtml = VENTO_BRAVO_TIPOS.map(vt => {
+      const entry = p.ventoBravoEscolhas.find(e => e.nivel === n && e.tipo === vt.tipo);
+      const teste = entry ? TESTES_LISTA.find(t => t.id === entry.testeId) : null;
+      return `<button class="tm-opcao tm-opcao-blue" style="width:100%;text-align:left" onclick="event.stopPropagation();abrirVentoBravoEscolhaModal(${p.id},${n},'${vt.tipo}')">
+        <span class="tm-opcao-nome">${vt.label}</span>
+        <span class="tm-opcao-info">${teste ? `✓ ${escHtml(teste.name)} (+2)` : 'Escolher…'}</span>
+      </button>`;
+    }).join('');
+    niveisHtml += `<div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Nível ${n}</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${slotsHtml}</div>
+    </div>`;
+  }
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-wind"></i> Origem de Vento Bravo</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        A cada Nível, escolha 1 Teste de Agilidade + 1 de Força + 1 de Intelecto pra receber +2 de Vantagem. Um mesmo Teste pode acumular até 2 escolhas (+4 no máximo). Seus Testes nunca têm Mega Vantagem.
+      </div>
+      <div style="max-height:400px;overflow-y:auto">${niveisHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+    </div>`;
+}
+
+function abrirVentoBravoEscolhaModal(pid, nivel, tipo) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  if (!Array.isArray(p.ventoBravoEscolhas)) p.ventoBravoEscolhas = [];
+
+  const testesTipo = TESTES_LISTA.filter(t => t.attr === tipo);
+  const atual = p.ventoBravoEscolhas.find(e => e.nivel === nivel && e.tipo === tipo);
+  const tipoLabel = (VENTO_BRAVO_TIPOS.find(vt => vt.tipo === tipo) || {}).label || tipo;
+
+  const opcoesHtml = testesTipo.map(t => {
+    const contagem = p.ventoBravoEscolhas.filter(e => e.testeId === t.id).length;
+    const jaNesseSlot = !!(atual && atual.testeId === t.id);
+    const bloqueado = !jaNesseSlot && contagem >= 2;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)">
+      <span style="flex:1;font-size:13px;color:var(--text)">${escHtml(t.name)}${contagem > 0 ? ` <span style="opacity:.6;font-size:11px">(${contagem}/2)</span>` : ''}</span>
+      <button class="btn" style="font-size:11px;padding:4px 10px;${jaNesseSlot ? 'background:var(--accent);color:#fff' : ''}" ${bloqueado ? 'disabled' : ''} onclick="event.stopPropagation();escolherVentoBravo(${p.id},${nivel},'${tipo}','${t.id}')">${jaNesseSlot ? '✓ Escolhido' : (bloqueado ? '🔒 Limite (2/2)' : 'Escolher')}</button>
+    </div>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-wind"></i> Vento Bravo — Nível ${nivel} · ${tipoLabel}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha o Teste de ${tipoLabel} que recebe +2 de Vantagem neste Nível.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="event.stopPropagation();abrirVentoBravoModal(${p.id})">Voltar</button>
+    </div>`;
+}
+
+function escolherVentoBravo(pid, nivel, tipo, testeId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (!Array.isArray(p.ventoBravoEscolhas)) p.ventoBravoEscolhas = [];
+
+  const atual = p.ventoBravoEscolhas.find(e => e.nivel === nivel && e.tipo === tipo);
+  if (!(atual && atual.testeId === testeId)) {
+    const contagem = p.ventoBravoEscolhas.filter(e => e.testeId === testeId).length;
+    if (contagem >= 2) { alert('Esse Teste já atingiu o limite de 2 escolhas (+4 no máximo).'); return; }
+  }
+  if (atual) atual.testeId = testeId;
+  else p.ventoBravoEscolhas.push({ nivel, tipo, testeId });
+
+  saveState();
+  renderAll();
+  abrirVentoBravoEscolhaModal(pid, nivel, tipo);
 }
 
 function abrirOrigemComumModal(pid) {
@@ -3164,6 +3281,8 @@ function getBancoHabilidades(p) {
 // em BANCO_HABILIDADES_SUBCLASSE.
 function getBancoLimites(p) {
   const nivel = Math.max(1, Math.min(5, p.level || 1));
+  // NPCs: Narrador pode escolher quantas Habilidades quiser, sem teto.
+  if (p.isNPC) return { nivel, maxOutras: Infinity, maxTotal: Infinity };
   const maxOutras = Math.max(0, nivel - 1); // escolhas "livres" (outra subclasse)
   const maxTotal = nivel * 2;               // total acumulado de escolhas do banco
   return { nivel, maxOutras, maxTotal };
@@ -3200,6 +3319,8 @@ function temFonteOutraClasse(p) {
 }
 function getLimiteOutraClasse(p) {
   let limite = 0;
+  // NPCs: sem teto de cota de "outra Classe" também.
+  if (p.isNPC) return Infinity;
   // "Origem Sangrenta": precisa resolver a escolha própria antes de poder
   // usar a cota normal de outra Classe (ver getBancoHabilidades).
   if (p.origemId === 'elfo_origem_sangrento' && !p.origemSangrentaUsado) return 0;
@@ -3231,6 +3352,7 @@ function labelFontesOutraClasse(p) {
 // de pontos de atributo pendentes (p.pontosPendentes). Inclui também a cota
 // de outra Classe (Elfo/Conjurador), se aplicável.
 function getHabilidadesPendentes(p) {
+  if (p.isNPC) return 0;
   let pendentes = 0;
   if (getBancoHabilidades(p).length) {
     const { maxTotal } = getBancoLimites(p);
@@ -3321,6 +3443,27 @@ function adicionarHabilidadeDoBanco(pid, bancoId) {
 // Monta um "personagem provisório" só com os campos necessários para
 // reaproveitar getBancoHabilidades/getBancoLimites/contarBancoEscolhas
 // durante a criação, antes de o personagem existir de fato em PLAYERS.
+// true se o personagem sendo criado/editado no wizard agora é um NPC — usado
+// pra liberar Nível livre, pontos de atributo sem teto, Habilidades/Talentos
+// ilimitados e qualquer categoria de peso de Armadura/Arma (ver pedido do
+// Narrador: NPCs não têm Nível e podem ter quantos pontos/Habilidades/
+// Talentos ele quiser, além de qualquer tipo de Armadura).
+function isWizardTargetNPC() {
+  if (modalCharId) {
+    const p = PLAYERS.find(x => x.id === modalCharId);
+    return !!(p && p.isNPC);
+  }
+  return wizardIsNPC;
+}
+
+// Alterna a classificação Aliado/Inimigo do NPC sendo criado/editado no wizard.
+function selectNpcTipo(tipo) {
+  wizardNpcTipo = tipo;
+  document.querySelectorAll('.npc-tipo-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tipo === tipo)
+  );
+}
+
 function getWizardPseudoPlayer() {
   const cls = getSelectedSubclasse() || '';
   const classeBase = getBaseClass(cls) || cls;
@@ -3332,7 +3475,7 @@ function getWizardPseudoPlayer() {
   // Origem Sangrenta (bug: dava pra pegar depois mais Habilidades da mesma
   // Classe que ficaria travada).
   const origemId = document.getElementById('c-origem')?.value || null;
-  const pseudo = { cls, classeBase, level: creationLevel, race, origemId, origemSangrentaUsado: false, origemNoturnaUsada: false };
+  const pseudo = { cls, classeBase, level: creationLevel, race, origemId, origemSangrentaUsado: false, origemNoturnaUsada: false, isNPC: wizardIsNPC };
   const catalogo = getBancoHabilidades(pseudo);
   pseudo.skills = wizardSkillsEscolhidas.map(id => {
     const item = catalogo.find(it => it.id === id);
@@ -3380,7 +3523,9 @@ function renderWizardBancoStep() {
   const limiteOutra = getLimiteOutraClasse(pseudo);
   const usadoOutra = contarOutraClasseEscolhas(pseudo);
   if (progressoEl) {
-    progressoEl.innerHTML = `Nível ${nivel} · Escolhidas: <strong style="color:var(--text)">${total}/${maxTotal}</strong>`
+    progressoEl.innerHTML = pseudo.isNPC
+      ? `Escolhidas: <strong style="color:var(--text)">${total}</strong> — <span style="color:var(--green)">NPC: sem limite</span>`
+      : `Nível ${nivel} · Escolhidas: <strong style="color:var(--text)">${total}/${maxTotal}</strong>`
       + ` (própria subclasse: ${propria} · outras subclasses: ${outras}/${maxOutras})`
       + (total >= maxTotal ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '')
       + (temOutraClasse ? `<br>✨ ${labelFontesOutraClasse(pseudo)} (Habilidade de outra Classe): <strong style="color:var(--text)">${usadoOutra}/${limiteOutra}</strong>` : '');
@@ -3474,6 +3619,7 @@ function trocarAbaWizardBanco(subNome) {
 // Talento Superior "Base Sólida" já tiver sido escolhido neste mesmo wizard
 // (mesmo padrão de getLimiteWizardFeiticosLendarios / getLimiteWizardRituaisMacabros).
 function getLimiteWizardTalentosInferiores() {
+  if (wizardIsNPC) return Infinity;
   let limite = creationLevel >= 2 ? 1 : 0;
   if (wizardTalentosSuperioresEscolhidos.includes('base_solida')) limite += 2;
   return limite;
@@ -3503,7 +3649,9 @@ function renderWizardTalentosStep() {
   if (aviso) aviso.style.display = 'none';
 
   if (progressoEl) {
-    progressoEl.innerHTML = `Escolhidos: <strong style="color:var(--text)">${wizardTalentosEscolhidos.length}/${limite}</strong>`
+    progressoEl.innerHTML = wizardIsNPC
+      ? `Escolhidos: <strong style="color:var(--text)">${wizardTalentosEscolhidos.length}</strong> — <span style="color:var(--green)">NPC: sem limite</span>`
+      : `Escolhidos: <strong style="color:var(--text)">${wizardTalentosEscolhidos.length}/${limite}</strong>`
       + (wizardTalentosEscolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '')
       + (podeRepetir ? ' <span style="color:var(--accent2)">· Base Sólida: pode repetir um já escolhido</span>' : '');
   }
@@ -3572,6 +3720,11 @@ function removerUmaCopiaWizardTalento(talentoId) {
 // Um personagem criado já no Nível 4 ou superior tem direito ao Talento
 // Superior desde a criação — mesma regra de getLimiteTalentosSuperiores, só
 // que usando o creationLevel escolhido no passo 4 em vez de p.level.
+function getLimiteWizardTalentosSuperiores() {
+  if (wizardIsNPC) return Infinity;
+  return creationLevel >= 4 ? 1 : 0;
+}
+
 function renderWizardTalentosSuperioresStep() {
   const secao = document.getElementById('c-talentos-superiores-section');
   const aviso = document.getElementById('c-talentos-superiores-aviso');
@@ -3579,7 +3732,7 @@ function renderWizardTalentosSuperioresStep() {
   const progressoEl = document.getElementById('c-talentos-superiores-progresso');
   if (!secao || !lista) return;
 
-  const limite = creationLevel >= 4 ? 1 : 0;
+  const limite = getLimiteWizardTalentosSuperiores();
 
   if (limite === 0) {
     if (aviso) aviso.style.display = '';
@@ -3591,7 +3744,9 @@ function renderWizardTalentosSuperioresStep() {
   if (aviso) aviso.style.display = 'none';
 
   if (progressoEl) {
-    progressoEl.innerHTML = `Escolhidos: <strong style="color:var(--text)">${wizardTalentosSuperioresEscolhidos.length}/${limite}</strong>`
+    progressoEl.innerHTML = wizardIsNPC
+      ? `Escolhidos: <strong style="color:var(--text)">${wizardTalentosSuperioresEscolhidos.length}</strong> — <span style="color:var(--green)">NPC: sem limite</span>`
+      : `Escolhidos: <strong style="color:var(--text)">${wizardTalentosSuperioresEscolhidos.length}/${limite}</strong>`
       + (wizardTalentosSuperioresEscolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido</span>' : '');
   }
 
@@ -3624,9 +3779,10 @@ function toggleWizardTalentoSuperior(talentoId) {
     if (typeof renderWizardRituaisMacabrosStep === 'function') renderWizardRituaisMacabrosStep();
     return;
   }
-  if (creationLevel < 4) return;
-  if (wizardTalentosSuperioresEscolhidos.length >= 1) {
-    alert('Limite de Talento Superior atingido (máx. 1).');
+  const limite = getLimiteWizardTalentosSuperiores();
+  if (limite === 0) return;
+  if (wizardTalentosSuperioresEscolhidos.length >= limite) {
+    alert(`Limite de Talento Superior atingido (máx. ${limite}).`);
     return;
   }
   wizardTalentosSuperioresEscolhidos.push(talentoId);
@@ -3809,7 +3965,7 @@ function renderWizardArmaduraStep() {
     return;
   }
 
-  const pesosPermitidos = getPesosArmaduraPermitidos(cls);
+  const pesosPermitidos = wizardIsNPC ? ORDEM_PESO_ARMADURA.slice() : getPesosArmaduraPermitidos(cls);
   const opcoes = CATALOGO_ITENS.protecao.filter(item => item.subtipo === 'armadura' && pesosPermitidos.includes(item.peso));
 
   // Descarta uma escolha antiga que não seja mais válida (ex.: trocou de subclasse/atributo).
@@ -3819,7 +3975,9 @@ function renderWizardArmaduraStep() {
 
   if (aviso) {
     aviso.style.display = '';
-    aviso.textContent = `Categorias liberadas por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
+    aviso.textContent = wizardIsNPC
+      ? 'NPC: todas as categorias de peso de Armadura estão liberadas.'
+      : `Categorias liberadas por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
   }
 
   if (!opcoes.length) {
@@ -3863,7 +4021,7 @@ function renderWizardElmoStep() {
     return;
   }
 
-  const pesosPermitidos = getPesosArmaduraPermitidos(cls);
+  const pesosPermitidos = wizardIsNPC ? ORDEM_PESO_ARMADURA.slice() : getPesosArmaduraPermitidos(cls);
   const opcoes = CATALOGO_ITENS.protecao.filter(item => item.subtipo === 'elmo' && pesosPermitidos.includes(item.peso));
 
   // Descarta uma escolha antiga que não seja mais válida (ex.: trocou de subclasse/atributo).
@@ -3873,7 +4031,9 @@ function renderWizardElmoStep() {
 
   if (aviso) {
     aviso.style.display = '';
-    aviso.textContent = `Categorias liberadas por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
+    aviso.textContent = wizardIsNPC
+      ? 'NPC: todas as categorias de peso de Elmo estão liberadas.'
+      : `Categorias liberadas por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
   }
 
   if (!opcoes.length) {
@@ -3918,7 +4078,7 @@ function renderWizardArmaStep() {
     return;
   }
 
-  const pesosPermitidos = getPesosArmaPermitidos(cls);
+  const pesosPermitidos = wizardIsNPC ? ORDEM_PESO_ARMADURA.slice() : getPesosArmaPermitidos(cls);
   const opcoesArma = CATALOGO_ITENS.arma.filter(item => pesosPermitidos.includes(item.peso)).map(item => ({ ...item, _tipo: 'arma' }));
   const opcoesInstrumento = CATALOGO_ITENS.instrumento.filter(item => pesosPermitidos.includes(item.peso)).map(item => ({ ...item, _tipo: 'instrumento' }));
   const opcoes = [...opcoesArma, ...opcoesInstrumento];
@@ -3931,7 +4091,9 @@ function renderWizardArmaStep() {
 
   if (aviso) {
     aviso.style.display = '';
-    aviso.textContent = `Categoria liberada por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
+    aviso.textContent = wizardIsNPC
+      ? 'NPC: todas as categorias de peso de Arma/Instrumento estão liberadas.'
+      : `Categoria liberada por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
   }
 
   if (!opcoes.length) {
@@ -4583,6 +4745,7 @@ function getPesosArmaPermitidosPersonagem(p) {
 // Não se aplica a Exótica/Encantada, que têm suas próprias travas por
 // Talento — ver temAcessoEquipamentoExotico/temAcessoEquipamentoEncantado.
 function temAcessoPesoArma(p, peso) {
+  if (p.isNPC) return true; // NPC: qualquer categoria de peso, sem depender do atributo da subclasse
   if (!ORDEM_PESO_ARMADURA.includes(peso)) return true;
   return getPesosArmaPermitidosPersonagem(p).includes(peso);
 }
@@ -4593,6 +4756,7 @@ function temAcessoPesoArma(p, peso) {
 // Exótica/Encantada, que têm suas próprias travas por Talento — ver
 // temAcessoEquipamentoExotico/temAcessoEquipamentoEncantado.
 function temAcessoPesoArmaduraOuElmo(p, peso) {
+  if (p.isNPC) return true; // NPC: qualquer categoria de peso, sem depender do atributo da subclasse
   const idx = ORDEM_PESO_ARMADURA.indexOf(peso);
   if (idx === -1) return true;
   const maxIdx = ORDEM_PESO_ARMADURA.indexOf(getPesoMaximoArmaduraPersonagem(p));
@@ -4937,6 +5101,9 @@ let dataListenerHandler = null;
 let NPC_BANK = [];
 let bankModeActive = false;
 let campaignPlayersBackup = null; // guarda o PLAYERS real da campanha enquanto o banco está aberto
+// Classificação do NPC sendo criado/editado no wizard: 'aliado' ou 'inimigo'
+// — ver seletor no passo 1 (Nome), campo p.npcTipo salvo no personagem.
+let wizardNpcTipo = 'aliado';
 
 function snapshotState() {
   return { PLAYERS, turnGlobal, INITIATIVE, turnoAtualId, combatAtivo, notes };
@@ -5904,7 +6071,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -5921,10 +6088,16 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
     const rituaisMacabrosPendentes = getRituaisMacabrosPendentes(p);
     const pendRitualMacabroBadge = (rituaisMacabrosPendentes > 0) ? ` <span title="Personagem tem Ritual Macabro não escolhido" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🌀 ${rituaisMacabrosPendentes} ritual</span>` : '';
     const formaDragaoBadge = (p.race === 'Dragão' && p.formaDragao) ? ` <span title="Em forma de Dragão: Sopro, Iniciar Voo, Impacto de Pouso e Garras Dracônicas disponíveis" style="display:inline-flex;align-items:center;gap:3px;background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐉 Forma de Dragão</span>` : '';
-    return `<div class="prow ${bm ? 'beira-morte' : ''}">
+    const npcTipoClasse = p.isNPC ? (p.npcTipo === 'inimigo' ? 'npc-inimigo' : 'npc-aliado') : '';
+    const npcTipoBadge = p.isNPC
+      ? (p.npcTipo === 'inimigo'
+        ? ` <span title="Inimigo" style="display:inline-flex;align-items:center;gap:3px;background:var(--red-bg);border:1px solid var(--red-bd);color:#f08080;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">⚔️ Inimigo</span>`
+        : ` <span title="Aliado" style="display:inline-flex;align-items:center;gap:3px;background:var(--blue-bg);border:1px solid var(--blue-bd);color:var(--blue);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🛡️ Aliado</span>`)
+      : '';
+    return `<div class="prow ${bm ? 'beira-morte' : ''} ${npcTipoClasse}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}</div><div class="prow-sub">${p.race}${origemSubLabel} · ${p.classeBase || p.cls} · ${p.classeBase ? p.cls + ' · ' : ''}Nv ${p.level}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -6045,14 +6218,14 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
             <button onclick="adjCristais(${p.id},+1)">+1</button>
           </div>
         </div>` : ''}
-        <div class="nar-ctrl-group">
+        ${p.isNPC ? '' : `<div class="nar-ctrl-group">
           <span class="nar-ctrl-lbl">⭐ XP <span style="font-size:10px;color:var(--text3);font-weight:400">(Nv ${p.level})</span></span>
           <div class="nar-ctrl-btns">
             <button onclick="removeXP(${p.id})" title="Remover XP">−XP</button>
             <div class="xp-pips" style="display:flex;align-items:center;gap:3px;padding:0 4px">${Array.from({length:10},(_,i)=>`<span onclick="setXPDirect(${p.id},${i+1})" title="Definir ${i+1} XP" style="width:10px;height:10px;border-radius:50%;background:${(p.xp||0)>i?'var(--accent2)':'var(--border2)'};cursor:pointer;transition:background .15s;flex-shrink:0"></span>`).join('')}</div>
             <button onclick="addXP(${p.id})" title="Adicionar XP">+XP</button>
           </div>
-        </div>
+        </div>`}
       </div>
       ${skillsExpanded ? `<div class="nar-skills-box">${gruposHtml}
         ${editable ? `<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
@@ -6149,6 +6322,8 @@ function toggleNarTestes(pid) {
 function setTesteMV(pid, testeId, val) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
+  // "Origem de Vento Bravo" (Humano): nunca tem Mega Vantagem em Teste nenhum.
+  if (val && p.origemId === 'humano_origem_vento_bravo') return;
   getTestePersonagem(p);
   p.testes[testeId].mv = val;
   if (val) p.testes[testeId].md = false; // MV e MD são exclusivos
@@ -6196,33 +6371,39 @@ function renderTestes(p, readonly) {
       const t    = p.testes[tid];
       const hasMV = t.mv, hasMD = t.md, hasBonus = t.bonus && t.bonus.trim();
       const hasAdaptacao = p.adaptacaoTesteId === tid;
+      // "Origem de Vento Bravo" (Humano): nunca tem Mega Vantagem em Teste nenhum.
+      const mvBloqueadaOrigem = p.origemId === 'humano_origem_vento_bravo';
+      const bonusVB = getVentoBravoBonus(p, tid);
+      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}`;
 
       if (readonly) {
-        // Narrador: chip estilizado igual às habilidades
-        const badges = [];
-        if (hasMV)    badges.push(`<span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)">MV</span>`);
-        if (hasMD)    badges.push(`<span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)">MD</span>`);
-        if (hasBonus) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)">${t.bonus}</span>`);
-        if (hasAdaptacao) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>`);
-        if (p.decrepticoTeste1 === tid) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>`);
-        if (p.decrepticoTeste2 === tid) badges.push(`<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>`);
-        if (tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) badges.push(`<span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>`);
-        if (p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) badges.push(`<span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>`);
-        const hasConfig = badges.length > 0;
+        // Narrador: chip com os mesmos controles do Jogador (MV/MD/Bônus),
+        // pra poder dar Mega Vantagem/Desvantagem ou um bônus/penalidade
+        // pontual num Teste específico (ex: terreno difícil, emboscada,
+        // vantagem narrativa) sem precisar pedir pro jogador mexer na ficha.
+        const badges = [badgesPassivas];
         return `<div class="skill-chip sc-${g.cor}">
           <button class="teste-roll-btn" onclick="event.stopPropagation();rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name}"><i class="ti ti-dice"></i></button>
           <span class="chip-dot"></span>
           <span class="chip-name">${def.name}</span>
           ${badges.join('')}
+          <div class="teste-ctrl" onclick="event.stopPropagation()">
+            <button class="teste-mv-btn ${hasMV && !mvBloqueadaOrigem ? 'ativo' : ''}" ${mvBloqueadaOrigem ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''} onclick="${mvBloqueadaOrigem ? '' : `setTesteMV(${p.id},'${tid}',${!hasMV})`}" title="${mvBloqueadaOrigem ? 'Bloqueado pela Origem de Vento Bravo' : 'Dar Mega Vantagem'}">MV</button>
+            <button class="teste-md-btn ${hasMD ? 'ativo' : ''}" onclick="setTesteMD(${p.id},'${tid}',${!hasMD})" title="Dar Mega Desvantagem">MD</button>
+            <input class="teste-bonus-input" type="text" value="${t.bonus || ''}" placeholder="Bônus" maxlength="8"
+              onchange="setTesteBonus(${p.id},'${tid}',this.value)"
+              title="Bônus/penalidade pontual (ex: +3, -1d4)" style="width:52px">
+          </div>
         </div>`;
       }
+
 
       // Jogador: editável
       return `<div class="teste-row">
         <button class="teste-roll-btn" onclick="rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name} (${tid === 'emocao' ? '1d100 − insanidade' : tid === 'devocao' ? '1d100 − (20×pecado)' : '1d20' + (mst ? '+' + mst + ' maestria' : '')})"><i class="ti ti-dice"></i></button>
-        <span class="teste-nome">${def.name}${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}</span>
+        <span class="teste-nome">${def.name}${badgesPassivas}</span>
         <div class="teste-ctrl">
-          <button class="teste-mv-btn ${hasMV ? 'ativo' : ''}" onclick="setTesteMV(${p.id},'${tid}',${!hasMV})" title="Mega Vantagem">MV</button>
+          <button class="teste-mv-btn ${hasMV && !mvBloqueadaOrigem ? 'ativo' : ''}" ${mvBloqueadaOrigem ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''} onclick="${mvBloqueadaOrigem ? '' : `setTesteMV(${p.id},'${tid}',${!hasMV})`}" title="${mvBloqueadaOrigem ? 'Bloqueado pela Origem de Vento Bravo' : 'Mega Vantagem'}">MV</button>
           <button class="teste-md-btn ${hasMD ? 'ativo' : ''}" onclick="setTesteMD(${p.id},'${tid}',${!hasMD})" title="Mega Desvantagem">MD</button>
           <input class="teste-bonus-input" type="text" value="${t.bonus || ''}" placeholder="Bônus" maxlength="8"
             onchange="setTesteBonus(${p.id},'${tid}',this.value)"
@@ -6510,6 +6691,7 @@ function renderJogador() {
       ${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}
       ${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}
       ${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}
+      ${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}
     </div>`;
   }).join('');
 
@@ -6896,6 +7078,21 @@ function saveCampaignPlayersNow(playersArr) {
     .catch(err => console.error('Erro ao chamar NPC para a campanha:', err));
 }
 
+// Mesma ideia de saveCampaignPlayersNow, mas para o campo INITIATIVE — usado
+// quando um NPC chamado do Banco precisa entrar direto no combate em
+// andamento, independente de PLAYERS estar ou não apontando pro banco.
+function saveCampaignInitiativeNow(initArr) {
+  const localKey = 'rpg_dashboard_data_' + (activeCampaignId || 'local');
+  try {
+    const cur = JSON.parse(localStorage.getItem(localKey) || '{}');
+    cur.INITIATIVE = initArr;
+    localStorage.setItem(localKey, JSON.stringify(cur));
+  } catch (e) {}
+  if (!firebaseRef) return;
+  firebaseRef.child('INITIATIVE').set(JSON.parse(JSON.stringify(initArr)))
+    .catch(err => console.error('Erro ao sincronizar Iniciativa:', err));
+}
+
 // Copia um NPC do banco pra dentro da campanha ativa (campaignPlayersBackup,
 // que é sempre o PLAYERS real da campanha, esteja o banco aberto ou não).
 function summonNpcToCampaign(id) {
@@ -6911,6 +7108,13 @@ function summonNpcToCampaign(id) {
   clone.bancoOrigemId = template.id;
   destino.push(clone);
   saveCampaignPlayersNow(destino);
+  // Se já tiver um combate em andamento nesta campanha, o NPC chamado entra
+  // direto na ordem de Iniciativa (já classificado Aliado/Inimigo), sem
+  // precisar esperar a próxima ação do Narrador pra sincronizar.
+  if (combatAtivo && !INITIATIVE.some(e => e.tipo === 'npc' && e.playerId === clone.id)) {
+    INITIATIVE.push({ id: 'init_npc_' + clone.id, tipo: 'npc', playerId: clone.id, name: clone.name, roll: null });
+    saveCampaignInitiativeNow(INITIATIVE);
+  }
   if (!bankModeActive) { PLAYERS = destino; saveState(); renderAll(); }
   alert(`"${clone.name}" foi chamado para esta campanha! Veja na aba "NPCs".`);
 }
@@ -7913,22 +8117,26 @@ function renderInvCatalogo() {
   const pOwner = modalInvPid != null ? PLAYERS.find(x => x.id === modalInvPid) : null;
   const temEncantado = pOwner ? temAcessoEquipamentoEncantado(pOwner) : false;
   const temExotico   = pOwner ? temAcessoEquipamentoExotico(pOwner) : false;
+  // NPC: Narrador pode dar qualquer item pro NPC — Encantado, Exótico ou
+  // qualquer categoria de peso (inclusive Mega) — sem depender de Talento
+  // Inferior nem do atributo da subclasse, que só valem pra fichas de jogador.
+  const isNPCOwner = !!(pOwner && pOwner.isNPC);
 
   const filtrados = banco.filter(item => {
     // Itens de peso 'encantada' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Encantado"
-    if (item.peso === 'encantada' && !temEncantado) return false;
+    if (!isNPCOwner && item.peso === 'encantada' && !temEncantado) return false;
     // Itens de peso 'exotica' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Exótico"
-    if (item.peso === 'exotica' && !temExotico) return false;
+    if (!isNPCOwner && item.peso === 'exotica' && !temExotico) return false;
     // Armadura e Elmo: TODAS as categorias de peso (Leve/Média/Pesada/Mega) são
     // travadas pelo atributo da subclasse + Talento Inferior "Maestria de Peso
     // Aprimorada" (ver getPesoMaximoArmaduraPersonagem/temAcessoPesoArmaduraOuElmo).
-    if ((item.subtipo === 'armadura' || item.subtipo === 'elmo') && pOwner && !temAcessoPesoArmaduraOuElmo(pOwner, item.peso)) return false;
-    if ((item.subtipo === 'armadura' || item.subtipo === 'elmo') && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
+    if (!isNPCOwner && (item.subtipo === 'armadura' || item.subtipo === 'elmo') && pOwner && !temAcessoPesoArmaduraOuElmo(pOwner, item.peso)) return false;
+    if (!isNPCOwner && (item.subtipo === 'armadura' || item.subtipo === 'elmo') && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
     // Arma e Instrumento: o acesso por peso é EXCLUSIVO por atributo (só 1
     // categoria), e o Talento Inferior "Maestria de Peso Aprimorada" libera
     // também a categoria seguinte — ver getPesosArmaPermitidosPersonagem/temAcessoPesoArma.
-    if ((tipo === 'arma' || tipo === 'instrumento') && pOwner && !temAcessoPesoArma(pOwner, item.peso)) return false;
-    if ((tipo === 'arma' || tipo === 'instrumento') && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
+    if (!isNPCOwner && (tipo === 'arma' || tipo === 'instrumento') && pOwner && !temAcessoPesoArma(pOwner, item.peso)) return false;
+    if (!isNPCOwner && (tipo === 'arma' || tipo === 'instrumento') && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
     if (subAtivo && item.subtipo !== subAtivo) return false;
     if (!termoNorm) return true;
     return item.name.toLowerCase().includes(termoNorm);
@@ -8822,12 +9030,17 @@ function stepInitSetup(campo, delta) {
 }
 
 // Narrador inicia um novo combate: todos os Jogadores entram automaticamente
-// na ordem (aguardando rolar), mais os Inimigos/Aliados (NPCs) escolhidos.
+// Narrador inicia um novo combate: todos os Jogadores entram automaticamente
+// na ordem (aguardando rolar), todos os NPCs já criados nesta campanha também
+// entram sozinhos — já classificados como Aliado ou Inimigo conforme a
+// escolha feita na criação deles — mais os Inimigos/Aliados genéricos (sem
+// ficha) que o Narrador quiser adicionar avulsos pelos contadores.
 function iniciarCombate() {
-  const jogadores = PLAYERS.map(p => ({ id: 'init_pl_' + p.id, tipo: 'jogador', playerId: p.id, name: p.name, roll: null }));
+  const jogadores = PLAYERS.filter(p => !p.isNPC).map(p => ({ id: 'init_pl_' + p.id, tipo: 'jogador', playerId: p.id, name: p.name, roll: null }));
+  const npcs = PLAYERS.filter(p => p.isNPC).map(p => ({ id: 'init_npc_' + p.id, tipo: 'npc', playerId: p.id, name: p.name, roll: null }));
   const aliados = Array.from({ length: initSetupAliados }, (_, i) => ({ id: 'init_al_' + Date.now() + '_' + i, tipo: 'aliado', name: `Aliado ${i + 1}`, roll: null }));
   const inimigos = Array.from({ length: initSetupInimigos }, (_, i) => ({ id: 'init_en_' + Date.now() + '_' + i, tipo: 'inimigo', name: `Inimigo ${i + 1}`, roll: null }));
-  INITIATIVE = [...jogadores, ...aliados, ...inimigos];
+  INITIATIVE = [...jogadores, ...npcs, ...aliados, ...inimigos];
   turnoAtualId = null;
   combatAtivo = true;
   saveState();
@@ -8884,12 +9097,14 @@ function rolarIniciativaNPC(id) {
 function rolarIniciativaJogador(pid) {
   const total = rolarTeste(pid, 'iniciativa');
   if (total === null) return;
-  let entry = INITIATIVE.find(e => e.tipo === 'jogador' && e.playerId === pid);
+  let entry = INITIATIVE.find(e => (e.tipo === 'jogador' || e.tipo === 'npc') && e.playerId === pid);
   if (!entry) {
     if (!combatAtivo) return;
     const p = PLAYERS.find(x => x.id === pid);
     if (!p) return;
-    entry = { id: 'init_pl_' + pid, tipo: 'jogador', playerId: pid, name: p.name, roll: null };
+    entry = p.isNPC
+      ? { id: 'init_npc_' + pid, tipo: 'npc', playerId: pid, name: p.name, roll: null }
+      : { id: 'init_pl_' + pid, tipo: 'jogador', playerId: pid, name: p.name, roll: null };
     INITIATIVE.push(entry);
   }
   entry.roll = total;
@@ -8928,13 +9143,18 @@ function avancarTurno(dir) {
 function nextI() { avancarTurno(1); }
 function prevI() { avancarTurno(-1); }
 
-// Se um personagem novo for criado com um combate já em andamento, garante
-// que ele entre na ordem de iniciativa (aguardando rolar), em vez de ficar
-// de fora até alguém lembrar de adicioná-lo manualmente.
+// Se um personagem novo (Jogador OU NPC) for criado/chamado com um combate já
+// em andamento, garante que ele entre na ordem de iniciativa (aguardando
+// rolar), em vez de ficar de fora até alguém lembrar de adicioná-lo
+// manualmente. NPCs entram já classificados como Aliado/Inimigo.
 function sincronizarJogadoresNaIniciativa() {
   if (!combatAtivo) return;
   PLAYERS.forEach(p => {
-    if (!INITIATIVE.some(e => e.tipo === 'jogador' && e.playerId === p.id)) {
+    if (p.isNPC) {
+      if (!INITIATIVE.some(e => e.tipo === 'npc' && e.playerId === p.id)) {
+        INITIATIVE.push({ id: 'init_npc_' + p.id, tipo: 'npc', playerId: p.id, name: p.name, roll: null });
+      }
+    } else if (!INITIATIVE.some(e => e.tipo === 'jogador' && e.playerId === p.id)) {
       INITIATIVE.push({ id: 'init_pl_' + p.id, tipo: 'jogador', playerId: p.id, name: p.name, roll: null });
     }
   });
@@ -8995,7 +9215,7 @@ function renderInit() {
             <button onclick="stepInitSetup('aliados',1)">+</button>
           </div>
         </div>
-        <div class="init-setup-hint">${PLAYERS.length} jogador(es) entrarão automaticamente na ordem.</div>
+        <div class="init-setup-hint">${PLAYERS.filter(p => !p.isNPC).length} jogador(es) e ${PLAYERS.filter(p => p.isNPC).length} NPC(s) desta campanha entrarão automaticamente na ordem.</div>
         <button class="btn btn-success" style="width:100%" onclick="iniciarCombate()"><i class="ti ti-swords"></i> Iniciar Combate</button>
       </div>`;
     return;
@@ -9012,6 +9232,23 @@ function renderInit() {
             <span class="iname">${escHtml(e.name)}</span>
             <span class="itype it-pl">Jogador</span>
             <button class="init-roll-btn" onclick="rolarIniciativaJogador(${e.playerId})" title="Rolar por ele"><i class="ti ti-dice"></i></button>
+          </div>`;
+        }
+        if (e.tipo === 'npc') {
+          // NPC com ficha completa: rola pela própria Iniciativa dele (com
+          // maestria/MV/MD/Bônus, igual jogador) — só muda o rótulo/cor
+          // (Aliado ou Inimigo, conforme classificado na criação) e pode
+          // ser tirado do combate sem excluir o personagem da campanha.
+          const pNpc = PLAYERS.find(x => x.id === e.playerId);
+          const nomeNpc = pNpc ? pNpc.name : e.name;
+          const npcTipoClasse = pNpc && pNpc.npcTipo === 'inimigo' ? 'it-en' : 'it-al';
+          const npcTipoLabel  = pNpc && pNpc.npcTipo === 'inimigo' ? 'Inimigo' : 'Aliado';
+          return `<div class="iitem ${cur}">
+            <span class="inum">${e.roll ?? '—'}</span>
+            <span class="iname">${escHtml(nomeNpc)}</span>
+            <span class="itype ${npcTipoClasse}">${npcTipoLabel}</span>
+            <button class="init-roll-btn" onclick="rolarIniciativaJogador(${e.playerId})" title="Rolar pela ficha"><i class="ti ti-dice"></i></button>
+            <button class="init-del-btn" onclick="removeIniciativaNPC('${e.id}')" title="Tirar do combate (não exclui o NPC)"><i class="ti ti-x"></i></button>
           </div>`;
         }
         const tipoClasse = e.tipo === 'inimigo' ? 'it-en' : 'it-al';
@@ -9074,14 +9311,16 @@ function renderIniciativaJogador() {
       ${jogIniciativaCollapsed ? '' : `<div class="init-list">
         ${ordem.map(e => {
           const isMe = e.tipo === 'jogador' && e.playerId === selectedPid;
-          const tipoClasse = e.tipo === 'jogador' ? 'it-pl' : (e.tipo === 'inimigo' ? 'it-en' : 'it-al');
-          const tipoLabel  = e.tipo === 'jogador' ? 'Jogador' : (e.tipo === 'inimigo' ? 'Inimigo' : 'Aliado');
+          const pNpc = e.tipo === 'npc' ? PLAYERS.find(x => x.id === e.playerId) : null;
+          const nomeExibido = pNpc ? pNpc.name : e.name;
+          const tipoClasse = e.tipo === 'jogador' ? 'it-pl' : (e.tipo === 'npc' ? (pNpc && pNpc.npcTipo === 'inimigo' ? 'it-en' : 'it-al') : (e.tipo === 'inimigo' ? 'it-en' : 'it-al'));
+          const tipoLabel  = e.tipo === 'jogador' ? 'Jogador' : (e.tipo === 'npc' ? (pNpc && pNpc.npcTipo === 'inimigo' ? 'Inimigo' : 'Aliado') : (e.tipo === 'inimigo' ? 'Inimigo' : 'Aliado'));
           const rollBtn = isMe
             ? `<button class="init-roll-btn" onclick="event.stopPropagation();rolarIniciativaJogador(${e.playerId})" title="Rolar minha iniciativa"><i class="ti ti-dice"></i></button>`
             : '';
           return `<div class="iitem ${e.id === turnoAtualId ? 'cur' : ''} ${isMe ? 'iitem-me' : ''}">
             <span class="inum">${e.roll ?? '—'}</span>
-            <span class="iname">${escHtml(e.name)}</span>
+            <span class="iname">${escHtml(nomeExibido)}</span>
             <span class="itype ${tipoClasse}">${tipoLabel}</span>
             ${rollBtn}
           </div>`;
@@ -9364,9 +9603,11 @@ function renderTalentosModal(pid) {
 
   const progressoEl = document.getElementById('talentos-progresso');
   if (progressoEl) {
-    progressoEl.innerHTML = limite > 0
-      ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}/${limite}</strong>` + (escolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '') + (podeRepetir ? ' <span style="color:var(--accent2)">· Base Sólida: pode repetir um já escolhido</span>' : '')
-      : `Disponível a partir do Nível 2 · Nível atual: ${p.level || 1}`;
+    progressoEl.innerHTML = p.isNPC
+      ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}</strong> — <span style="color:var(--green)">NPC: sem limite</span>` + (podeRepetir ? ' <span style="color:var(--accent2)">· Base Sólida: pode repetir um já escolhido</span>' : '')
+      : (limite > 0
+        ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}/${limite}</strong>` + (escolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '') + (podeRepetir ? ' <span style="color:var(--accent2)">· Base Sólida: pode repetir um já escolhido</span>' : '')
+        : `Disponível a partir do Nível 2 · Nível atual: ${p.level || 1}`);
   }
 
   const lista = document.getElementById('talentos-lista');
@@ -9424,9 +9665,11 @@ function renderTalentosSuperioresModal(pid) {
 
   const progressoEl = document.getElementById('talentos-superiores-progresso');
   if (progressoEl) {
-    progressoEl.innerHTML = limite > 0
-      ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}/${limite}</strong>` + (escolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '')
-      : `Disponível a partir do Nível 4 · Nível atual: ${p.level || 1}`;
+    progressoEl.innerHTML = p.isNPC
+      ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}</strong> — <span style="color:var(--green)">NPC: sem limite</span>`
+      : (limite > 0
+        ? `Escolhidos: <strong style="color:var(--text)">${escolhidos.length}/${limite}</strong>` + (escolhidos.length >= limite ? ' <span style="color:var(--accent2)">— limite atingido, suba de Nível para desbloquear mais</span>' : '')
+        : `Disponível a partir do Nível 4 · Nível atual: ${p.level || 1}`);
   }
 
   const lista = document.getElementById('talentos-superiores-lista');
@@ -10016,14 +10259,25 @@ function getMaxHpCriacao(race) {
 function stepStat(field, delta) {
   const input = document.getElementById('c-' + field);
   if (!input) return;
+
+  const base = field === 'hp' ? getEffectiveBaseHp() : ATTR_BASE_STAT;
+  const cur  = parseInt(input.value) || base;
+  const next = cur + delta;
+
+  // NPC: Narrador pode investir quantos pontos quiser em qualquer atributo,
+  // sem teto de Nível nem de orçamento — só não deixa ir abaixo de 1.
+  if (isWizardTargetNPC()) {
+    if (next < 1) return;
+    input.value = next;
+    updatePointBuy();
+    return;
+  }
+
   if (field === 'hp' && delta > 0 && isTaurenHpLocked()) return;
 
   const level = modalCharId ? (PLAYERS.find(x => x.id === modalCharId)?.level || 1) : creationLevel;
   const total = getPointBuyTotal(level);
   const limite = getAttrLimiteNivel(level);
-  const base  = field === 'hp' ? getEffectiveBaseHp() : ATTR_BASE_STAT;
-  const cur   = parseInt(input.value) || base;
-  const next  = cur + delta;
 
   // Não vai abaixo da base
   if (next < base) return;
@@ -10044,6 +10298,35 @@ function stepStat(field, delta) {
 }
 
 function updatePointBuy(levelOverride) {
+  // NPC: sem teto de pontos — mostra a barra sempre cheia/verde, os botões
+  // de +/- nunca ficam desabilitados por falta de pontos, e cada campo só é
+  // limitado por não poder ir abaixo de 1 (ver stepStat).
+  if (isWizardTargetNPC()) {
+    const baseHpNpc = getEffectiveBaseHp();
+    const fillEl = document.getElementById('c-points-bar-fill');
+    if (fillEl) { fillEl.style.width = '100%'; fillEl.style.background = 'var(--green)'; }
+    const dispEl = document.getElementById('c-points-display');
+    if (dispEl) { dispEl.textContent = 'Sem limite (NPC)'; dispEl.style.color = 'var(--green)'; }
+    const hintEl = document.getElementById('c-points-hint');
+    if (hintEl) hintEl.textContent = 'NPC: sem Nível e sem teto de pontos — distribua Vida, AGI, FOR e INT como o Narrador quiser.';
+    ['agi','for','int'].forEach(a => {
+      const lbl = document.getElementById(`c-${a}-limit`);
+      if (lbl) lbl.style.display = 'none';
+    });
+    ['hp','agi','for','int'].forEach(key => {
+      const incBtn = document.getElementById(`c-${key}-inc`);
+      const decBtn = document.getElementById(`c-${key}-dec`);
+      const inputEl = document.getElementById(`c-${key}`);
+      const base = key === 'hp' ? baseHpNpc : ATTR_BASE_STAT;
+      const val  = parseInt(inputEl?.value) || base;
+      const costEl = document.getElementById(`c-${key}-cost`);
+      if (costEl) { const cost = val - base; costEl.textContent = cost !== 0 ? (cost > 0 ? `+${cost} pts` : `${cost} pts`) : '—'; costEl.style.color = cost !== 0 ? 'var(--accent2)' : 'var(--text3)'; }
+      if (incBtn) { incBtn.disabled = false; incBtn.style.opacity = '1'; incBtn.style.cursor = 'pointer'; }
+      if (decBtn) { const atMin = val <= 1; decBtn.disabled = atMin; decBtn.style.opacity = atMin ? '0.35' : '1'; decBtn.style.cursor = atMin ? 'not-allowed' : 'pointer'; }
+    });
+    return;
+  }
+
   let level = levelOverride;
   if (level == null) {
     if (modalCharId) {
@@ -10219,6 +10502,11 @@ function openCharModal(isNPC) {
   document.querySelectorAll('.creation-level-btn').forEach(b =>
     b.classList.toggle('active', parseInt(b.dataset.lvl) === 1)
   );
+  const levelContainerNovo = document.getElementById('c-creation-level-container');
+  if (levelContainerNovo) levelContainerNovo.style.display = wizardIsNPC ? 'none' : '';
+  const npcTipoContainerNovo = document.getElementById('c-npc-tipo-container');
+  if (npcTipoContainerNovo) npcTipoContainerNovo.style.display = wizardIsNPC ? '' : 'none';
+  selectNpcTipo('aliado');
   updatePointBuy(1);
   wizardSkillsEscolhidas = [];
   wizardBancoTabAtiva = null;
@@ -10283,6 +10571,9 @@ function editCharacter(id) {
   document.getElementById('c-dinheiro').value = (typeof p.dinheiro === 'number') ? p.dinheiro : 100;
   const extraFields = document.getElementById('c-extra-fields');
   if (extraFields) extraFields.style.display = '';
+  const npcTipoContainerEdit = document.getElementById('c-npc-tipo-container');
+  if (npcTipoContainerEdit) npcTipoContainerEdit.style.display = wizardIsNPC ? '' : 'none';
+  selectNpcTipo(p.npcTipo || 'aliado');
   updatePointBuy(p.level || 1);
   setModalMode(true);
 }
@@ -10290,6 +10581,16 @@ function editCharacter(id) {
 function deleteCharacter(id) {
   if (!confirm('Tem certeza que deseja excluir este personagem? Esta ação não pode ser desfeita.')) return;
   PLAYERS = PLAYERS.filter(x => x.id !== id);
+  // Tira também da Iniciativa em andamento — só faz sentido pra exclusões
+  // reais da campanha, nunca ao excluir um NPC-modelo do Banco (onde os ids
+  // são de um array totalmente separado e podem coincidir por acaso).
+  if (!bankModeActive) {
+    const entradaRemovida = INITIATIVE.find(e => (e.tipo === 'jogador' || e.tipo === 'npc') && e.playerId === id);
+    if (entradaRemovida) {
+      INITIATIVE = INITIATIVE.filter(e => e.id !== entradaRemovida.id);
+      if (turnoAtualId === entradaRemovida.id) turnoAtualId = null;
+    }
+  }
   saveState();
   const psel = document.getElementById('psel');
   if (psel && PLAYERS.length > 0) psel.value = PLAYERS[0].id;
@@ -10306,6 +10607,7 @@ function closeCharModal() {
 // explicando o motivo. Reaproveitada tanto na transição do passo 4 → 5 do
 // wizard de criação quanto no salvamento final (edição ou criação direta).
 function validatePointBuyStep(nivel) {
+  if (isWizardTargetNPC()) return true;
   const baseHp = getEffectiveBaseHp();
   const hpMax  = parseInt(document.getElementById('c-hp').value)  || baseHp;
   const agi    = parseInt(document.getElementById('c-agi').value) || 5;
@@ -10417,6 +10719,7 @@ function saveCharacter() {
       p.origemId = origemId;
       p.deus = deus;
       p.trollMaestriaEscolha = trollMaestriaEscolha;
+      if (p.isNPC) p.npcTipo = wizardNpcTipo;
       p.ins = Math.max(0, Math.min(getInsanidadeMax(p), ins));
       p.pontosPendentes = 0;
       // Humanidade: vira Bruxo agora (ou ainda não tinha o campo) → inicia
@@ -10449,6 +10752,7 @@ function saveCharacter() {
       passos, passosBase: passos, dinheiro: dinheiroComOrigem, origemId, deus, trollMaestriaEscolha, skills: [], passivas: [], inventario: [],
       jogNotas: Object.fromEntries(JOG_NOTA_TAGS.map(t => [t.toLowerCase(), ''])),
       isNPC: wizardIsNPC,
+      npcTipo: wizardIsNPC ? wizardNpcTipo : null,
       ownerId: wizardIsNPC ? null : (currentUser ? currentUser.id : null),
       ownerName: wizardIsNPC ? null : (currentUser ? currentUser.name : null)
     };
@@ -11742,19 +12046,6 @@ function spinDiceFab(on, sides) {
 }
 
 function pushRollEntry(entry, afterKeyKnown) {
-  // "Entropia Constante" (Etéreo): qualquer d20 ou d100 (em Testes, Ações,
-  // Habilidades, ou uma rolagem manual qualquer) que dê Acerto Crítico ou
-  // Erro Crítico dispara sozinho a rolagem da Expressão Etérea (1d6).
-  // rollCritInfo já procura por qualquer dado d20/d100 dentro da árvore da
-  // rolagem, então isso cobre qualquer fonte, não só Testes.
-  const rolador = PLAYERS.find(x => x.name === entry.charName && x.race === 'Etéreo');
-  if (rolador) {
-    const critInfo = rollCritInfo(entry);
-    if (critInfo.hasCrit || critInfo.hasFumble) {
-      setTimeout(() => rolarExpressaoEterea(rolador.id, critInfo.hasCrit ? 'crit' : 'fumble'), ROLL_ANIM_MS + 250);
-    }
-  }
-
   if (firebaseConfigured && diceBaseRef) {
     const newRef = diceBaseRef.push();
     newRef.set(entry).then(() => {
@@ -11852,13 +12143,18 @@ function construirRolagemTeste(p, testeId) {
   const mst = def.attr !== 'neutro' ? maestriaDe(p, def.attr) : 0;
 
   // Mega Vantagem / Mega Desvantagem: rola 2 dados e mantém o melhor ou o pior.
-  const isMega = !!(t.mv || t.md);
+  // "Origem de Vento Bravo" (Humano) nunca tem Mega Vantagem em Teste
+  // nenhum — ignora t.mv aqui como proteção extra (o botão MV já fica
+  // escondido/desabilitado pra esse personagem, ver renderTestes).
+  const mvBloqueadaPorOrigem = p.origemId === 'humano_origem_vento_bravo';
+  const temMV = t.mv && !mvBloqueadaPorOrigem;
+  const isMega = !!(temMV || t.md);
   const d1 = 1 + Math.floor(Math.random() * sides);
   const d2 = isMega ? (1 + Math.floor(Math.random() * sides)) : null;
-  const kept = !isMega ? d1 : (t.mv ? Math.max(d1, d2) : Math.min(d1, d2));
+  const kept = !isMega ? d1 : (temMV ? Math.max(d1, d2) : Math.min(d1, d2));
 
   const dadoNode = isMega
-    ? { type: 'megaroll', mode: t.mv ? 'mv' : 'md', sides, d1, d2, kept }
+    ? { type: 'megaroll', mode: temMV ? 'mv' : 'md', sides, d1, d2, kept }
     : { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null };
 
   const terms = [{ sign: '+', node: dadoNode }];
@@ -11911,6 +12207,15 @@ function construirRolagemTeste(p, testeId) {
     total += ambRoll;
   }
 
+  // "Origem de Vento Bravo" (Humano): +2 por escolha de Teste feita a cada
+  // Nível (Agilidade/Força/Intelecto), acumulando até 2 escolhas no mesmo
+  // Teste (+4 no máximo) — ver escolherVentoBravo/getVentoBravoBonus.
+  const bonusVentoBravo = getVentoBravoBonus(p, testeId);
+  if (bonusVentoBravo > 0) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: bonusVentoBravo, label: 'Vento Bravo' } });
+    total += bonusVentoBravo;
+  }
+
   // Teste de Emoção: subtrai a Insanidade atual do personagem (0-100)
   if (isEmocao && p.ins) {
     terms.push({ sign: '-', node: { type: 'labeled_const', value: p.ins, label: 'insanidade' } });
@@ -11947,7 +12252,7 @@ function construirRolagemTeste(p, testeId) {
   }
 
   const tree = { type: 'sum', terms };
-  const megaLabel = t.mv ? ' (Mega Vantagem)' : (t.md ? ' (Mega Desvantagem)' : '');
+  const megaLabel = temMV ? ' (Mega Vantagem)' : (t.md ? ' (Mega Desvantagem)' : '');
   const formula = `Teste de ${def.name}${megaLabel}`;
   const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, testeId, sides);
 
@@ -11985,6 +12290,16 @@ function rolarTeste(pid, testeId) {
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
 
+  // "Entropia Constante" (Etéreo): Acerto Crítico ou Erro Crítico nesse
+  // Teste dispara a rolagem da Expressão Etérea (1d6) sozinho, logo depois
+  // do resultado do Teste aparecer.
+  if (p.race === 'Etéreo') {
+    const critInfo = rollCritInfo(entry);
+    if (critInfo.hasCrit || critInfo.hasFumble) {
+      setTimeout(() => rolarExpressaoEterea(pid, critInfo.hasCrit ? 'crit' : 'fumble'), ROLL_ANIM_MS + 250);
+    }
+  }
+
   // Abre o painel de dados na aba Histórico para o resultado aparecer na hora.
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
@@ -12009,7 +12324,7 @@ function abrirTesteMentalModal(pid) {
     const def = TESTES_LISTA.find(t => t.id === tid);
     const isEmocao = tid === 'emocao';
     const t = p.testes[tid];
-    const megaTag = t.mv ? '<span class="tm-opcao-mega mv">MV</span>' : (t.md ? '<span class="tm-opcao-mega md">MD</span>' : '');
+    const megaTag = (t.mv && p.origemId !== 'humano_origem_vento_bravo') ? '<span class="tm-opcao-mega mv">MV</span>' : (t.md ? '<span class="tm-opcao-mega md">MD</span>' : '');
     const infoTxt = isEmocao
       ? `1d100 − ${p.ins || 0} insanidade`
       : `1d20 +${maestriaDe(p, def.attr)} maestria`;
