@@ -191,6 +191,8 @@ button {
   transition: border-color .2s;
 }
 .prow.beira-morte { border-color: var(--red-bd); background: #1a0f0f; }
+.prow.npc-aliado { border-left: 3px solid var(--blue-bd); }
+.prow.npc-inimigo { border-left: 3px solid var(--red-bd); }
 .prow-header {
   display: flex;
   align-items: center;
@@ -1628,6 +1630,18 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   border-color: var(--accent);
   background: rgba(124,92,191,0.15);
   color: var(--accent2);
+  font-weight: 600;
+}
+.npc-tipo-btn[data-tipo="aliado"].active {
+  border-color: var(--blue-bd);
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-weight: 600;
+}
+.npc-tipo-btn[data-tipo="inimigo"].active {
+  border-color: var(--red-bd);
+  background: var(--red-bg);
+  color: #f08080;
   font-weight: 600;
 }
 
