@@ -911,6 +911,8 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .tm-opcao:hover { border-color: var(--accent-bd); background: var(--accent-bg); transform: translateY(-1px); }
 .tm-opcao-blue { border-left-color: var(--blue); }
 .tm-opcao-gray { border-left-color: var(--gray); }
+.tm-opcao-red { border-left-color: var(--red); }
+.tm-opcao-green { border-left-color: var(--green); }
 .tm-opcao-nome { display: inline-flex; align-items: center; gap: 6px; }
 .tm-opcao-info { font-size: 11px; color: var(--text2); font-weight: 600; white-space: nowrap; }
 .tm-opcao-mega {
