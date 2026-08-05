@@ -5920,6 +5920,13 @@ let dataListenerHandler = null;
 let NPC_BANK = [];
 let bankModeActive = false;
 let campaignPlayersBackup = null; // guarda o PLAYERS real da campanha enquanto o banco está aberto
+let npcBankSearchQuery = ''; // filtro por nome da barra de pesquisa do Banco de NPCs
+
+// Atualiza o filtro de busca do Banco de NPCs (por nome) e re-renderiza a lista.
+function filterNpcBank(valor) {
+  npcBankSearchQuery = (valor || '').trim().toLowerCase();
+  renderAll();
+}
 // Classificação do NPC sendo criado/editado no wizard: 'aliado' ou 'inimigo'
 // — ver seletor no passo 1 (Nome), campo p.npcTipo salvo no personagem.
 let wizardNpcTipo = 'aliado';
@@ -7044,7 +7051,9 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
   if (!container) return;
 
   if (!list.length) {
-    container.innerHTML = isBank
+    container.innerHTML = (isBank && npcBankSearchQuery)
+      ? '<div style="text-align:center; padding: 40px; color: var(--text3);">Nenhum NPC encontrado para essa busca.</div>'
+      : isBank
       ? '<div style="text-align:center; padding: 40px; color: var(--text3);">Seu Banco de NPCs está vazio. Clique em "Criar NPC" para começar.</div>'
       : (editable
         ? '<div style="text-align:center; padding: 40px; color: var(--text3);">Nenhum NPC chamado nesta campanha ainda. Abra o Banco de NPCs para chamar um.</div>'
@@ -8144,6 +8153,9 @@ function saveNpcBank() {
 // declaração de NPC_BANK acima). Pausa a sincronização da campanha atual
 // enquanto o banco estiver aberto.
 function openNpcBankModal() {
+  npcBankSearchQuery = '';
+  const searchInput = document.getElementById('npc-bank-search');
+  if (searchInput) searchInput.value = '';
   const abrir = () => {
     if (dataListenerRef && dataListenerHandler) dataListenerRef.off('value', dataListenerHandler);
     campaignPlayersBackup = PLAYERS;
@@ -12095,7 +12107,10 @@ function renderAll() {
   if (bankModeActive) {
     // PLAYERS aponta pro Banco de NPCs agora — só o card do banco faz
     // sentido; Iniciativa/Notas são da campanha e ficam intocados.
-    renderNarradorGroup(PLAYERS, 'npc-bank-list', true, true);
+    const listaFiltrada = npcBankSearchQuery
+      ? PLAYERS.filter(p => (p.name || '').toLowerCase().includes(npcBankSearchQuery))
+      : PLAYERS;
+    renderNarradorGroup(listaFiltrada, 'npc-bank-list', true, true);
     return;
   }
   renderNoteTags();
