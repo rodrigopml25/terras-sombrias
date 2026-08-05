@@ -679,6 +679,8 @@ const PANDAREN_FORMAS_SOMBRIAS = {
     id: 'bombado',
     name: 'Bombado',
     tagline: 'Forma sombria baseada em Força',
+    // Enquanto transformado, só pode usar Habilidades dessa cor (Golpes).
+    corPermitida: 'red',
     skillNeutra: {
       id: 'sk_forma_bombado', name: 'Bombado', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
       desc: 'Transforme-se em uma criatura sombria baseada em Força. Ao assumir essa forma, receba +20 Pontos de Vida e a Habilidade Fruto Proibido. Nessa forma, só poderá usar Golpes. (Pode desfazê-la quando quiser)',
@@ -692,6 +694,8 @@ const PANDAREN_FORMAS_SOMBRIAS = {
     id: 'lutador',
     name: 'Lutador',
     tagline: 'Forma sombria baseada em Agilidade',
+    // Enquanto transformado, só pode usar Habilidades dessa cor (Técnicas).
+    corPermitida: 'green',
     skillNeutra: {
       id: 'sk_forma_lutador', name: 'Lutador', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
       desc: 'Transforme-se em uma criatura sombria baseada em Agilidade. Ao assumir essa forma, receba +15 Pontos de Vida e a Habilidade Portal Negro. Nessa forma, só poderá usar Técnicas. (Pode desfazê-la quando quiser)',
@@ -705,6 +709,8 @@ const PANDAREN_FORMAS_SOMBRIAS = {
     id: 'feiticeiro',
     name: 'Feitiçeiro',
     tagline: 'Forma sombria baseada em Intelecto',
+    // Enquanto transformado, só pode usar Habilidades dessa cor (Feitiços).
+    corPermitida: 'blue',
     skillNeutra: {
       id: 'sk_forma_feiticeiro', name: 'Feitiçeiro', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
       desc: 'Transforme-se em uma criatura sombria baseada em Intelecto. Ao assumir essa forma, receba +10 Pontos de Vida e a Habilidade Runa Sombria. Nessa forma, só poderá usar Feitiços. (Pode desfazê-la quando quiser)',
@@ -715,6 +721,10 @@ const PANDAREN_FORMAS_SOMBRIAS = {
     },
   },
 };
+
+// Rótulo (plural) da categoria de Habilidade liberada por cada cor —
+// usado nas mensagens de bloqueio da Forma Sombria.
+const FORMA_SOMBRIA_COR_LABEL = { red: 'Golpes', green: 'Técnicas', blue: 'Feitiços' };
 
 // Retorna true se o personagem precisa escolher sua Forma Sombria agora
 // (Pandaren, caminho Lun'fan, Nível 3+ e ainda sem escolha feita).
@@ -753,6 +763,7 @@ function ensureFormaSombria(p) {
       const f = PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId];
       if (f) p.skills = p.skills.filter(sk => sk.id !== f.skillNeutra.id && sk.id !== f.skillColorida.id);
     }
+    p.formaSombriaAtiva = false;
     return;
   }
   [forma.skillNeutra, forma.skillColorida].forEach(def => {
@@ -766,6 +777,31 @@ function ensureFormaSombria(p) {
       });
     }
   });
+}
+
+// true se a Habilidade `sk` for a Habilidade colorida exclusiva de alguma
+// Forma Sombria (ex: "Fruto Proibido") e a Forma correspondente NÃO estiver
+// ativa agora. Ela continua existindo em p.skills (preservando os usos já
+// gastos), só fica escondida da lista enquanto o personagem não estiver
+// transformado — reaparece do jeito que estava ao se transformar de novo.
+function habilidadeFormaSombriaEscondida(p, sk) {
+  if (p.race !== 'Pandaren') return false;
+  return Object.values(PANDAREN_FORMAS_SOMBRIAS).some(f =>
+    f.skillColorida.id === sk.id && !(p.formaSombriaId === f.id && p.formaSombriaAtiva)
+  );
+}
+
+// true se a Habilidade `sk` estiver bloqueada agora por causa de uma Forma
+// Sombria ativa (ex: transformado em Bombado só pode usar Golpes). A
+// própria Habilidade da Forma (neutra ou colorida) e as Habilidades
+// "Neutras" (cinza) nunca são bloqueadas.
+function formaSombriaBloqueiaHabilidade(p, sk) {
+  if (!(p.race === 'Pandaren' && p.formaSombriaAtiva && p.formaSombriaId)) return false;
+  const forma = PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId];
+  if (!forma) return false;
+  if (sk.id === forma.skillNeutra.id || sk.id === forma.skillColorida.id) return false;
+  if (sk.color === 'gray') return false;
+  return sk.color !== forma.corPermitida;
 }
 
 // Garante que as passivas raciais da raça do personagem estejam presentes em
@@ -6008,7 +6044,27 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // Desfazer a Forma Sombria (Pandaren) também é sempre livre — mesma ideia
+  // do Dragão. A Habilidade colorida da Forma (ex: Fruto Proibido) some da
+  // lista, mas mantém os usos já gastos, e as Habilidades de outras cores
+  // voltam a ficar disponíveis.
+  if (p.race === 'Pandaren' && p.formaSombriaAtiva && p.formaSombriaId
+      && PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId]
+      && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id) {
+    p.formaSombriaAtiva = false;
+    saveState(); renderAll();
+    return;
+  }
+
   if (!isReady(sk, p)) return;
+
+  // Forma Sombria ativa (Pandaren): Habilidades de outra cor ficam
+  // bloqueadas enquanto transformado.
+  if (formaSombriaBloqueiaHabilidade(p, sk)) {
+    const forma = PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId];
+    alert(`Na Forma Sombria de ${forma.name}, só é possível usar Habilidades do tipo ${FORMA_SOMBRIA_COR_LABEL[forma.corPermitida]}.`);
+    return;
+  }
 
   // "Fúria de Orc": o bônus (+1d6 em Golpe, sem poder ser Aparada) vale só
   // pra PRÓXIMA Habilidade usada. Então, ao usar qualquer outra Habilidade
@@ -6038,6 +6094,10 @@ function useSkill(pid, skid) {
     sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
     if (sk.tipo === 'turno_N' && sk.usosAtuais === 0) sk.cdRestante = sk.turnosRecarga;
     setFormaDragao(p, true);
+  } else if (p.race === 'Pandaren' && p.formaSombriaId && PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId]
+      && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id) {
+    sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
+    p.formaSombriaAtiva = true;
   } else if (sk.tipo === 'notas') {
     // Campo Harmônico: gasta TODAS as 7 Notas Musicais ao ser lançado.
     if (!p.notasBardo || typeof p.notasBardo !== 'object') p.notasBardo = {};
@@ -6611,7 +6671,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
 
     // ── Habilidades agrupadas por atributo ──
     const gruposNar = { green:[], red:[], blue:[], gray:[] };
-    p.skills.forEach(sk => gruposNar[sk.color] && gruposNar[sk.color].push(sk));
+    p.skills.forEach(sk => { if (!habilidadeFormaSombriaEscondida(p, sk)) gruposNar[sk.color] && gruposNar[sk.color].push(sk); });
     const narGrupoInfo = {
       green: { label: 'Agilidade', icon: '🏃', attr: p.agi, campo: 'agi' },
       red:   { label: 'Força',     icon: '⚔️',  attr: p.forca, campo: 'forca' },
@@ -6629,12 +6689,14 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
       const info = narGrupoInfo[cor];
       const mst = info.campo != null ? maestriaDe(p, info.campo) : null;
       const chips = gruposNar[cor].map(sk => {
-        const ready = isReady(sk, p);
+        const temUso = isReady(sk, p);
+        const bloqueadaPorForma = formaSombriaBloqueiaHabilidade(p, sk);
+        const ready = temUso && !bloqueadaPorForma;
         let extra = '';
         if (sk.tipo === 'turno_N' && sk.cdRestante > 0) extra = `<span class="chip-cd">⏳${sk.cdRestante}</span>`;
         else if ((sk.tipo==='luta'||sk.tipo==='sessao') && sk.usosAtuais < sk.usosMax) extra = `<span class="chip-cd">${sk.usosAtuais}/${sk.usosMax}</span>`;
         const descTooltip = sk.desc ? `Efeito: ${sk.desc}\n\n` : '';
-        const statusTooltip = ready ? 'Pronta para uso' : `Indisponível (${tipoLabel(sk)})`;
+        const statusTooltip = bloqueadaPorForma ? `Bloqueada pela Forma Sombria (só ${FORMA_SOMBRIA_COR_LABEL[PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].corPermitida]})` : ready ? 'Pronta para uso' : `Indisponível (${tipoLabel(sk)})`;
         const lendarioTooltip = sk.lendario ? `Feitiço Lendário — Maestria: +${getMaestriaLendaria(p)} (Intelecto/2)\n\n` : '';
         const corromperTooltip = getCorromperTextoPlano(sk);
         const efeitoSecTxt = getEfeitoSecundarioTextoPlano(p, sk);
@@ -6643,12 +6705,13 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         const magharBadge = getMagharHabBonus(p, sk.id) ? `<span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem Mag'har — bônus ainda aplicado manualmente">+1d4${sk.color === 'red' ? '/+2 Vant.' : ''}</span>` : '';
         const filosofiaBadge = getFilosofiaPandarenicaBonus(p, sk) ? `<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Filosofia Pandarênica — bônus ainda aplicado manualmente">+3 Vant.</span>` : '';
         const furiaOrcHabBadge = (p.furiaOrcAtiva && sk.id !== 'sk_racial_orc_furia') ? `<span class="chip-badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)" title="Fúria de Orc — esta é a próxima Habilidade: não pode ser Aparada${sk.color === 'red' ? ' e recebe +1d6 de Dano' : ''}">😡${sk.color === 'red' ? ' +1d6' : ''}</span>` : '';
-        const podeRecarregar = !ready && ['turno_N','luta','sessao','perturn'].includes(sk.tipo);
+        const bloqueadaBadge = bloqueadaPorForma ? `<span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Bloqueada pela Forma Sombria">🔒</span>` : '';
+        const podeRecarregar = !temUso && ['turno_N','luta','sessao','perturn'].includes(sk.tipo);
         const recarregarBtn = podeRecarregar
           ? `<button class="chip-reload-btn" onclick="event.stopPropagation();recarregarHabilidadeNarrador(${p.id},'${sk.id}')" title="Recarregar agora"><i class="ti ti-reload"></i></button>`
           : '';
         return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${magharBadge}${filosofiaBadge}${furiaOrcHabBadge}${extra}${recarregarBtn}
+          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${magharBadge}${filosofiaBadge}${furiaOrcHabBadge}${bloqueadaBadge}${extra}${recarregarBtn}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
@@ -6689,6 +6752,8 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
     const rituaisMacabrosPendentes = getRituaisMacabrosPendentes(p);
     const pendRitualMacabroBadge = (rituaisMacabrosPendentes > 0) ? ` <span title="Personagem tem Ritual Macabro não escolhido" style="display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🌀 ${rituaisMacabrosPendentes} ritual</span>` : '';
     const formaDragaoBadge = (p.race === 'Dragão' && p.formaDragao) ? ` <span title="Em forma de Dragão: Sopro, Iniciar Voo, Impacto de Pouso e Garras Dracônicas disponíveis" style="display:inline-flex;align-items:center;gap:3px;background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐉 Forma de Dragão</span>` : '';
+    const formaSombriaAtivaObj = (p.race === 'Pandaren' && p.formaSombriaAtiva && p.formaSombriaId) ? PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId] : null;
+    const formaSombriaBadge = formaSombriaAtivaObj ? ` <span title="Forma Sombria ativa: só pode usar Habilidades de ${FORMA_SOMBRIA_COR_LABEL[formaSombriaAtivaObj.corPermitida]}" style="display:inline-flex;align-items:center;gap:3px;background:var(--accent-bg);border:1px solid var(--accent-bd);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐼 ${formaSombriaAtivaObj.name}</span>` : '';
     const npcTipoClasse = p.isNPC ? (p.npcTipo === 'inimigo' ? 'npc-inimigo' : 'npc-aliado') : '';
     const npcTipoBadge = p.isNPC
       ? (p.npcTipo === 'inimigo'
@@ -6698,7 +6763,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
     return `<div class="prow ${bm ? 'beira-morte' : ''} ${npcTipoClasse}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -7203,7 +7268,7 @@ function renderJogador() {
   const humanPct = Math.round(getHumanidade(p) / HUMANIDADE_MAX * 100);
 
   const grupos = { green:[], red:[], blue:[], gray:[] };
-  p.skills.forEach(sk => grupos[sk.color] && grupos[sk.color].push(sk));
+  p.skills.forEach(sk => { if (!habilidadeFormaSombriaEscondida(p, sk)) grupos[sk.color] && grupos[sk.color].push(sk); });
   const nomesGrupo = { green: 'Técnicas — Agilidade', red: 'Golpes — Força', blue: 'Feitiços — Intelecto', gray: 'Neutras' };
   const dotColor = {green:'#6db33f', red:'#c94040', blue:'#4a8fd4', gray:'#7a7e95'};
   const campoGrupo = { green: 'agi', red: 'forca', blue: 'intel', gray: null };
@@ -7214,14 +7279,15 @@ function renderJogador() {
     const collapsed = !!jogSkillsCollapsed[cor];
     const mst = campoGrupo[cor] != null ? maestriaDe(p, campoGrupo[cor]) : null;
     const mstTag = mst != null ? `<span class="sk-tag sk-tag-mst">+${mst} maestria</span>` : '';
-    const readyCount = grupos[cor].filter(sk => isReady(sk, p)).length;
+    const readyCount = grupos[cor].filter(sk => isReady(sk, p) && !formaSombriaBloqueiaHabilidade(p, sk)).length;
     const totalCount = grupos[cor].length;
     const cards = collapsed ? '' : grupos[cor].map(sk => {
-      const ready = isReady(sk, p);
+      const bloqueadaPorForma = formaSombriaBloqueiaHabilidade(p, sk);
+      const ready = isReady(sk, p) && !bloqueadaPorForma;
       const mstTagCard = sk.lendario
         ? `<span class="sk-tag sk-tag-mst">🌟 +${getMaestriaLendaria(p)} maestria (lendária)</span>`
         : mstTag;
-      const state = sk.tipo==='infinite' ? 'ready' : ready ? 'ready' : sk.cdRestante>0 ? 'cooldown' : 'exhausted';
+      const state = bloqueadaPorForma ? 'exhausted' : sk.tipo==='infinite' ? 'ready' : ready ? 'ready' : sk.cdRestante>0 ? 'cooldown' : 'exhausted';
       let cdHtml = '', dotsHtml = '';
       if (sk.tipo === 'turno_N') cdHtml = sk.cdRestante > 0 ? `<span class="sk-cd">⏳ ${sk.cdRestante} turno${sk.cdRestante>1?'s':''}</span>` : `<span class="sk-cd">Pronta</span>`;
       else if (sk.tipo==='luta' || sk.tipo==='sessao') {
@@ -7248,6 +7314,7 @@ function renderJogador() {
           ${getMagharHabBonus(p, sk.id) ? `<span class="sk-tag" style="background:rgba(109,179,63,0.15);color:var(--green)" title="Origem Mag'har — bônus ainda aplicado manualmente">+1d4 Dano/Cura${sk.color === 'red' ? ' · +2 Vantagem' : ''}</span>` : ''}
           ${getFilosofiaPandarenicaBonus(p, sk) ? `<span class="sk-tag" style="background:var(--accent-bg);color:var(--accent2)" title="Filosofia Pandarênica — bônus ainda aplicado manualmente">+3 Vantagem</span>` : ''}
           ${(p.furiaOrcAtiva && sk.id !== 'sk_racial_orc_furia') ? `<span class="sk-tag" style="background:var(--red-bg);color:var(--red)" title="Fúria de Orc — esta é a próxima Habilidade: não pode ser Aparada${sk.color === 'red' ? ' e recebe +1d6 de Dano' : ''}">😡 Não Aparável${sk.color === 'red' ? ' · +1d6 Dano' : ''}</span>` : ''}
+          ${bloqueadaPorForma ? `<span class="sk-tag" style="background:var(--red-bg);color:var(--red)" title="Bloqueada pela Forma Sombria — só ${FORMA_SOMBRIA_COR_LABEL[PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].corPermitida]} podem ser usados agora">🔒 Bloqueada</span>` : ''}
         </div>
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
             ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
@@ -7367,6 +7434,14 @@ function renderJogador() {
           <div style="flex:1">
             <div style="font-size:12px;font-weight:700;color:var(--red)">Forma de Dragão ativa</div>
             <div style="font-size:11px;color:var(--text2)">Sopro, Iniciar Voo, Impacto de Pouso e Garras Dracônicas disponíveis</div>
+          </div>
+        </div>` : ''}
+        ${(p.race === 'Pandaren' && p.formaSombriaAtiva && p.formaSombriaId && PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId]) ? `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">🐼</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--accent2)">Forma Sombria ativa: ${PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].name}</div>
+            <div style="font-size:11px;color:var(--text2)">Só pode usar Habilidades de ${FORMA_SOMBRIA_COR_LABEL[PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].corPermitida]} · toque em "${PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].name}" pra desfazer</div>
           </div>
         </div>` : ''}
         ${p.pontosPendentes > 0 ? `
