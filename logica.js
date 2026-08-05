@@ -644,7 +644,9 @@ function ensureOrigemPassiva(p) {
     // a passiva nem aparece — e se o personagem descer de nível depois de
     // já tê-la, ela é removida de novo automaticamente.
     const minLevel = origemAtual.passiva.minLevel;
-    const atendeNivel = !minLevel || (p.level || 1) >= minLevel;
+    // NPCs não têm Nível — têm acesso a todas as passivas da raça, mesmo as
+    // que só seriam liberadas em Níveis superiores ao 1.
+    const atendeNivel = p.isNPC || !minLevel || (p.level || 1) >= minLevel;
     const jaTem = p.passivas.some(pas => pas.origemId === p.origemId);
     if (atendeNivel && !jaTem) {
       p.passivas.push({
@@ -735,7 +737,7 @@ const FORMA_SOMBRIA_COR_LABEL = { red: 'Golpes', green: 'Técnicas', blue: 'Feit
 // (Pandaren, caminho Lun'fan, Nível 3+ e ainda sem escolha feita).
 function precisaEscolherFormaSombria(p) {
   return p.race === 'Pandaren' && p.origemId === 'pandaren_origem_lunfan'
-    && (p.level || 1) >= 3 && !p.formaSombriaId;
+    && (p.isNPC || (p.level || 1) >= 3) && !p.formaSombriaId;
 }
 
 // Define a Forma Sombria escolhida pelo jogador e injeta suas 2 Habilidades.
@@ -761,7 +763,7 @@ function ensureFormaSombria(p) {
     }
   });
   const atende = p.race === 'Pandaren' && p.origemId === 'pandaren_origem_lunfan'
-    && (p.level || 1) >= 3 && p.formaSombriaId;
+    && (p.isNPC || (p.level || 1) >= 3) && p.formaSombriaId;
   const forma = atende ? PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId] : null;
   if (!forma) {
     if (p.formaSombriaId) {
@@ -835,7 +837,7 @@ function ensureRacePassivas(p) {
     // (ex: Espectro Dracônico, só a partir do Nível 3). Abaixo disso, a
     // passiva nem aparece — e se o personagem descer de nível depois de já
     // tê-la, ela é removida de novo automaticamente.
-    const atendeNivel = !rp.minLevel || (p.level || 1) >= rp.minLevel;
+    const atendeNivel = p.isNPC || !rp.minLevel || (p.level || 1) >= rp.minLevel;
     const jaTem = p.passivas.some(pas => pas.racialId === rp.id);
     const foiRemovida = p.racialPassivasRemovidas.includes(rp.id);
     if (atendeNivel && !jaTem && !foiRemovida) {
@@ -2097,7 +2099,7 @@ function abrirProximoSeletorRacial(pid) {
   // "Filosofia Pandarênica" (Pandaren, Origem Comum): cobre o caso de
   // personagem criado direto a partir do Nível 3 (a checagem de onLevelUp
   // só dispara em subidas de Nível durante o jogo, não na criação).
-  if (p.origemId === 'pandaren_origem_comum' && (p.level || 1) >= 3 && !p.filosofiaPandarenicaCor) {
+  if (p.origemId === 'pandaren_origem_comum' && (p.isNPC || (p.level || 1) >= 3) && !p.filosofiaPandarenicaCor) {
     abrirFilosofiaPandarenicaModal(pid);
     return;
   }
@@ -2648,7 +2650,9 @@ function escolherVentoBravo(pid, nivel, tipo, testeId) {
 // Verdadeiro se ainda sobrar algum slot vazio (Nível 1 até o Nível atual).
 function trollEncantamentoTemPendencia(p) {
   if (!(p.passivas || []).some(pas => pas.racialId === 'troll_encantamento_troll')) return false;
-  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  // NPC não tem Nível — considera liberados todos os 5 slots (nível máximo
+  // relevante do sistema), em vez de travar pelo Nível atual.
+  const nivel = p.isNPC ? 5 : Math.max(1, Math.min(5, p.level || 1));
   const escolhas = p.encantamentoTrollEscolhas || [];
   for (let n = 1; n <= nivel; n++) {
     if (!escolhas.some(e => e.nivel === n)) return true;
@@ -2741,7 +2745,7 @@ function renderEncantamentoTrollModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
   if (!overlay || !p) return;
-  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  const nivel = p.isNPC ? 5 : Math.max(1, Math.min(5, p.level || 1));
   if (!Array.isArray(p.encantamentoTrollEscolhas)) p.encantamentoTrollEscolhas = [];
 
   let niveisHtml = '';
@@ -5033,7 +5037,7 @@ function setFormaDragao(p, active) {
     // daí, as Habilidades de Classe continuam disponíveis na Forma de
     // Dragão, então não são removidas (só as Armas/Instrumentos, que viram
     // as Garras Dracônicas normalmente).
-    const temEspectroDraconico = p.race === 'Dragão' && (p.level || 1) >= 3;
+    const temEspectroDraconico = p.isNPC || (p.race === 'Dragão' && (p.level || 1) >= 3);
     const skillsClasse = temEspectroDraconico ? [] : p.skills.filter(sk => isHabilidadeDeClasse(p, sk));
     const armasInstrumentos = p.inventario.filter(it => it.tipo === 'arma' || it.tipo === 'instrumento');
     const protecaoEquipadaIds = p.inventario
@@ -6974,7 +6978,7 @@ function onLevelUp(p) {
   // partir do Nível 3 — assim que o personagem chega lá (ou passa disso e
   // ainda não escolheu), abre o modal de escolha sozinho, em vez de só
   // mostrar o botão na ficha (mesma ideia da Vento Bravo/Kalindor/Mag'har).
-  if (p.origemId === 'pandaren_origem_comum' && (p.level || 1) >= 3 && !p.filosofiaPandarenicaCor) {
+  if (p.origemId === 'pandaren_origem_comum' && (p.isNPC || (p.level || 1) >= 3) && !p.filosofiaPandarenicaCor) {
     setTimeout(() => abrirFilosofiaPandarenicaModal(p.id), 300);
   }
 }
