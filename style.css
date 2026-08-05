@@ -751,6 +751,8 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .sk-blue  .sk-btn:hover:not(:disabled) { background: #60a8f0; }
 .sk-gray  .sk-btn:hover:not(:disabled) { background: #9498b0; }
 .sk-bardo .sk-btn:hover:not(:disabled) { background: #f0bc50; }
+.sk-btn-desativar { background: var(--red) !important; }
+.sk-btn-desativar:hover:not(:disabled) { background: #e05050 !important; }
 
 .sk-dots { display: flex; gap: 4px; margin-left: auto; }
 .sdot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid; }
