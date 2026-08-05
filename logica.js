@@ -2031,6 +2031,13 @@ function abrirProximoSeletorRacial(pid) {
     abrirMagharHabModal(pid);
     return;
   }
+  // "Filosofia Pandarênica" (Pandaren, Origem Comum): cobre o caso de
+  // personagem criado direto a partir do Nível 3 (a checagem de onLevelUp
+  // só dispara em subidas de Nível durante o jogo, não na criação).
+  if (p.origemId === 'pandaren_origem_comum' && (p.level || 1) >= 3 && !p.filosofiaPandarenicaCor) {
+    abrirFilosofiaPandarenicaModal(pid);
+    return;
+  }
 }
 
 function abrirAdaptacaoEspacoModal(pid) {
@@ -2698,6 +2705,55 @@ function magharHabTemPendencia(p) {
     if (!escolhas.some(e => e.nivel === n)) return true;
   }
   return false;
+}
+
+// ─── "Filosofia Pandarênica" (Pandaren, Origem Comum): ao chegar no Nível 3,
+// escolhe (uma vez, pra sempre) um tipo de Habilidade — Feitiço (blue),
+// Golpe (red) ou Técnica (green) — e todas as Habilidades desse tipo
+// recebem +3 de Vantagem. Mesma ressalva do Mag'har: por enquanto é só um
+// MARCADOR VISUAL (badge na Habilidade), já que Habilidades não têm
+// rolagem automática hoje (só Testes têm).
+function abrirFilosofiaPandarenicaModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  if (p.filosofiaPandarenicaCor) { alert('Filosofia Pandarênica já foi definida para este personagem.'); return; }
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-sparkles"></i> Filosofia Pandarênica</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha um tipo de Habilidade. Todas as Habilidades desse tipo passam a ter +3 de Vantagem, pra sempre.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();confirmarFilosofiaPandarenica(${p.id},'blue')">
+          <span class="tm-opcao-nome">Feitiço</span>
+        </button>
+        <button class="tm-opcao tm-opcao-red" onclick="event.stopPropagation();confirmarFilosofiaPandarenica(${p.id},'red')">
+          <span class="tm-opcao-nome">Golpe</span>
+        </button>
+        <button class="tm-opcao tm-opcao-green" onclick="event.stopPropagation();confirmarFilosofiaPandarenica(${p.id},'green')">
+          <span class="tm-opcao-nome">Técnica</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function confirmarFilosofiaPandarenica(pid, cor) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || p.filosofiaPandarenicaCor) return;
+  p.filosofiaPandarenicaCor = cor;
+  fecharCriacaoAnaoModal();
+  saveState();
+  renderAll();
+}
+
+// Retorna true se a Habilidade `sk` recebe o +3 de Vantagem da Filosofia
+// Pandarênica (mesma cor escolhida pelo personagem).
+function getFilosofiaPandarenicaBonus(p, sk) {
+  return !!(p.filosofiaPandarenicaCor && p.filosofiaPandarenicaCor === sk.color);
 }
 
 function abrirMagharHabModal(pid) {
@@ -6463,6 +6519,13 @@ function onLevelUp(p) {
       if (it.id === 'inv_dragao_elmo_' + p.id) it.valor = valorElmoDraconico(p);
     });
   }
+  // "Filosofia Pandarênica" (Pandaren, Origem Comum): a passiva só existe a
+  // partir do Nível 3 — assim que o personagem chega lá (ou passa disso e
+  // ainda não escolheu), abre o modal de escolha sozinho, em vez de só
+  // mostrar o botão na ficha (mesma ideia da Vento Bravo/Kalindor/Mag'har).
+  if (p.origemId === 'pandaren_origem_comum' && (p.level || 1) >= 3 && !p.filosofiaPandarenicaCor) {
+    setTimeout(() => abrirFilosofiaPandarenicaModal(p.id), 300);
+  }
 }
 function onLevelDown(p) {
   if (p.race === 'Tauren') {
@@ -6578,13 +6641,14 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         const efeitoSecIcone = (sk.efeitoSecundario && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo] && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo].icone) || '✨';
         const efeitoSecBadge = efeitoSecTxt ? `<span class="chip-badge" style="background:rgba(124,92,191,0.25);color:#b89aff;border-color:rgba(155,125,224,0.45)">${efeitoSecIcone}</span>` : '';
         const magharBadge = getMagharHabBonus(p, sk.id) ? `<span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem Mag'har — bônus ainda aplicado manualmente">+1d4${sk.color === 'red' ? '/+2 Vant.' : ''}</span>` : '';
+        const filosofiaBadge = getFilosofiaPandarenicaBonus(p, sk) ? `<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Filosofia Pandarênica — bônus ainda aplicado manualmente">+3 Vant.</span>` : '';
         const furiaOrcHabBadge = (p.furiaOrcAtiva && sk.id !== 'sk_racial_orc_furia') ? `<span class="chip-badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)" title="Fúria de Orc — esta é a próxima Habilidade: não pode ser Aparada${sk.color === 'red' ? ' e recebe +1d6 de Dano' : ''}">😡${sk.color === 'red' ? ' +1d6' : ''}</span>` : '';
         const podeRecarregar = !ready && ['turno_N','luta','sessao','perturn'].includes(sk.tipo);
         const recarregarBtn = podeRecarregar
           ? `<button class="chip-reload-btn" onclick="event.stopPropagation();recarregarHabilidadeNarrador(${p.id},'${sk.id}')" title="Recarregar agora"><i class="ti ti-reload"></i></button>`
           : '';
         return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${magharBadge}${furiaOrcHabBadge}${extra}${recarregarBtn}
+          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${magharBadge}${filosofiaBadge}${furiaOrcHabBadge}${extra}${recarregarBtn}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
@@ -6608,7 +6672,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && !p.filosofiaPandarenicaCor ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirFilosofiaPandarenicaModal(${p.id})">Escolher Tipo de Habilidade</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && p.filosofiaPandarenicaCor ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Tipo escolhido: ${{blue:'Feitiço',red:'Golpe',green:'Técnica'}[p.filosofiaPandarenicaCor]}</div>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -7182,6 +7246,7 @@ function renderJogador() {
           ${sk.encantamentoItemId ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🔮 Encantamento</span>` : ''}
           ${sk.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${sk.concedeNota === 'qualquer' ? 'escolha uma nota' : sk.concedeNota}</span>` : ''}
           ${getMagharHabBonus(p, sk.id) ? `<span class="sk-tag" style="background:rgba(109,179,63,0.15);color:var(--green)" title="Origem Mag'har — bônus ainda aplicado manualmente">+1d4 Dano/Cura${sk.color === 'red' ? ' · +2 Vantagem' : ''}</span>` : ''}
+          ${getFilosofiaPandarenicaBonus(p, sk) ? `<span class="sk-tag" style="background:var(--accent-bg);color:var(--accent2)" title="Filosofia Pandarênica — bônus ainda aplicado manualmente">+3 Vantagem</span>` : ''}
           ${(p.furiaOrcAtiva && sk.id !== 'sk_racial_orc_furia') ? `<span class="sk-tag" style="background:var(--red-bg);color:var(--red)" title="Fúria de Orc — esta é a próxima Habilidade: não pode ser Aparada${sk.color === 'red' ? ' e recebe +1d6 de Dano' : ''}">😡 Não Aparável${sk.color === 'red' ? ' · +1d6 Dano' : ''}</span>` : ''}
         </div>
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
@@ -7241,6 +7306,8 @@ function renderJogador() {
       ${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}
       ${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}
       ${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}
+      ${pas.racialId === 'pandaren_origem_comum_passiva' && !p.filosofiaPandarenicaCor ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirFilosofiaPandarenicaModal(${p.id})">Escolher Tipo de Habilidade</button>` : ''}
+      ${pas.racialId === 'pandaren_origem_comum_passiva' && p.filosofiaPandarenicaCor ? `<div style="font-size:11px;color:var(--text3);margin-top:6px">✓ Tipo escolhido: ${{blue:'Feitiço',red:'Golpe',green:'Técnica'}[p.filosofiaPandarenicaCor]}</div>` : ''}
     </div>`;
   }).join('');
 
