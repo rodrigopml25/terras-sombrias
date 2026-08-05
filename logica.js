@@ -1972,7 +1972,7 @@ function rolarOrigemComum(pid) {
   setTimeout(() => {
     if (kept >= 7) {
       alert(`Origem Comum: ${p.name} tirou ${kept} — 7 ou mais! Escolha a arma/instrumento que ganha o Aprimoramento Dourado gratuito.`);
-      abrirOrigemComumModal(pid);
+      abrirOrigemComumAnaoDouradoModal(pid);
     } else {
       alert(`Origem Comum: ${p.name} tirou ${kept} — abaixo de 7, nenhum Aprimoramento Dourado dessa vez.`);
     }
@@ -3157,7 +3157,7 @@ function escolherMagharHab(pid, nivel, skillId) {
   abrirMagharHabEscolhaModal(pid, nivel);
 }
 
-function abrirOrigemComumModal(pid) {
+function abrirOrigemComumAnaoDouradoModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
   if (!overlay || !p) return;
