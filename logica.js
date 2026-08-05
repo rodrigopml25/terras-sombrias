@@ -769,11 +769,12 @@ function ensureFormaSombria(p) {
       if (f) p.skills = p.skills.filter(sk => sk.id !== f.skillNeutra.id && sk.id !== f.skillColorida.id);
       // Se a Forma ficou ativa mas o personagem deixou de atender os
       // requisitos (ex: nível caiu), o bônus de Vida dela não pode ficar
-      // preso pra sempre — remove-se igual a uma desativação normal.
+      // preso pra sempre — mesma correção da desativação normal: só corta a
+      // Vida Atual se estiver acima do novo Máximo.
       if (f && p.formaSombriaAtiva) {
         const bonusVidaForma = f.bonusVida || 0;
         p.hpMax = Math.max(1, (p.hpMax || 0) - bonusVidaForma);
-        p.hp = Math.max(0, Math.min(p.hpMax, (p.hp || 0) - bonusVidaForma));
+        p.hp = Math.max(0, Math.min(p.hp || 0, p.hpMax));
       }
     }
     p.formaSombriaAtiva = false;
@@ -6071,11 +6072,14 @@ function useSkill(pid, skid) {
       && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id) {
     // Os Pontos de Vida concedidos pela Forma (Bombado +20, Lutador +15,
     // Feiticeiro +10) só valem enquanto transformado — ao desfazer a Forma,
-    // removem-se de novo tanto da Vida Atual quanto da Máxima.
+    // a Vida Máxima volta ao normal. A Vida Atual só é "cortada" se estiver
+    // acima do novo Máximo (personagem cheio/pouco ferido); se já estiver
+    // abaixo (por ter tomado dano na Forma), permanece como está — o dano já
+    // consumiu o bônus, não pode ser descontado duas vezes.
     const formaDesfeita = PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId];
     const bonusVidaForma = formaDesfeita.bonusVida || 0;
     p.hpMax = Math.max(1, (p.hpMax || 0) - bonusVidaForma);
-    p.hp = Math.max(0, Math.min(p.hpMax, (p.hp || 0) - bonusVidaForma));
+    p.hp = Math.max(0, Math.min(p.hp || 0, p.hpMax));
     p.formaSombriaAtiva = false;
     saveState(); renderAll();
     return;
