@@ -2663,6 +2663,72 @@ function getHabilidadesClasseParaEncantar(p) {
   return (p.skills || []).filter(sk => !!sk.bancoId);
 }
 
+// "Colosso" (Origem, Troll): os Encantamentos de Troll (ver
+// encantamentoTrollEscolhas acima) ficam amaldiçoados — toda vez que a
+// Habilidade encantada for usada, escolhe entre 1d6 de Dano na Vida OU 1d6
+// de Insanidade. Só se aplica a quem tem essa Origem específica (não afeta
+// quem tem "Comum" ou nenhuma Origem).
+function skillEhEncantamentoTrollAmaldicoado(p, sk) {
+  if (p.origemId !== 'troll_origem_colosso') return false;
+  return (p.encantamentoTrollEscolhas || []).some(e => e.skillId === sk.id);
+}
+
+function abrirEncantamentoAmaldicoadoModal(pid, skillId, skillName) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  if (!overlay) return;
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-alert-triangle"></i> Encantamento Amaldiçoado</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        "${escHtml(skillName)}" está encantada e amaldiçoada (Colosso) — escolha o que recebe 1d6:
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();resolverEncantamentoAmaldicoado(${pid},'dano','${skillId}')">
+          <span class="tm-opcao-nome">🩸 1d6 de Dano na Vida</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();resolverEncantamentoAmaldicoado(${pid},'insanidade','${skillId}')">
+          <span class="tm-opcao-nome">🌀 1d6 de Insanidade</span>
+        </button>
+      </div>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function resolverEncantamentoAmaldicoado(pid, tipo, skillId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const sk = p.skills.find(s => s.id === skillId);
+  fecharCriacaoAnaoModal();
+
+  const sides = 6;
+  const d1 = 1 + Math.floor(Math.random() * sides);
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Encantamento Amaldiçoado — ${tipo === 'dano' ? 'Dano' : 'Insanidade'} (1d6)${sk ? ' · ' + sk.name : ''}`,
+    tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null } }] },
+    total: d1,
+    hidden: false,
+    rolling: true,
+    ts: Date.now()
+  };
+
+  spinDiceFab(true, sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  setTimeout(() => {
+    if (tipo === 'dano') adjHP(p.id, -d1);
+    else adjIns(p.id, d1);
+  }, ROLL_ANIM_MS + 150);
+}
+
 function abrirEncantamentoTrollModal(pid) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
@@ -5436,6 +5502,11 @@ function getPesoMaximoArmaduraPersonagem(p) {
   let maxIdx = base.reduce((max, peso) => Math.max(max, ORDEM_PESO_ARMADURA.indexOf(peso)), 0);
   const temMaestriaAprimorada = getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'maestria_de_peso_aprimorada');
   if (temMaestriaAprimorada) maxIdx = Math.min(maxIdx + 1, ORDEM_PESO_ARMADURA.length - 1);
+  // "Colosso" (Origem, Troll): garante acesso a Armadura/Elmo Pesado,
+  // independente do caminho da Classe — mesma ideia da "Mulgore" pra Armas,
+  // só que aqui é um teto (não uma lista), então só sobe o índice se for menor.
+  const temColosso = p.origemId === 'troll_origem_colosso';
+  if (temColosso) maxIdx = Math.max(maxIdx, ORDEM_PESO_ARMADURA.indexOf('pesada'));
   return ORDEM_PESO_ARMADURA[maxIdx];
 }
 
@@ -5473,6 +5544,12 @@ function getPesosArmaPermitidosPersonagem(p) {
   // remover nenhuma categoria que o personagem já tivesse por outro meio).
   const temMulgore = p.origemId === 'tauren_origem_mulgore';
   if (temMulgore && !resultado.includes('pesada')) {
+    resultado = [...resultado, 'pesada'];
+  }
+  // "Colosso" (Origem, Troll): mesma ideia da Mulgore — soma 'pesada' ao
+  // conjunto já calculado, independente do caminho da Classe.
+  const temColosso = p.origemId === 'troll_origem_colosso';
+  if (temColosso && !resultado.includes('pesada')) {
     resultado = [...resultado, 'pesada'];
   }
   return resultado;
@@ -6442,6 +6519,13 @@ function useSkill(pid, skid) {
 
   saveState();
   renderAll();
+
+  // "Colosso" (Origem, Troll): usar uma Habilidade encantada (Encantamento
+  // Troll) é amaldiçoado — abre a escolha de 1d6 Dano ou 1d6 Insanidade.
+  if (skillEhEncantamentoTrollAmaldicoado(p, sk)) {
+    abrirEncantamentoAmaldicoadoModal(pid, sk.id, sk.name);
+    return;
+  }
 
   // "Teste Mental" pode ser usada com qualquer Teste de Intelecto ou o
   // Teste de Emoção — pergunta qual rolar, em vez de decidir sozinho.
