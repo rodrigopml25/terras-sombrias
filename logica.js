@@ -2073,6 +2073,49 @@ function escolherAdaptacaoEspaco(pid, testeId) {
   abrirProximoSeletorRacial(pid);
 }
 
+// "Treinamento Militar" (Orc): quando o Aparar Garantido sai Crítico (10+),
+// o jogador escolhe a recompensa — +1 Ação no próximo turno (automatizado
+// aqui) ou um Contra-Ataque (resolvido na mesa com o Narrador, igual aos
+// outros Contra-Ataques do sistema).
+function abrirTreinamentoMilitarEscolhaModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-shield-check"></i> Treinamento Militar — Crítico!</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Seu Aparar saiu Crítico. Escolha a recompensa de ${escHtml(p.name)}:
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherTreinamentoMilitarRecompensa(${p.id},'acao')">
+          <span class="tm-opcao-nome">➕ 1 Ação a mais no próximo turno</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherTreinamentoMilitarRecompensa(${p.id},'contra')">
+          <span class="tm-opcao-nome">⚔️ Contra-Ataque</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherTreinamentoMilitarRecompensa(pid, escolha) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (escolha === 'acao') {
+    // Concedida de verdade no próximo Reset de Turno (ver aplicarResetDeTurno),
+    // que é quando as Ações do personagem são recarregadas.
+    p.treinamentoMilitarAcaoExtra = true;
+  }
+  // "Contra-Ataque": sem efeito automático — resolvido na mesa, igual aos
+  // demais Contra-Ataques do sistema (ex: Espada de Uma Mão, P.A.R.R.Y).
+  fecharCriacaoAnaoModal();
+  saveState();
+  renderAll();
+}
+
 // "Decréptico" (Elfo): escolhe 2 Testes de Intelecto — um recebe +1 de
 // Vantagem, o outro +3 (termos à parte na rolagem, iguais à Adaptação do
 // Espaço). A -2 de Desvantagem em Resistir é fixa e automática (ver
@@ -5832,6 +5875,14 @@ function useSkill(pid, skid) {
     p.furiaOrcAtiva = true;
   }
 
+  // "Treinamento Militar" (Orc): liga a marca no próximo Aparar — ele fica
+  // Garantido e com 50% de chance de Crítico (10 ou mais no d20). É
+  // consumido automaticamente na hora de rolar o Teste de Aparar (ver
+  // construirRolagemTeste/getCritThresholds), não aqui.
+  if (sk.id === 'sk_racial_orc_treinamento_militar') {
+    p.treinamentoMilitarPendente = true;
+  }
+
   saveState();
   renderAll();
 
@@ -5874,6 +5925,12 @@ function aplicarResetDeTurno() {
   turnGlobal++;
   PLAYERS.forEach(p => {
     p.acoesAtuais = p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
+    // "Treinamento Militar" (Orc): +1 Ação garantida neste turno, escolhida
+    // como recompensa do Crítico no Aparar — consome a marca ao aplicar.
+    if (p.treinamentoMilitarAcaoExtra) {
+      p.acoesAtuais += 1;
+      p.treinamentoMilitarAcaoExtra = false;
+    }
     p.skills.forEach(sk => {
       if (sk.tipo === 'perturn') { sk.usosAtuais = sk.usosMax; }
       if (sk.tipo === 'turno_N' && sk.cdRestante > 0) {
@@ -6717,12 +6774,13 @@ function renderTestes(p, readonly) {
       const t    = p.testes[tid];
       const hasMV = t.mv, hasMD = t.md, hasBonus = t.bonus && t.bonus.trim();
       const hasAdaptacao = p.adaptacaoTesteId === tid;
+      const hasTreinamentoMilitar = tid === 'aparar' && !!p.treinamentoMilitarPendente;
       // "Origem de Vento Bravo" (Humano): nunca tem Mega Vantagem em Teste nenhum.
       const mvBloqueadaOrigem = p.origemId === 'humano_origem_vento_bravo';
       const mdForcadaOrigem = p.origemId === 'orc_origem_maghar' && p.magharTesteMD === tid;
       const bonusVB = getVentoBravoBonus(p, tid);
       const papelKal = getKalindorPapel(p, tid);
-      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}${mdForcadaOrigem ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem Mag'har">MD fixo</span>` : ''}`;
+      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${hasTreinamentoMilitar ? ` <span class="chip-badge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)" title="Treinamento Militar — este Aparar é Garantido, com 50% de chance de Crítico">⚔️ Pronto</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}${mdForcadaOrigem ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem Mag'har">MD fixo</span>` : ''}`;
 
       if (readonly) {
         // Narrador: chip com os mesmos controles do Jogador (MV/MD/Bônus),
@@ -12480,6 +12538,15 @@ function getCritThresholds(p, testeId, sides) {
     else if (sides === 100) { critMin -= 6; fumbleMax += 5; }
   }
 
+  // "Treinamento Militar" (Orc): o próximo Teste de Aparar (marcado por
+  // p.treinamentoMilitarPendente) tem 50% de chance de Crítico — no d20,
+  // isso significa Crítico com 10 ou mais, em vez de só no 20 natural.
+  // O consumo do "próximo Aparar" (desligar a marca) acontece em
+  // construirRolagemTeste, não aqui — esta função só decide o limiar.
+  if (testeId === 'aparar' && sides === 20 && p.treinamentoMilitarPendente) {
+    critMin = Math.min(critMin, 10);
+  }
+
   return { critMin, fumbleMax, fumbleImune };
 }
 
@@ -12627,7 +12694,15 @@ function construirRolagemTeste(p, testeId) {
   const formula = `Teste de ${def.name}${megaLabel}`;
   const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, testeId, sides);
 
-  return { def, sides, total, tree, formula, critMin, fumbleMax, fumbleImune };
+  // "Treinamento Militar" (Orc): este Aparar é o marcado pela Habilidade —
+  // some com a marca agora (é de 1 uso só) e sinaliza "Garantido" pro feed
+  // de dados mostrar a etiqueta, independente do valor rolado.
+  const treinamentoMilitarGarantido = testeId === 'aparar' && sides === 20 && !!p.treinamentoMilitarPendente;
+  if (treinamentoMilitarGarantido) {
+    p.treinamentoMilitarPendente = false;
+  }
+
+  return { def, sides, total, tree, formula, critMin, fumbleMax, fumbleImune, garantido: treinamentoMilitarGarantido };
 }
 
 // Rola um Teste e publica o resultado no feed de dados. Retorna o total
@@ -12652,7 +12727,8 @@ function rolarTeste(pid, testeId) {
     fumbleImune: r.fumbleImune,
     hidden: false,
     rolling: true,
-    ts: Date.now()
+    ts: Date.now(),
+    ...(r.garantido ? { garantido: true, label: '⚔️ Treinamento Militar — Aparar Garantido (50% de Crítico)' } : {})
   };
 
   spinDiceFab(true, r.sides);
@@ -12668,6 +12744,19 @@ function rolarTeste(pid, testeId) {
     const critInfo = rollCritInfo(entry);
     if (critInfo.hasCrit || critInfo.hasFumble) {
       setTimeout(() => rolarExpressaoEterea(pid, critInfo.hasCrit ? 'crit' : 'fumble'), ROLL_ANIM_MS + 250);
+    }
+  }
+
+  // "Treinamento Militar" (Orc): a marca de "próximo Aparar" acabou de ser
+  // consumida (ver construirRolagemTeste) — persiste isso pra todos na mesa
+  // e some com o badge "pronto" da Habilidade. Se o Aparar saiu Crítico
+  // (10+ no d20, pelo limiar especial), abre a escolha de recompensa.
+  if (r.garantido) {
+    saveState();
+    renderAll();
+    const critInfo = rollCritInfo(entry);
+    if (critInfo.hasCrit) {
+      setTimeout(() => abrirTreinamentoMilitarEscolhaModal(pid), ROLL_ANIM_MS + 250);
     }
   }
 
