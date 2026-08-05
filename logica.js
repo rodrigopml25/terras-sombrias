@@ -5746,6 +5746,112 @@ function maestriaDe(p, campoAttr) {
   if (p.race === 'Troll' && p.trollMaestriaEscolha === campoAttr) m += 1;
   return m;
 }
+// Bônus de Maestria que soma no Dano de Armas/Instrumentos, de acordo com o
+// peso do item — usado tanto na exibição (statsRow, dentro de
+// renderInventarioArea) quanto na rolagem de dano de verdade
+// (construirRolagemDanoArma). Leve → INT; Média → AGI; Pesada → FOR;
+// Exótica → piso(AGI/2); Mega Pesada → piso(FOR/2); Encantada → piso(INT/2).
+function getArmaMaestriaBonus(p, peso) {
+  if (peso === 'leve')   return { val: maestriaDe(p,'intel'), attr: 'INT', color: 'var(--blue)'  };
+  if (peso === 'media')  return { val: maestriaDe(p,'agi'),   attr: 'AGI', color: 'var(--green)' };
+  if (peso === 'pesada') return { val: maestriaDe(p,'forca'), attr: 'FOR', color: 'var(--red)'   };
+  if (peso === 'exotica') {
+    const v = Math.ceil(maestriaDe(p,'agi') / 2);
+    return { val: v, attr: 'AGI/2', color: 'var(--green-dim)' };
+  }
+  if (peso === 'mega') {
+    const v = Math.ceil(maestriaDe(p,'forca') / 2);
+    return { val: v, attr: 'FOR/2', color: '#8b1f1f' };
+  }
+  if (peso === 'encantada') {
+    const v = Math.ceil(maestriaDe(p,'intel') / 2);
+    return { val: v, attr: 'INT/2', color: 'var(--accent2)' };
+  }
+  return null;
+}
+
+// Monta a árvore de rolagem de Dano de uma Arma/Instrumento: rola a fórmula
+// de dano do item (item.dano, ex: "1d10", "1d4+3", "1d8+1d6") e soma, como
+// termos à parte (nunca mexendo na fórmula base do item):
+//   - Bônus de Maestria conforme o peso da arma (getArmaMaestriaBonus)
+//   - Aprimoramento Dourado "Afiação Aprimorada": +1d6 real, rolado na hora
+//   - "Origem das Profundezas" (Draenei): bônus fixo acumulado por nome de arma
+// Ponto de extensão: qualquer novo bônus de Dano que dependa de arma/item
+// (encantamentos, outros Aprimoramentos Dourados, passivas raciais futuras)
+// entra aqui, como mais um termo — nunca direto na string item.dano.
+function construirRolagemDanoArma(p, item) {
+  if (!p || !item) return null;
+  const danoStr = (item.dano || '').trim();
+  if (!danoStr) return null;
+
+  let parsed;
+  try {
+    parsed = parseFormula(danoStr);
+  } catch (e) {
+    return null;
+  }
+
+  const baseNode = parsed.node;
+  const terms = baseNode.type === 'sum' ? baseNode.terms.slice() : [{ sign: '+', node: baseNode }];
+  let total = parsed.value;
+
+  const mb = getArmaMaestriaBonus(p, item.peso);
+  if (mb && mb.val) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: mb.val, label: 'Maestria ' + mb.attr } });
+    total += mb.val;
+  }
+
+  if (typeof temAfiacaoAprimorada === 'function' && temAfiacaoAprimorada(item)) {
+    const roll = 1 + Math.floor(Math.random() * 6);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [roll], sum: roll, countNode: null, label: 'Afiação Aprimorada ✨' } });
+    total += roll;
+  }
+
+  const profundezasVal = (p.origemProfundezasBonus && p.origemProfundezasBonus[item.name]) || 0;
+  if (profundezasVal > 0) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: profundezasVal, label: 'Profundezas' } });
+    total += profundezasVal;
+  }
+
+  const tree = { type: 'sum', terms };
+  const formula = `Dano — ${item.name}`;
+  return { tree, total, formula };
+}
+
+// Rola o Dano de uma Arma/Instrumento e publica no feed de dados, igual a
+// um Teste — chamado pelo botão de dado ao lado do valor de Dano na Ficha
+// (ver renderInventarioArea) tanto pelo Jogador quanto pelo Narrador.
+function rolarDanoArma(pid, itemId) {
+  if (!currentUser) return null;
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  if (!p || !item) return null;
+  const r = construirRolagemDanoArma(p, item);
+  if (!r) return null;
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: r.formula,
+    tree: r.tree,
+    total: r.total,
+    hidden: false,
+    rolling: true,
+    ts: Date.now()
+  };
+
+  spinDiceFab(true, 6);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  return r.total;
+}
 function tipoLabel(sk) {
   if (sk.tipo==='infinite') return '∞ livre';
   if (sk.tipo==='perturn')  return sk.usosMax + 'x/turno';
@@ -7776,24 +7882,7 @@ function renderInventarioArea(p, readOnly) {
 
     // ── Bônus de maestria por peso da arma ──────────────────────────────────
     // Leve → INT; Média → AGI; Pesada → FOR; Exótica → piso(AGI/2); Mega Pesada → piso(FOR/2)
-    function armaMaestriaBonus(peso) {
-      if (peso === 'leve')   return { val: maestriaDe(p,'intel'), attr: 'INT', color: 'var(--blue)'  };
-      if (peso === 'media')  return { val: maestriaDe(p,'agi'),   attr: 'AGI', color: 'var(--green)' };
-      if (peso === 'pesada') return { val: maestriaDe(p,'forca'), attr: 'FOR', color: 'var(--red)'   };
-      if (peso === 'exotica') {
-        const v = Math.ceil(maestriaDe(p,'agi') / 2);
-        return { val: v, attr: 'AGI/2', color: 'var(--green-dim)' };
-      }
-      if (peso === 'mega') {
-        const v = Math.ceil(maestriaDe(p,'forca') / 2);
-        return { val: v, attr: 'FOR/2', color: '#8b1f1f' };
-      }
-      if (peso === 'encantada') {
-        const v = Math.ceil(maestriaDe(p,'intel') / 2);
-        return { val: v, attr: 'INT/2', color: 'var(--accent2)' };
-      }
-      return null;
-    }
+    function armaMaestriaBonus(peso) { return getArmaMaestriaBonus(p, peso); }
     function statsRow(peso) {
       const mb = armaMaestriaBonus(peso);
       const bonus = mb && mb.val > 0
@@ -7804,7 +7893,10 @@ function renderInventarioArea(p, readOnly) {
       const profundezasBonus = profundezasVal > 0
         ? `<span style="font-size:11px;color:#8ab8e8;margin-left:2px" title="Origem das Profundezas">+${profundezasVal} <span style="font-size:10px;opacity:.8">Profundezas</span></span>`
         : '';
-      const danoPart = item.dano ? `<div class="inv-stat"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}${afiacaoBonus}${profundezasBonus}</div>` : '';
+      const rolarDanoBtn = item.dano
+        ? `<button class="teste-roll-btn" style="margin-left:6px" onclick="event.stopPropagation();rolarDanoArma(${p.id},'${item.id}')" title="Rolar Dano (${escHtml(item.dano)}${mb && mb.val ? ' +' + mb.val + ' ' + mb.attr : ''}${temAfiacaoAprimorada(item) ? ' +1d6 ✨' : ''}${profundezasVal > 0 ? ' +' + profundezasVal + ' Profundezas' : ''})"><i class="ti ti-dice"></i></button>`
+        : '';
+      const danoPart = item.dano ? `<div class="inv-stat"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}${afiacaoBonus}${profundezasBonus}${rolarDanoBtn}</div>` : '';
       const precoPart = item.preco != null ? `<div class="inv-stat"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val" style="color:var(--amber)">${item.preco}</span></div>` : '';
       if (!danoPart && !precoPart) return '';
       return `<div class="inv-stats-row">${danoPart}${precoPart}</div>`;
