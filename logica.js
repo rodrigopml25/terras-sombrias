@@ -2058,6 +2058,10 @@ function abrirProximoSeletorRacial(pid) {
     abrirDecrepticoModal(pid);
     return;
   }
+  if (p.race === 'Tauren' && (p.passivas || []).some(pas => pas.racialId === 'tauren_brutao') && !(p.brutaoTesteForca && p.brutaoTesteAgilidade)) {
+    abrirBrutaoModal(pid);
+    return;
+  }
   if (p.origemId === 'elfo_origem_sangrento' && !p.origemSangrentaUsado) {
     abrirOrigemSangrentaModal(pid);
     return;
@@ -2442,6 +2446,66 @@ function escolherDecreptico(pid, testeId, papel) {
   saveState();
   renderAll();
   abrirDecrepticoModal(pid);
+}
+
+// "Brutão" (Tauren): escolhe 1 Teste de Força pra Mega Vantagem fixa e 1
+// Teste de Agilidade pra Mega Desvantagem fixa. Ambos são travados (não são
+// toggle manual do MV/MD do teste) — ver mvForcadaBrutao/mdForcadaBrutao em
+// construirRolagemTeste e renderTestes.
+function abrirBrutaoModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const testesForca = TESTES_LISTA.filter(t => t.attr === 'forca');
+  const testesAgi = TESTES_LISTA.filter(t => t.attr === 'agi');
+
+  const opcoesForca = testesForca.map(t => {
+    const atual = p.brutaoTesteForca === t.id;
+    return `<button class="tm-opcao tm-opcao-blue" onclick="escolherBrutaoForca(${p.id},'${t.id}')">
+      <span class="tm-opcao-nome">${escHtml(t.name)}</span>
+      ${atual ? `<span class="tm-opcao-info">Mega Vantagem</span>` : ''}
+    </button>`;
+  }).join('');
+
+  const opcoesAgi = testesAgi.map(t => {
+    const atual = p.brutaoTesteAgilidade === t.id;
+    return `<button class="tm-opcao tm-opcao-blue" onclick="escolherBrutaoAgilidade(${p.id},'${t.id}')">
+      <span class="tm-opcao-nome">${escHtml(t.name)}</span>
+      ${atual ? `<span class="tm-opcao-info">Mega Desvantagem</span>` : ''}
+    </button>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-bone"></i> Brutão — ${escHtml(p.name)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha um Teste de Força para ter Mega Vantagem, e um Teste de Agilidade para ter Mega Desvantagem.
+      </div>
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Força · Mega Vantagem</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">${opcoesForca}</div>
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Agilidade · Mega Desvantagem</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesAgi}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal();abrirProximoSeletorRacial(${p.id})">Fechar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherBrutaoForca(pid, testeId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  p.brutaoTesteForca = testeId;
+  saveState();
+  renderAll();
+  abrirBrutaoModal(pid);
+}
+
+function escolherBrutaoAgilidade(pid, testeId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  p.brutaoTesteAgilidade = testeId;
+  saveState();
+  renderAll();
+  abrirBrutaoModal(pid);
 }
 
 // ─── "Origem de Vento Bravo" (Humano): a cada Nível, escolhe 1 Teste de
@@ -6777,7 +6841,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && !p.filosofiaPandarenicaCor ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirFilosofiaPandarenicaModal(${p.id})">Escolher Tipo de Habilidade</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && p.filosofiaPandarenicaCor ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Tipo escolhido: ${{blue:'Feitiço',red:'Golpe',green:'Técnica'}[p.filosofiaPandarenicaCor]}</div>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'tauren_brutao' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirBrutaoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && !p.filosofiaPandarenicaCor ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirFilosofiaPandarenicaModal(${p.id})">Escolher Tipo de Habilidade</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && p.filosofiaPandarenicaCor ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Tipo escolhido: ${{blue:'Feitiço',red:'Golpe',green:'Técnica'}[p.filosofiaPandarenicaCor]}</div>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -7083,13 +7147,19 @@ function renderTestes(p, readonly) {
       // "Origem de Vento Bravo" (Humano): nunca tem Mega Vantagem em Teste nenhum.
       const mvBloqueadaOrigem = p.origemId === 'humano_origem_vento_bravo';
       const mdForcadaOrigem = p.origemId === 'orc_origem_maghar' && p.magharTesteMD === tid;
+      // "Brutão" (Tauren): Teste de Força escolhido tem Mega Vantagem fixa,
+      // Teste de Agilidade escolhido tem Mega Desvantagem fixa — travam os
+      // botões MV/MD manuais desses testes (ver construirRolagemTeste).
+      const temBrutaoAqui = (p.passivas || []).some(pas => pas.racialId === 'tauren_brutao');
+      const mvForcadaBrutao = temBrutaoAqui && p.brutaoTesteForca === tid;
+      const mdForcadaBrutao = temBrutaoAqui && p.brutaoTesteAgilidade === tid;
       // "Mente Equilibrada" (Pandaren): Teste de Emoção sempre tem Mega
       // Vantagem fixa (em módulo) — trava os botões MV/MD manuais nesse teste.
       const menteEquilibradaAqui = tid === 'emocao' && p.race === 'Pandaren'
         && (p.passivas || []).some(pas => pas.racialId === 'pandaren_mente_equilibrada');
       const bonusVB = getVentoBravoBonus(p, tid);
       const papelKal = getKalindorPapel(p, tid);
-      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${hasTreinamentoMilitar ? ` <span class="chip-badge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)" title="Treinamento Militar — este Aparar é Garantido, com 50% de chance de Crítico">⚔️ Pronto</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}${mdForcadaOrigem ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem Mag'har">MD fixo</span>` : ''}${menteEquilibradaAqui ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Mente Equilibrada — Mega Vantagem fixa, resultado em módulo">MV fixo · módulo</span>` : ''}`;
+      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${hasTreinamentoMilitar ? ` <span class="chip-badge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)" title="Treinamento Militar — este Aparar é Garantido, com 50% de chance de Crítico">⚔️ Pronto</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}${mdForcadaOrigem ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem Mag'har">MD fixo</span>` : ''}${mvForcadaBrutao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Brutão">MV fixo</span>` : ''}${mdForcadaBrutao ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Brutão">MD fixo</span>` : ''}${menteEquilibradaAqui ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Mente Equilibrada — Mega Vantagem fixa, resultado em módulo">MV fixo · módulo</span>` : ''}`;
 
       if (readonly) {
         // Narrador: chip com os mesmos controles do Jogador (MV/MD/Bônus),
@@ -7103,8 +7173,8 @@ function renderTestes(p, readonly) {
           <span class="chip-name">${def.name}</span>
           ${badges.join('')}
           <div class="teste-ctrl" onclick="event.stopPropagation()">
-            <button class="teste-mv-btn ${(hasMV && !mvBloqueadaOrigem) || menteEquilibradaAqui ? 'ativo' : ''}" ${(mvBloqueadaOrigem || menteEquilibradaAqui) ? 'disabled style="opacity:.7;cursor:not-allowed"' : ''} onclick="${(mvBloqueadaOrigem || menteEquilibradaAqui) ? '' : `setTesteMV(${p.id},'${tid}',${!hasMV})`}" title="${menteEquilibradaAqui ? 'Fixo pela passiva Mente Equilibrada' : (mvBloqueadaOrigem ? 'Bloqueado pela Origem de Vento Bravo' : 'Dar Mega Vantagem')}">MV</button>
-            <button class="teste-md-btn ${(hasMD || mdForcadaOrigem) && !menteEquilibradaAqui ? 'ativo' : ''}" ${(mdForcadaOrigem || menteEquilibradaAqui) ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''} onclick="${(mdForcadaOrigem || menteEquilibradaAqui) ? '' : `setTesteMD(${p.id},'${tid}',${!hasMD})`}" title="${menteEquilibradaAqui ? 'Bloqueado pela passiva Mente Equilibrada' : (mdForcadaOrigem ? 'Fixo pela Origem Mag\'har' : 'Dar Mega Desvantagem')}">MD</button>
+            <button class="teste-mv-btn ${(hasMV && !mvBloqueadaOrigem) || menteEquilibradaAqui || mvForcadaBrutao ? 'ativo' : ''}" ${(mvBloqueadaOrigem || menteEquilibradaAqui || mvForcadaBrutao) ? 'disabled style="opacity:.7;cursor:not-allowed"' : ''} onclick="${(mvBloqueadaOrigem || menteEquilibradaAqui || mvForcadaBrutao) ? '' : `setTesteMV(${p.id},'${tid}',${!hasMV})`}" title="${menteEquilibradaAqui ? 'Fixo pela passiva Mente Equilibrada' : (mvForcadaBrutao ? 'Fixo pela passiva Brutão' : (mvBloqueadaOrigem ? 'Bloqueado pela Origem de Vento Bravo' : 'Dar Mega Vantagem'))}">MV</button>
+            <button class="teste-md-btn ${(hasMD || mdForcadaOrigem || mdForcadaBrutao) && !menteEquilibradaAqui ? 'ativo' : ''}" ${(mdForcadaOrigem || mdForcadaBrutao || menteEquilibradaAqui) ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''} onclick="${(mdForcadaOrigem || mdForcadaBrutao || menteEquilibradaAqui) ? '' : `setTesteMD(${p.id},'${tid}',${!hasMD})`}" title="${menteEquilibradaAqui ? 'Bloqueado pela passiva Mente Equilibrada' : (mdForcadaBrutao ? 'Fixo pela passiva Brutão' : (mdForcadaOrigem ? 'Fixo pela Origem Mag\'har' : 'Dar Mega Desvantagem'))}">MD</button>
             <input class="teste-bonus-input" type="text" value="${t.bonus || ''}" placeholder="Bônus" maxlength="8"
               onchange="setTesteBonus(${p.id},'${tid}',this.value)"
               title="Bônus/penalidade pontual (ex: +3, -1d4)" style="width:52px">
@@ -7118,8 +7188,8 @@ function renderTestes(p, readonly) {
         <button class="teste-roll-btn" onclick="rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name} (${tid === 'emocao' ? '1d100 − insanidade' : tid === 'devocao' ? '1d100 − (20×pecado)' : '1d20' + (mst ? '+' + mst + ' maestria' : '')})"><i class="ti ti-dice"></i></button>
         <span class="teste-nome">${def.name}${badgesPassivas}</span>
         <div class="teste-ctrl">
-          <button class="teste-mv-btn ${(hasMV && !mvBloqueadaOrigem) || menteEquilibradaAqui ? 'ativo' : ''}" ${(mvBloqueadaOrigem || menteEquilibradaAqui) ? 'disabled style="opacity:.7;cursor:not-allowed"' : ''} onclick="${(mvBloqueadaOrigem || menteEquilibradaAqui) ? '' : `setTesteMV(${p.id},'${tid}',${!hasMV})`}" title="${menteEquilibradaAqui ? 'Fixo pela passiva Mente Equilibrada' : (mvBloqueadaOrigem ? 'Bloqueado pela Origem de Vento Bravo' : 'Mega Vantagem')}">MV</button>
-          <button class="teste-md-btn ${(hasMD || mdForcadaOrigem) && !menteEquilibradaAqui ? 'ativo' : ''}" ${(mdForcadaOrigem || menteEquilibradaAqui) ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''} onclick="${(mdForcadaOrigem || menteEquilibradaAqui) ? '' : `setTesteMD(${p.id},'${tid}',${!hasMD})`}" title="${menteEquilibradaAqui ? 'Bloqueado pela passiva Mente Equilibrada' : (mdForcadaOrigem ? 'Fixo pela Origem Mag\'har' : 'Mega Desvantagem')}">MD</button>
+          <button class="teste-mv-btn ${(hasMV && !mvBloqueadaOrigem) || menteEquilibradaAqui || mvForcadaBrutao ? 'ativo' : ''}" ${(mvBloqueadaOrigem || menteEquilibradaAqui || mvForcadaBrutao) ? 'disabled style="opacity:.7;cursor:not-allowed"' : ''} onclick="${(mvBloqueadaOrigem || menteEquilibradaAqui || mvForcadaBrutao) ? '' : `setTesteMV(${p.id},'${tid}',${!hasMV})`}" title="${menteEquilibradaAqui ? 'Fixo pela passiva Mente Equilibrada' : (mvForcadaBrutao ? 'Fixo pela passiva Brutão' : (mvBloqueadaOrigem ? 'Bloqueado pela Origem de Vento Bravo' : 'Mega Vantagem'))}">MV</button>
+          <button class="teste-md-btn ${(hasMD || mdForcadaOrigem || mdForcadaBrutao) && !menteEquilibradaAqui ? 'ativo' : ''}" ${(mdForcadaOrigem || mdForcadaBrutao || menteEquilibradaAqui) ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''} onclick="${(mdForcadaOrigem || mdForcadaBrutao || menteEquilibradaAqui) ? '' : `setTesteMD(${p.id},'${tid}',${!hasMD})`}" title="${menteEquilibradaAqui ? 'Bloqueado pela passiva Mente Equilibrada' : (mdForcadaBrutao ? 'Fixo pela passiva Brutão' : (mdForcadaOrigem ? 'Fixo pela Origem Mag\'har' : 'Mega Desvantagem'))}">MD</button>
           <input class="teste-bonus-input" type="text" value="${t.bonus || ''}" placeholder="Bônus" maxlength="8"
             onchange="setTesteBonus(${p.id},'${tid}',this.value)"
             title="Bônus/penalidade (ex: +3, -1d4)">
@@ -7416,6 +7486,7 @@ function renderJogador() {
       ${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}
       ${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}
       ${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}
+      ${pas.racialId === 'tauren_brutao' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirBrutaoModal(${p.id})">Escolher Testes</button>` : ''}
       ${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}
       ${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}
       ${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}
@@ -12890,13 +12961,19 @@ function construirRolagemTeste(p, testeId) {
   // nenhum — ignora t.mv aqui como proteção extra (o botão MV já fica
   // escondido/desabilitado pra esse personagem, ver renderTestes).
   const mvBloqueadaPorOrigem = p.origemId === 'humano_origem_vento_bravo';
-  const temMV = (t.mv && !mvBloqueadaPorOrigem) || temMenteEquilibrada;
+  // "Brutão" (Tauren): Teste de Força escolhido tem Mega Vantagem fixa e
+  // Teste de Agilidade escolhido tem Mega Desvantagem fixa — não são toggle
+  // manual, são forçados pela passiva (ver renderTestes p/ botões travados).
+  const temBrutao = (p.passivas || []).some(pas => pas.racialId === 'tauren_brutao');
+  const mvForcadaBrutao = temBrutao && p.brutaoTesteForca === testeId;
+  const mdForcadaBrutao = temBrutao && p.brutaoTesteAgilidade === testeId;
+  const temMV = (t.mv && !mvBloqueadaPorOrigem) || temMenteEquilibrada || mvForcadaBrutao;
   // "Origem Mag'har" (Orc): o Teste escolhido (Arcano ou Místico) sempre
   // tem Mega Desvantagem, fixo — não é um toggle, é forçado pela Origem.
   // "Mente Equilibrada" nunca permite Mega Desvantagem no Teste de Emoção,
   // mesmo que o Narrador tenha marcado MD manualmente na ficha.
   const mdForcadaPorOrigem = p.origemId === 'orc_origem_maghar' && p.magharTesteMD === testeId;
-  const temMD = (t.md || mdForcadaPorOrigem) && !temMenteEquilibrada;
+  const temMD = (t.md || mdForcadaPorOrigem || mdForcadaBrutao) && !temMenteEquilibrada;
   const isMega = !!(temMV || temMD);
   const d1 = 1 + Math.floor(Math.random() * sides);
   const d2 = isMega ? (1 + Math.floor(Math.random() * sides)) : null;
