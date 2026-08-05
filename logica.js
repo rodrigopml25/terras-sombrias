@@ -6706,12 +6706,18 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         const filosofiaBadge = getFilosofiaPandarenicaBonus(p, sk) ? `<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Filosofia Pandarênica — bônus ainda aplicado manualmente">+3 Vant.</span>` : '';
         const furiaOrcHabBadge = (p.furiaOrcAtiva && sk.id !== 'sk_racial_orc_furia') ? `<span class="chip-badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)" title="Fúria de Orc — esta é a próxima Habilidade: não pode ser Aparada${sk.color === 'red' ? ' e recebe +1d6 de Dano' : ''}">😡${sk.color === 'red' ? ' +1d6' : ''}</span>` : '';
         const bloqueadaBadge = bloqueadaPorForma ? `<span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Bloqueada pela Forma Sombria">🔒</span>` : '';
+        // Chip da Habilidade Neutra da Forma Sombria enquanto ela estiver
+        // ativa: sinaliza que clicar desativa (desfazer é sempre livre).
+        const formaSombriaAtivaChip = p.race === 'Pandaren' && p.formaSombriaAtiva && p.formaSombriaId
+          && PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId]
+          && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id;
+        const formaSombriaAtivaBadge = formaSombriaAtivaChip ? `<span class="chip-badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)" title="Clique para desativar a Forma Sombria">🐼 Desativar</span>` : '';
         const podeRecarregar = !temUso && ['turno_N','luta','sessao','perturn'].includes(sk.tipo);
         const recarregarBtn = podeRecarregar
           ? `<button class="chip-reload-btn" onclick="event.stopPropagation();recarregarHabilidadeNarrador(${p.id},'${sk.id}')" title="Recarregar agora"><i class="ti ti-reload"></i></button>`
           : '';
-        return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${magharBadge}${filosofiaBadge}${furiaOrcHabBadge}${bloqueadaBadge}${extra}${recarregarBtn}
+        return `<div class="skill-chip sc-${cor} ${(ready || formaSombriaAtivaChip)?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
+          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${magharBadge}${filosofiaBadge}${furiaOrcHabBadge}${bloqueadaBadge}${formaSombriaAtivaBadge}${extra}${recarregarBtn}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
@@ -7284,10 +7290,16 @@ function renderJogador() {
     const cards = collapsed ? '' : grupos[cor].map(sk => {
       const bloqueadaPorForma = formaSombriaBloqueiaHabilidade(p, sk);
       const ready = isReady(sk, p) && !bloqueadaPorForma;
+      // Card da Habilidade Neutra ("Bombado"/"Lutador"/"Feitiçeiro") enquanto
+      // a Forma Sombria correspondente estiver ativa: mostra "Desativar" em
+      // vez de "Usar" (desfazer a forma é sempre livre, ver useSkill).
+      const formaSombriaAtivaCard = p.race === 'Pandaren' && p.formaSombriaAtiva && p.formaSombriaId
+        && PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId]
+        && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id;
       const mstTagCard = sk.lendario
         ? `<span class="sk-tag sk-tag-mst">🌟 +${getMaestriaLendaria(p)} maestria (lendária)</span>`
         : mstTag;
-      const state = bloqueadaPorForma ? 'exhausted' : sk.tipo==='infinite' ? 'ready' : ready ? 'ready' : sk.cdRestante>0 ? 'cooldown' : 'exhausted';
+      const state = bloqueadaPorForma ? 'exhausted' : formaSombriaAtivaCard ? 'ready' : sk.tipo==='infinite' ? 'ready' : ready ? 'ready' : sk.cdRestante>0 ? 'cooldown' : 'exhausted';
       let cdHtml = '', dotsHtml = '';
       if (sk.tipo === 'turno_N') cdHtml = sk.cdRestante > 0 ? `<span class="sk-cd">⏳ ${sk.cdRestante} turno${sk.cdRestante>1?'s':''}</span>` : `<span class="sk-cd">Pronta</span>`;
       else if (sk.tipo==='luta' || sk.tipo==='sessao') {
@@ -7315,6 +7327,7 @@ function renderJogador() {
           ${getFilosofiaPandarenicaBonus(p, sk) ? `<span class="sk-tag" style="background:var(--accent-bg);color:var(--accent2)" title="Filosofia Pandarênica — bônus ainda aplicado manualmente">+3 Vantagem</span>` : ''}
           ${(p.furiaOrcAtiva && sk.id !== 'sk_racial_orc_furia') ? `<span class="sk-tag" style="background:var(--red-bg);color:var(--red)" title="Fúria de Orc — esta é a próxima Habilidade: não pode ser Aparada${sk.color === 'red' ? ' e recebe +1d6 de Dano' : ''}">😡 Não Aparável${sk.color === 'red' ? ' · +1d6 Dano' : ''}</span>` : ''}
           ${bloqueadaPorForma ? `<span class="sk-tag" style="background:var(--red-bg);color:var(--red)" title="Bloqueada pela Forma Sombria — só ${FORMA_SOMBRIA_COR_LABEL[PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].corPermitida]} podem ser usados agora">🔒 Bloqueada</span>` : ''}
+          ${formaSombriaAtivaCard ? `<span class="sk-tag" style="background:var(--red-bg);color:var(--red)" title="Forma Sombria ativa">🐼 Ativa</span>` : ''}
         </div>
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
             ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
@@ -7322,8 +7335,8 @@ function renderJogador() {
         ${renderEfeitoSecundarioHtml(p, sk)}
         ${renderCorromperHtml(p.id + '-' + sk.id, sk)}
         <div class="sk-bottom">
-          <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>
-            Usar
+          <button class="sk-btn ${formaSombriaAtivaCard ? 'sk-btn-desativar' : ''}" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${(!ready && !formaSombriaAtivaCard)?'disabled':''}>
+            ${formaSombriaAtivaCard ? 'Desativar' : 'Usar'}
           </button>
           ${dotsHtml}${cdHtml}
         </div>
