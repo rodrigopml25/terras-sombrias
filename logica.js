@@ -681,6 +681,9 @@ const PANDAREN_FORMAS_SOMBRIAS = {
     tagline: 'Forma sombria baseada em Força',
     // Enquanto transformado, só pode usar Habilidades dessa cor (Golpes).
     corPermitida: 'red',
+    // Vida Atual e Máxima concedidas ao assumir a Forma — só valem enquanto
+    // ela estiver ativa (ver ativação/desativação em useSkill).
+    bonusVida: 20,
     skillNeutra: {
       id: 'sk_forma_bombado', name: 'Bombado', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
       desc: 'Transforme-se em uma criatura sombria baseada em Força. Ao assumir essa forma, receba +20 Pontos de Vida e a Habilidade Fruto Proibido. Nessa forma, só poderá usar Golpes. (Pode desfazê-la quando quiser)',
@@ -696,6 +699,7 @@ const PANDAREN_FORMAS_SOMBRIAS = {
     tagline: 'Forma sombria baseada em Agilidade',
     // Enquanto transformado, só pode usar Habilidades dessa cor (Técnicas).
     corPermitida: 'green',
+    bonusVida: 15,
     skillNeutra: {
       id: 'sk_forma_lutador', name: 'Lutador', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
       desc: 'Transforme-se em uma criatura sombria baseada em Agilidade. Ao assumir essa forma, receba +15 Pontos de Vida e a Habilidade Portal Negro. Nessa forma, só poderá usar Técnicas. (Pode desfazê-la quando quiser)',
@@ -711,6 +715,7 @@ const PANDAREN_FORMAS_SOMBRIAS = {
     tagline: 'Forma sombria baseada em Intelecto',
     // Enquanto transformado, só pode usar Habilidades dessa cor (Feitiços).
     corPermitida: 'blue',
+    bonusVida: 10,
     skillNeutra: {
       id: 'sk_forma_feiticeiro', name: 'Feitiçeiro', color: 'gray', cost: 0, tipo: 'luta', usosMax: 1,
       desc: 'Transforme-se em uma criatura sombria baseada em Intelecto. Ao assumir essa forma, receba +10 Pontos de Vida e a Habilidade Runa Sombria. Nessa forma, só poderá usar Feitiços. (Pode desfazê-la quando quiser)',
@@ -762,6 +767,14 @@ function ensureFormaSombria(p) {
     if (p.formaSombriaId) {
       const f = PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId];
       if (f) p.skills = p.skills.filter(sk => sk.id !== f.skillNeutra.id && sk.id !== f.skillColorida.id);
+      // Se a Forma ficou ativa mas o personagem deixou de atender os
+      // requisitos (ex: nível caiu), o bônus de Vida dela não pode ficar
+      // preso pra sempre — remove-se igual a uma desativação normal.
+      if (f && p.formaSombriaAtiva) {
+        const bonusVidaForma = f.bonusVida || 0;
+        p.hpMax = Math.max(1, (p.hpMax || 0) - bonusVidaForma);
+        p.hp = Math.max(0, Math.min(p.hpMax, (p.hp || 0) - bonusVidaForma));
+      }
     }
     p.formaSombriaAtiva = false;
     return;
@@ -6056,6 +6069,13 @@ function useSkill(pid, skid) {
   if (p.race === 'Pandaren' && p.formaSombriaAtiva && p.formaSombriaId
       && PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId]
       && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id) {
+    // Os Pontos de Vida concedidos pela Forma (Bombado +20, Lutador +15,
+    // Feiticeiro +10) só valem enquanto transformado — ao desfazer a Forma,
+    // removem-se de novo tanto da Vida Atual quanto da Máxima.
+    const formaDesfeita = PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId];
+    const bonusVidaForma = formaDesfeita.bonusVida || 0;
+    p.hpMax = Math.max(1, (p.hpMax || 0) - bonusVidaForma);
+    p.hp = Math.max(0, Math.min(p.hpMax, (p.hp || 0) - bonusVidaForma));
     p.formaSombriaAtiva = false;
     saveState(); renderAll();
     return;
@@ -6103,6 +6123,13 @@ function useSkill(pid, skid) {
       && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id) {
     sk.usosAtuais = Math.max(0, sk.usosAtuais - 1);
     p.formaSombriaAtiva = true;
+    // Concede os Pontos de Vida da Forma (Bombado +20, Lutador +15,
+    // Feiticeiro +10) na Vida Atual e na Máxima — só valem enquanto estiver
+    // transformado (removidos de novo ao desfazer a Forma, acima).
+    const formaAssumida = PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId];
+    const bonusVidaForma = formaAssumida.bonusVida || 0;
+    p.hpMax = (p.hpMax || 0) + bonusVidaForma;
+    p.hp = (p.hp || 0) + bonusVidaForma;
   } else if (sk.tipo === 'notas') {
     // Campo Harmônico: gasta TODAS as 7 Notas Musicais ao ser lançado.
     if (!p.notasBardo || typeof p.notasBardo !== 'object') p.notasBardo = {};
