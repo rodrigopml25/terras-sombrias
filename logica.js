@@ -801,6 +801,11 @@ function formaSombriaBloqueiaHabilidade(p, sk) {
   if (!forma) return false;
   if (sk.id === forma.skillNeutra.id || sk.id === forma.skillColorida.id) return false;
   if (sk.color === 'gray') return false;
+  // Habilidades Gerais (Arremesso, Acrobacia, Empurrar, Teste Mental,
+  // Furtividade, etc.) são Testes universais que todo personagem possui —
+  // não são "Habilidades de Classe" e por isso nunca são bloqueadas por
+  // uma Forma Sombria, mesmo tendo uma cor associada ao atributo.
+  if (sk.id.startsWith('sk_geral_')) return false;
   return sk.color !== forma.corPermitida;
 }
 
