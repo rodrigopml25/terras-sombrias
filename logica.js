@@ -5795,6 +5795,20 @@ function construirRolagemDanoArma(p, item) {
   const terms = baseNode.type === 'sum' ? baseNode.terms.slice() : [{ sign: '+', node: baseNode }];
   let total = parsed.value;
 
+  // "Origem Comum" (Orc): precisa saber se a arma causou o Dano Total dela
+  // mesma (todos os dados da FÓRMULA BASE do item caíram no valor máximo) —
+  // por isso este cálculo tem que ser feito ANTES de empilhar os termos de
+  // bônus abaixo (Maestria, Afiação Aprimorada, Profundezas não contam como
+  // "dano da arma" pra este efeito).
+  let temDadoNaBase = false, todosNoMaximoNaBase = true;
+  terms.forEach(t => {
+    if (t.node.type === 'dice') {
+      temDadoNaBase = true;
+      (t.node.results || []).forEach(v => { if (v < t.node.sides) todosNoMaximoNaBase = false; });
+    }
+  });
+  const danoTotal = temDadoNaBase && todosNoMaximoNaBase;
+
   const mb = getArmaMaestriaBonus(p, item.peso);
   if (mb && mb.val) {
     terms.push({ sign: '+', node: { type: 'labeled_const', value: mb.val, label: 'Maestria ' + mb.attr } });
@@ -5815,7 +5829,7 @@ function construirRolagemDanoArma(p, item) {
 
   const tree = { type: 'sum', terms };
   const formula = `Dano — ${item.name}`;
-  return { tree, total, formula };
+  return { tree, total, formula, danoTotal };
 }
 
 // Rola o Dano de uma Arma/Instrumento e publica no feed de dados, igual a
@@ -5829,6 +5843,14 @@ function rolarDanoArma(pid, itemId) {
   const r = construirRolagemDanoArma(p, item);
   if (!r) return null;
 
+  // "Origem Comum" (Orc): a arma causou o Dano Total dela mesma — concede
+  // +1 Ação neste turno. (A parte narrativa — atacar o alvo mais próximo,
+  // a menos que seja um Golpe — é resolvida na mesa, não automatizada.)
+  const origemComumAtiva = p.origemId === 'orc_origem_comum' && r.danoTotal;
+  if (origemComumAtiva) {
+    p.acoesAtuais = (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) + 1;
+  }
+
   const entry = {
     playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
     charName: p.name,
@@ -5838,7 +5860,8 @@ function rolarDanoArma(pid, itemId) {
     total: r.total,
     hidden: false,
     rolling: true,
-    ts: Date.now()
+    ts: Date.now(),
+    ...(origemComumAtiva ? { label: '🩸 Origem Comum — Dano Total! +1 Ação neste turno (ataca o alvo mais próximo, exceto se for um Golpe)' } : {})
   };
 
   spinDiceFab(true, 6);
@@ -5846,6 +5869,11 @@ function rolarDanoArma(pid, itemId) {
     setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
+
+  if (origemComumAtiva) {
+    saveState();
+    renderAll();
+  }
 
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
