@@ -2062,6 +2062,10 @@ function abrirProximoSeletorRacial(pid) {
     abrirBrutaoModal(pid);
     return;
   }
+  if (trollEncantamentoTemPendencia(p)) {
+    abrirEncantamentoTrollModal(pid);
+    return;
+  }
   if (p.origemId === 'elfo_origem_sangrento' && !p.origemSangrentaUsado) {
     abrirOrigemSangrentaModal(pid);
     return;
@@ -2632,6 +2636,113 @@ function escolherVentoBravo(pid, nivel, tipo, testeId) {
   saveState();
   renderAll();
   abrirVentoBravoEscolhaModal(pid, nivel, tipo);
+}
+
+// ─── "Encantamento Troll" (Troll): a cada Nível, escolhe 1 Habilidade da
+// sua Classe (vinda do Banco de Habilidades — ver p.skills com bancoId) e a
+// "encanta": os dados de lançamento dela são trocados por um Teste de Arcano
+// OU Místico. O app ainda não tem o sistema de lançamento de Habilidades
+// implementado (ver comentário do pedido), então isso aqui só guarda a
+// escolha e mostra uma badge "🔮 Encantada" no card da Habilidade — não
+// altera nenhum cálculo de rolagem ainda.
+// Verdadeiro se ainda sobrar algum slot vazio (Nível 1 até o Nível atual).
+function trollEncantamentoTemPendencia(p) {
+  if (!(p.passivas || []).some(pas => pas.racialId === 'troll_encantamento_troll')) return false;
+  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  const escolhas = p.encantamentoTrollEscolhas || [];
+  for (let n = 1; n <= nivel; n++) {
+    if (!escolhas.some(e => e.nivel === n)) return true;
+  }
+  return false;
+}
+
+// Habilidades "da Classe" pra escolher: só as que vieram do Banco de
+// Habilidades (têm bancoId) — exclui Habilidades Gerais (sk_geral_...),
+// Raciais (sk_racial_...) e outras fontes que não são "da sua Classe".
+function getHabilidadesClasseParaEncantar(p) {
+  return (p.skills || []).filter(sk => !!sk.bancoId);
+}
+
+function abrirEncantamentoTrollModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (!Array.isArray(p.encantamentoTrollEscolhas)) p.encantamentoTrollEscolhas = [];
+  renderEncantamentoTrollModal(pid);
+  document.getElementById('modal-criacao-anao-overlay').classList.add('open');
+}
+
+function renderEncantamentoTrollModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  if (!Array.isArray(p.encantamentoTrollEscolhas)) p.encantamentoTrollEscolhas = [];
+
+  let niveisHtml = '';
+  for (let n = 1; n <= nivel; n++) {
+    const entry = p.encantamentoTrollEscolhas.find(e => e.nivel === n);
+    const sk = entry ? (p.skills || []).find(s => s.id === entry.skillId) : null;
+    niveisHtml += `<button class="tm-opcao tm-opcao-blue" style="width:100%;text-align:left;margin-bottom:6px" onclick="event.stopPropagation();abrirEncantamentoTrollEscolhaModal(${p.id},${n})">
+      <span class="tm-opcao-nome">Nível ${n}</span>
+      <span class="tm-opcao-info">${sk ? `✓ ${escHtml(sk.name)}` : 'Escolher…'}</span>
+    </button>`;
+  }
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-sparkles"></i> Encantamento Troll</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        A cada Nível, escolha 1 Habilidade da sua Classe pra encantar: os dados de lançamento dela são trocados por um Teste de Arcano OU Místico.
+      </div>
+      <div style="max-height:360px;overflow-y:auto">${niveisHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+    </div>`;
+}
+
+function abrirEncantamentoTrollEscolhaModal(pid, nivel) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  if (!Array.isArray(p.encantamentoTrollEscolhas)) p.encantamentoTrollEscolhas = [];
+
+  const habilidades = getHabilidadesClasseParaEncantar(p);
+  const atual = p.encantamentoTrollEscolhas.find(e => e.nivel === nivel);
+
+  const opcoesHtml = habilidades.length ? habilidades.map(sk => {
+    const jaEncantadaNoutroNivel = p.encantamentoTrollEscolhas.some(e => e.nivel !== nivel && e.skillId === sk.id);
+    const selecionada = !!(atual && atual.skillId === sk.id);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)">
+      <span style="flex:1;font-size:13px;color:var(--text)">${escHtml(sk.name)}</span>
+      <button class="btn" style="font-size:11px;padding:4px 10px;${selecionada ? 'background:var(--accent);color:#fff' : ''}" ${jaEncantadaNoutroNivel ? 'disabled' : ''} onclick="event.stopPropagation();escolherEncantamentoTroll(${p.id},${nivel},'${sk.id}')">${selecionada ? '✓ Escolhida' : (jaEncantadaNoutroNivel ? '🔒 Já encantada' : 'Escolher')}</button>
+    </div>`;
+  }).join('') : `<div style="font-size:12.5px;color:var(--text3)">Nenhuma Habilidade da Classe disponível ainda — adicione Habilidades no Banco primeiro.</div>`;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-sparkles"></i> Encantamento Troll — Nível ${nivel}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha a Habilidade da Classe que fica encantada (Arcano OU Místico) neste Nível.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="event.stopPropagation();abrirEncantamentoTrollModal(${p.id})">Voltar</button>
+    </div>`;
+}
+
+function escolherEncantamentoTroll(pid, nivel, skillId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (!Array.isArray(p.encantamentoTrollEscolhas)) p.encantamentoTrollEscolhas = [];
+
+  const jaEncantadaNoutroNivel = p.encantamentoTrollEscolhas.some(e => e.nivel !== nivel && e.skillId === skillId);
+  if (jaEncantadaNoutroNivel) { alert('Essa Habilidade já está encantada em outro Nível.'); return; }
+
+  const atual = p.encantamentoTrollEscolhas.find(e => e.nivel === nivel);
+  if (atual) atual.skillId = skillId;
+  else p.encantamentoTrollEscolhas.push({ nivel, skillId });
+
+  saveState();
+  renderAll();
+  abrirEncantamentoTrollEscolhaModal(pid, nivel);
 }
 
 // ─── "Origem de Kalindor" (Humano): a cada Nível, escolhe 1 Teste pra
@@ -6852,7 +6963,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'tauren_brutao' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirBrutaoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && !p.filosofiaPandarenicaCor ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirFilosofiaPandarenicaModal(${p.id})">Escolher Tipo de Habilidade</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && p.filosofiaPandarenicaCor ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Tipo escolhido: ${{blue:'Feitiço',red:'Golpe',green:'Técnica'}[p.filosofiaPandarenicaCor]}</div>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'tauren_brutao' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirBrutaoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'troll_encantamento_troll' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirEncantamentoTrollModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && !p.filosofiaPandarenicaCor ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirFilosofiaPandarenicaModal(${p.id})">Escolher Tipo de Habilidade</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && p.filosofiaPandarenicaCor ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Tipo escolhido: ${{blue:'Feitiço',red:'Golpe',green:'Técnica'}[p.filosofiaPandarenicaCor]}</div>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -7439,6 +7550,7 @@ function renderJogador() {
           ${sk.lendario ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">✨ Feitiço Lendário</span>` : ''}
           ${sk.ritualMacabro ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🌀 Ritual Macabro</span>` : ''}
           ${sk.encantamentoItemId ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🔮 Encantamento</span>` : ''}
+          ${(p.encantamentoTrollEscolhas || []).some(e => e.skillId === sk.id) ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)" title="Encantamento Troll — os dados de lançamento são trocados por um Teste de Arcano OU Místico (à escolha)">🔮 Encantada (Arcano/Místico)</span>` : ''}
           ${sk.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${sk.concedeNota === 'qualquer' ? 'escolha uma nota' : sk.concedeNota}</span>` : ''}
           ${getMagharHabBonus(p, sk.id) ? `<span class="sk-tag" style="background:rgba(109,179,63,0.15);color:var(--green)" title="Origem Mag'har — bônus ainda aplicado manualmente">+1d4 Dano/Cura${sk.color === 'red' ? ' · +2 Vantagem' : ''}</span>` : ''}
           ${getFilosofiaPandarenicaBonus(p, sk) ? `<span class="sk-tag" style="background:var(--accent-bg);color:var(--accent2)" title="Filosofia Pandarênica — bônus ainda aplicado manualmente">+3 Vantagem</span>` : ''}
@@ -7498,6 +7610,7 @@ function renderJogador() {
       ${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}
       ${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}
       ${pas.racialId === 'tauren_brutao' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirBrutaoModal(${p.id})">Escolher Testes</button>` : ''}
+      ${pas.racialId === 'troll_encantamento_troll' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirEncantamentoTrollModal(${p.id})">Escolher Habilidade</button>` : ''}
       ${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}
       ${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}
       ${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}
