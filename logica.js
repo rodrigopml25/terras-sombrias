@@ -2745,6 +2745,91 @@ function escolherEncantamentoTroll(pid, nivel, skillId) {
   abrirEncantamentoTrollEscolhaModal(pid, nivel);
 }
 
+// ─── "Comum" (Origem, Troll): troca os dados (maestria) de um único Teste
+// entre Arcano OU Místico por outro Teste (nunca Emoção, Iniciativa ou
+// Devoção). Se não trocar nada, Arcano e Místico recebem +1 de Vantagem
+// fixo cada — ver mst/terms em construirRolagemTeste. Diferente das outras
+// origens, tem um padrão seguro (o +1) então não força popup na criação,
+// só fica disponível pelo botão "Configurar Troca" no card da passiva.
+const ORIGEM_COMUM_TESTES_EXCLUIDOS = ['emocao', 'iniciativa', 'devocao'];
+
+function abrirOrigemComumModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  const areaAtual = p.origemComumTrocaArea || null;
+  const opcoesArea = ['arcano', 'mistico'].map(area => {
+    const def = TESTES_LISTA.find(t => t.id === area);
+    const testeTrocado = areaAtual === area ? TESTES_LISTA.find(t => t.id === p.origemComumTrocaTesteId) : null;
+    return `<button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();abrirOrigemComumEscolhaModal(${p.id},'${area}')">
+      <span class="tm-opcao-nome">${escHtml(def.name)}</span>
+      ${testeTrocado ? `<span class="tm-opcao-info">→ ${escHtml(testeTrocado.name)}</span>` : ''}
+    </button>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-flask"></i> Comum</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha trocar os dados de Arcano OU Místico por outro Teste — ou não trocar nada e receber +1 de Vantagem fixo nos dois.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">${opcoesArea}</div>
+      <button class="tm-opcao tm-opcao-blue" style="${!areaAtual ? 'background:var(--accent);color:#fff' : ''}" onclick="event.stopPropagation();limparOrigemComumTroca(${p.id})">
+        <span class="tm-opcao-nome">Não trocar nada</span>
+        <span class="tm-opcao-info">+1 Vantagem em Arcano e Místico</span>
+      </button>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function abrirOrigemComumEscolhaModal(pid, area) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const areaDef = TESTES_LISTA.find(t => t.id === area);
+  const testesDisponiveis = TESTES_LISTA.filter(t => !ORIGEM_COMUM_TESTES_EXCLUIDOS.includes(t.id) && t.id !== area);
+
+  const opcoesHtml = testesDisponiveis.map(t => {
+    const atual = p.origemComumTrocaArea === area && p.origemComumTrocaTesteId === t.id;
+    return `<button class="tm-opcao tm-opcao-blue" onclick="escolherOrigemComumTroca(${p.id},'${area}','${t.id}')">
+      <span class="tm-opcao-nome">${escHtml(t.name)}</span>
+      ${atual ? `<span class="tm-opcao-info">atual</span>` : ''}
+    </button>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-flask"></i> Comum — trocar ${escHtml(areaDef.name)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha por qual Teste os dados de ${escHtml(areaDef.name)} passam a rolar (maestria do Teste escolhido no lugar da de Intelecto).
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="event.stopPropagation();abrirOrigemComumModal(${p.id})">Voltar</button>
+    </div>`;
+}
+
+function escolherOrigemComumTroca(pid, area, testeId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  p.origemComumTrocaArea = area;
+  p.origemComumTrocaTesteId = testeId;
+  saveState();
+  renderAll();
+  fecharCriacaoAnaoModal();
+}
+
+function limparOrigemComumTroca(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  p.origemComumTrocaArea = null;
+  p.origemComumTrocaTesteId = null;
+  saveState();
+  renderAll();
+  fecharCriacaoAnaoModal();
+}
+
 // ─── "Origem de Kalindor" (Humano): a cada Nível, escolhe 1 Teste pra
 // receber +1d4 de Vantagem e outro Teste (diferente) pra receber −1d4 de
 // Desvantagem. Não vale para Emoção, Iniciativa nem Devoção. Diferente da
@@ -6963,7 +7048,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'tauren_brutao' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirBrutaoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'troll_encantamento_troll' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirEncantamentoTrollModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && !p.filosofiaPandarenicaCor ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirFilosofiaPandarenicaModal(${p.id})">Escolher Tipo de Habilidade</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && p.filosofiaPandarenicaCor ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Tipo escolhido: ${{blue:'Feitiço',red:'Golpe',green:'Técnica'}[p.filosofiaPandarenicaCor]}</div>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'tauren_brutao' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirBrutaoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'troll_encantamento_troll' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirEncantamentoTrollModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'troll_origem_comum_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemComumModal(${p.id})">Configurar Troca</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && !p.filosofiaPandarenicaCor ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirFilosofiaPandarenicaModal(${p.id})">Escolher Tipo de Habilidade</button>` : ''}${pas.racialId === 'pandaren_origem_comum_passiva' && p.filosofiaPandarenicaCor ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Tipo escolhido: ${{blue:'Feitiço',red:'Golpe',green:'Técnica'}[p.filosofiaPandarenicaCor]}</div>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -7281,7 +7366,16 @@ function renderTestes(p, readonly) {
         && (p.passivas || []).some(pas => pas.racialId === 'pandaren_mente_equilibrada');
       const bonusVB = getVentoBravoBonus(p, tid);
       const papelKal = getKalindorPapel(p, tid);
-      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${hasTreinamentoMilitar ? ` <span class="chip-badge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)" title="Treinamento Militar — este Aparar é Garantido, com 50% de chance de Crítico">⚔️ Pronto</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}${mdForcadaOrigem ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem Mag'har">MD fixo</span>` : ''}${mvForcadaBrutao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Brutão">MV fixo</span>` : ''}${mdForcadaBrutao ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Brutão">MD fixo</span>` : ''}${(tid === 'geografia' && p.origemId === 'tauren_origem_alta_montanha') ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Alta Montanha — +2, ou +4 se o Teste for baseado em Natureza (pergunta ao rolar)">+2/+4</span>` : ''}${menteEquilibradaAqui ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Mente Equilibrada — Mega Vantagem fixa, resultado em módulo">MV fixo · módulo</span>` : ''}`;
+      // "Comum" (Origem, Troll): Arcano/Místico recebem +1 fixo se não houver
+      // troca, ou o Teste escolhido "empresta" a maestria pro Arcano/Místico
+      // trocado — ver construirRolagemTeste.
+      const origemComumBonusAqui = (tid === 'arcano' || tid === 'mistico')
+        && p.origemId === 'troll_origem_comum' && !p.origemComumTrocaArea;
+      const origemComumTrocaDestino = p.origemId === 'troll_origem_comum'
+        && p.origemComumTrocaArea && p.origemComumTrocaTesteId === tid
+        ? TESTES_LISTA.find(t => t.id === p.origemComumTrocaArea)
+        : null;
+      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${hasTreinamentoMilitar ? ` <span class="chip-badge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)" title="Treinamento Militar — este Aparar é Garantido, com 50% de chance de Crítico">⚔️ Pronto</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}${mdForcadaOrigem ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem Mag'har">MD fixo</span>` : ''}${mvForcadaBrutao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Brutão">MV fixo</span>` : ''}${mdForcadaBrutao ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Brutão">MD fixo</span>` : ''}${(tid === 'geografia' && p.origemId === 'tauren_origem_alta_montanha') ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Alta Montanha — +2, ou +4 se o Teste for baseado em Natureza (pergunta ao rolar)">+2/+4</span>` : ''}${origemComumBonusAqui ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Comum — sem troca configurada">+1</span>` : ''}${origemComumTrocaDestino ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Comum — empresta a maestria pro Teste de ${escHtml(origemComumTrocaDestino.name)}">→ ${escHtml(origemComumTrocaDestino.name)}</span>` : ''}${menteEquilibradaAqui ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Mente Equilibrada — Mega Vantagem fixa, resultado em módulo">MV fixo · módulo</span>` : ''}`;
 
       if (readonly) {
         // Narrador: chip com os mesmos controles do Jogador (MV/MD/Bônus),
@@ -7611,6 +7705,7 @@ function renderJogador() {
       ${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}
       ${pas.racialId === 'tauren_brutao' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirBrutaoModal(${p.id})">Escolher Testes</button>` : ''}
       ${pas.racialId === 'troll_encantamento_troll' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirEncantamentoTrollModal(${p.id})">Escolher Habilidade</button>` : ''}
+      ${pas.racialId === 'troll_origem_comum_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemComumModal(${p.id})">Configurar Troca</button>` : ''}
       ${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}
       ${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}
       ${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}
@@ -13070,7 +13165,21 @@ function construirRolagemTeste(p, testeId) {
   const isDevocao = testeId === 'devocao';
   const sides = (isEmocao || isDevocao) ? 100 : 20;
   // Testes "Neutros" (Iniciativa, Emoção, Devoção) não recebem bônus de maestria.
-  const mst = def.attr !== 'neutro' ? maestriaDe(p, def.attr) : 0;
+  // "Comum" (Origem, Troll): se o Teste de Arcano OU Místico estiver trocado
+  // (ver abrirOrigemComumTrocaModal), usa a maestria do Teste escolhido no
+  // lugar da maestria de Intelecto — os "dados de lançamento" na prática são
+  // o bônus de maestria somado ao d20, então é isso que muda de atributo.
+  const origemComumTrocaAqui = (testeId === 'arcano' || testeId === 'mistico')
+    && p.origemId === 'troll_origem_comum'
+    && p.origemComumTrocaArea === testeId
+    && !!p.origemComumTrocaTesteId;
+  let mst;
+  if (origemComumTrocaAqui) {
+    const testeTrocado = TESTES_LISTA.find(t => t.id === p.origemComumTrocaTesteId);
+    mst = testeTrocado && testeTrocado.attr !== 'neutro' ? maestriaDe(p, testeTrocado.attr) : 0;
+  } else {
+    mst = def.attr !== 'neutro' ? maestriaDe(p, def.attr) : 0;
+  }
 
   // "Mente Equilibrada" (Pandaren): passiva racial — o Teste de Emoção
   // SEMPRE tem Mega Vantagem, fixo (não é um toggle manual), e o resultado
@@ -13146,6 +13255,15 @@ function construirRolagemTeste(p, testeId) {
     const bonusAltaMontanha = p._altaMontanhaBonusTemp === 4 ? 4 : 2;
     terms.push({ sign: '+', node: { type: 'labeled_const', value: bonusAltaMontanha, label: 'Alta Montanha' } });
     total += bonusAltaMontanha;
+  }
+
+  // "Comum" (Origem, Troll): se NÃO houver troca configurada, o Teste de
+  // Arcano e o de Místico recebem +1 de Vantagem fixo cada. Se houver troca
+  // (ver mst lá em cima, que já usa a maestria do Teste trocado em vez da de
+  // Intelecto), não recebe esse +1 em nenhum dos dois — é um ou outro.
+  if ((testeId === 'arcano' || testeId === 'mistico') && p.origemId === 'troll_origem_comum' && !p.origemComumTrocaArea) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: 1, label: 'Comum' } });
+    total += 1;
   }
 
   // "Normal" (Humano): passiva racial fixa (todo Humano tem, sem escolher)
@@ -13237,7 +13355,10 @@ function construirRolagemTeste(p, testeId) {
   const megaLabel = temMenteEquilibrada
     ? ' (Mega Vantagem, em módulo)'
     : (temMV ? ' (Mega Vantagem)' : (temMD ? ' (Mega Desvantagem)' : ''));
-  const formula = `Teste de ${def.name}${megaLabel}`;
+  const trocaLabel = origemComumTrocaAqui
+    ? ` (usando maestria de ${(TESTES_LISTA.find(t => t.id === p.origemComumTrocaTesteId) || {}).name || ''})`
+    : '';
+  const formula = `Teste de ${def.name}${trocaLabel}${megaLabel}`;
   const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, testeId, sides);
 
   // "Treinamento Militar" (Orc): este Aparar é o marcado pela Habilidade —
