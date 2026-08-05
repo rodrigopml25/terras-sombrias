@@ -4264,7 +4264,7 @@ function selectNpcTipo(tipo) {
 function getWizardPseudoPlayer() {
   const cls = getSelectedSubclasse() || '';
   const classeBase = getBaseClass(cls) || cls;
-  const race = document.getElementById('c-race')?.value || '';
+  const race = getRacaSelecionada();
   // origemId precisa estar aqui pra getBancoHabilidades saber travar a
   // Aprendizagem Élfica (Habilidade de outra Classe) enquanto a Origem
   // Sangrenta ainda não foi resolvida — sem isso, o wizard deixava escolher
@@ -11229,7 +11229,7 @@ function selectOrigem(origemId) {
   // Atualiza descrição da passiva ou habilidade
   const descEl = document.getElementById('c-origem-desc');
   if (descEl) {
-    const race = document.getElementById('c-race').value;
+    const race = getRacaSelecionada();
     const origens = getRaceOrigens(race);
     const o = origens.find(x => x.id === origemId);
     if (o) {
@@ -11283,7 +11283,7 @@ function getBaseHpFor(race, subclasse) {
 // bônus automático de Vida por Nível (mesmo criando o personagem direto
 // acima do Nível 1).
 function getEffectiveBaseHp() {
-  const race = document.getElementById('c-race')?.value || '';
+  const race = getRacaSelecionada();
   const sub = (typeof getSelectedSubclasse === 'function') ? getSelectedSubclasse() : '';
   let base = getBaseHpFor(race, sub);
   if (race === 'Tauren') {
@@ -11401,7 +11401,7 @@ function stepStat(field, delta) {
   if (field !== 'hp' && next > limite) return;
   // Tauren: teto de Vida exclusivo da criação de personagem (35)
   if (field === 'hp') {
-    const race = document.getElementById('c-race')?.value || '';
+    const race = getRacaSelecionada();
     if (next > getMaxHpCriacao(race)) return;
   }
   // Não gasta mais pontos do que o disponível
@@ -11482,7 +11482,7 @@ function updatePointBuy(levelOverride) {
   // Hint
   const hintEl = document.getElementById('c-points-hint');
   const taurenLocked = isTaurenHpLocked();
-  const raceAtualHint = document.getElementById('c-race')?.value || '';
+  const raceAtualHint = getRacaSelecionada();
   const maxHpCriacaoHint = getMaxHpCriacao(raceAtualHint);
   if (hintEl) hintEl.textContent = taurenLocked
     ? `Base fixa: Vida ${baseHp} · AGI 5 · FOR 5 · INT 5. Tauren não pode investir pontos em Vida a partir do Nível 2 (recebe +4 automático a cada Nível). Limite de ${limite} por atributo no Nv ${level}.`
@@ -11570,7 +11570,7 @@ function wizardNext() {
     }
   }
   if (wizardStep === 2) {
-    const race = document.getElementById('c-race').value;
+    const race = getRacaSelecionada();
     if (!race) {
       alert('Escolha uma raça para continuar.');
       return;
@@ -11639,23 +11639,49 @@ function openCharModal(isNPC) {
   setTimeout(() => document.getElementById('c-name').focus(), 50);
 }
 
-// Define o valor do <select> de Raça. Se a ficha tiver uma raça antiga (texto
-// livre) que não está na lista fixa atual, cria uma opção extra temporária
-// pra não perder/sobrescrever esse dado ao reabrir o modal de edição.
+// Retorna o nome da raça atualmente selecionada no wizard — se for "Outros"
+// (raça customizada, digitada livremente pelo Narrador), lê do campo de
+// texto correspondente em vez do valor do <select>.
+function getRacaSelecionada() {
+  const sel = document.getElementById('c-race');
+  if (!sel) return '';
+  if (sel.value === '__outros__') {
+    const outros = document.getElementById('c-race-outros');
+    return (outros && outros.value.trim()) || '';
+  }
+  return sel.value;
+}
+
+// Chamado pelo onchange do <select> de Raça: mostra/esconde o campo de texto
+// livre quando "Outros" é selecionado, e atualiza o seletor de Origem (raças
+// customizadas não têm Origens cadastradas, então fica vazio).
+function onRaceSelectChange(value) {
+  const outrosInput = document.getElementById('c-race-outros');
+  if (value === '__outros__') {
+    if (outrosInput) { outrosInput.style.display = ''; outrosInput.focus(); }
+    updateOrigemSelector('', null);
+  } else {
+    if (outrosInput) { outrosInput.style.display = 'none'; outrosInput.value = ''; }
+    updateOrigemSelector(value, null);
+  }
+}
+
+// Define o valor do <select> de Raça. Se a ficha tiver uma raça que não está
+// na lista fixa atual (raça customizada "Outros", digitada pelo Narrador, ou
+// uma ficha antiga de texto livre), seleciona a opção "Outros" e preenche o
+// campo de texto com o nome salvo, em vez de criar uma opção temporária.
 function setRaceSelectValue(raca) {
   const sel = document.getElementById('c-race');
   if (!sel) return;
-  const existeOpcao = Array.from(sel.options).some(o => o.value === raca);
-  // remove qualquer opção "legada" adicionada anteriormente
-  Array.from(sel.querySelectorAll('option[data-legacy]')).forEach(o => o.remove());
+  const outrosInput = document.getElementById('c-race-outros');
+  const existeOpcao = Array.from(sel.options).some(o => o.value === raca && raca !== '__outros__');
   if (raca && !existeOpcao) {
-    const opt = document.createElement('option');
-    opt.value = raca;
-    opt.textContent = raca + ' (raça antiga)';
-    opt.dataset.legacy = '1';
-    sel.appendChild(opt);
+    sel.value = '__outros__';
+    if (outrosInput) { outrosInput.style.display = ''; outrosInput.value = raca; }
+  } else {
+    sel.value = raca || '';
+    if (outrosInput) { outrosInput.style.display = 'none'; outrosInput.value = ''; }
   }
-  sel.value = raca || '';
 }
 
 function editCharacter(id) {
@@ -11730,7 +11756,7 @@ function validatePointBuyStep(nivel) {
   const forca  = parseInt(document.getElementById('c-for').value) || 5;
   const intel  = parseInt(document.getElementById('c-int').value) || 5;
 
-  const raceValidacao = document.getElementById('c-race')?.value || '';
+  const raceValidacao = getRacaSelecionada();
   const maxHpCriacao = getMaxHpCriacao(raceValidacao);
   if (hpMax > maxHpCriacao) {
     alert(`Durante a criação, a Vida do Tauren não pode ultrapassar ${maxHpCriacao}.`);
@@ -11795,7 +11821,7 @@ function handleStep8Continue() {
 
 function saveCharacter() {
   const name   = document.getElementById('c-name').value.trim() || 'Desconhecido';
-  const race   = document.getElementById('c-race').value.trim() || 'Sem Raça';
+  const race   = getRacaSelecionada().trim() || 'Sem Raça';
   const cls    = getSelectedSubclasse() || 'Aventureiro';
   const classeBase = getBaseClass(cls) || cls;
   const hpMax  = parseInt(document.getElementById('c-hp').value)  || 10;
