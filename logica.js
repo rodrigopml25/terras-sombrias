@@ -7159,7 +7159,7 @@ function renderTestes(p, readonly) {
         && (p.passivas || []).some(pas => pas.racialId === 'pandaren_mente_equilibrada');
       const bonusVB = getVentoBravoBonus(p, tid);
       const papelKal = getKalindorPapel(p, tid);
-      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${hasTreinamentoMilitar ? ` <span class="chip-badge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)" title="Treinamento Militar — este Aparar é Garantido, com 50% de chance de Crítico">⚔️ Pronto</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}${mdForcadaOrigem ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem Mag'har">MD fixo</span>` : ''}${mvForcadaBrutao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Brutão">MV fixo</span>` : ''}${mdForcadaBrutao ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Brutão">MD fixo</span>` : ''}${menteEquilibradaAqui ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Mente Equilibrada — Mega Vantagem fixa, resultado em módulo">MV fixo · módulo</span>` : ''}`;
+      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${hasTreinamentoMilitar ? ` <span class="chip-badge" style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)" title="Treinamento Militar — este Aparar é Garantido, com 50% de chance de Crítico">⚔️ Pronto</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}${mdForcadaOrigem ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem Mag'har">MD fixo</span>` : ''}${mvForcadaBrutao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Brutão">MV fixo</span>` : ''}${mdForcadaBrutao ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Brutão">MD fixo</span>` : ''}${(tid === 'geografia' && p.origemId === 'tauren_origem_alta_montanha') ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Alta Montanha — +2, ou +4 se o Teste for baseado em Natureza (pergunta ao rolar)">+2/+4</span>` : ''}${menteEquilibradaAqui ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Mente Equilibrada — Mega Vantagem fixa, resultado em módulo">MV fixo · módulo</span>` : ''}`;
 
       if (readonly) {
         // Narrador: chip com os mesmos controles do Jogador (MV/MD/Bônus),
@@ -7168,7 +7168,7 @@ function renderTestes(p, readonly) {
         // vantagem narrativa) sem precisar pedir pro jogador mexer na ficha.
         const badges = [badgesPassivas];
         return `<div class="skill-chip sc-${g.cor}">
-          <button class="teste-roll-btn" onclick="event.stopPropagation();rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name}"><i class="ti ti-dice"></i></button>
+          <button class="teste-roll-btn" onclick="event.stopPropagation();rolarTesteClick(${p.id},'${tid}')" title="Rolar ${def.name}"><i class="ti ti-dice"></i></button>
           <span class="chip-dot"></span>
           <span class="chip-name">${def.name}</span>
           ${badges.join('')}
@@ -7185,7 +7185,7 @@ function renderTestes(p, readonly) {
 
       // Jogador: editável
       return `<div class="teste-row">
-        <button class="teste-roll-btn" onclick="rolarTeste(${p.id},'${tid}')" title="Rolar ${def.name} (${tid === 'emocao' ? '1d100 − insanidade' : tid === 'devocao' ? '1d100 − (20×pecado)' : '1d20' + (mst ? '+' + mst + ' maestria' : '')})"><i class="ti ti-dice"></i></button>
+        <button class="teste-roll-btn" onclick="rolarTesteClick(${p.id},'${tid}')" title="Rolar ${def.name} (${tid === 'emocao' ? '1d100 − insanidade' : tid === 'devocao' ? '1d100 − (20×pecado)' : '1d20' + (mst ? '+' + mst + ' maestria' : '')})"><i class="ti ti-dice"></i></button>
         <span class="teste-nome">${def.name}${badgesPassivas}</span>
         <div class="teste-ctrl">
           <button class="teste-mv-btn ${(hasMV && !mvBloqueadaOrigem) || menteEquilibradaAqui || mvForcadaBrutao ? 'ativo' : ''}" ${(mvBloqueadaOrigem || menteEquilibradaAqui || mvForcadaBrutao) ? 'disabled style="opacity:.7;cursor:not-allowed"' : ''} onclick="${(mvBloqueadaOrigem || menteEquilibradaAqui || mvForcadaBrutao) ? '' : `setTesteMV(${p.id},'${tid}',${!hasMV})`}" title="${menteEquilibradaAqui ? 'Fixo pela passiva Mente Equilibrada' : (mvForcadaBrutao ? 'Fixo pela passiva Brutão' : (mvBloqueadaOrigem ? 'Bloqueado pela Origem de Vento Bravo' : 'Mega Vantagem'))}">MV</button>
@@ -13013,6 +13013,17 @@ function construirRolagemTeste(p, testeId) {
     total -= 2;
   }
 
+  // "Alta Montanha" (Origem, Tauren): +2 de Vantagem no Teste de Geografia,
+  // ou +4 se o Teste for baseado em Natureza. O valor vem do popup de
+  // rolarTesteClick/abrirAltaMontanhaGeografiaModal (p._altaMontanhaBonusTemp);
+  // se o Teste for rolado por outro caminho sem passar pelo popup (ex: pelo
+  // Narrador), assume o caso padrão (+2, "nos demais casos").
+  if (testeId === 'geografia' && p.origemId === 'tauren_origem_alta_montanha') {
+    const bonusAltaMontanha = p._altaMontanhaBonusTemp === 4 ? 4 : 2;
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: bonusAltaMontanha, label: 'Alta Montanha' } });
+    total += bonusAltaMontanha;
+  }
+
   // "Normal" (Humano): passiva racial fixa (todo Humano tem, sem escolher)
   // — +2 de Vantagem em TODOS os Testes, exceto Iniciativa e Devoção. No
   // Teste de Emoção especificamente, o bônus vira +10 no lugar do +2.
@@ -13114,6 +13125,55 @@ function construirRolagemTeste(p, testeId) {
   }
 
   return { def, sides, total, tree, formula, critMin, fumbleMax, fumbleImune, garantido: treinamentoMilitarGarantido };
+}
+
+// "Alta Montanha" (Origem, Tauren): Teste de Geografia tem +2 de Vantagem
+// normalmente, mas +4 se o Teste for baseado em Natureza (trilhas, terreno,
+// clima, fauna/flora do lugar). Como o app não sabe o contexto da pergunta
+// do Narrador, pergunta ao jogador antes de rolar (só pra esse Teste, só
+// pra quem tem essa Origem — os demais Testes rolam direto, sem popup).
+function rolarTesteClick(pid, testeId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (testeId === 'geografia' && p && p.origemId === 'tauren_origem_alta_montanha') {
+    abrirAltaMontanhaGeografiaModal(pid);
+    return;
+  }
+  rolarTeste(pid, testeId);
+}
+
+function abrirAltaMontanhaGeografiaModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-mountain"></i> Alta Montanha</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        Esse Teste de Geografia é baseado na Natureza do lugar (trilhas, terreno, clima, fauna e flora)?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="fecharCriacaoAnaoModal();rolarTesteGeografiaComBonus(${p.id},4)">
+          <span class="tm-opcao-nome">Sim, é sobre Natureza</span>
+          <span class="tm-opcao-info">+4 de Vantagem</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="fecharCriacaoAnaoModal();rolarTesteGeografiaComBonus(${p.id},2)">
+          <span class="tm-opcao-nome">Não, é outro tipo</span>
+          <span class="tm-opcao-info">+2 de Vantagem</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function rolarTesteGeografiaComBonus(pid, bonus) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  // Bônus temporário só pra essa rolagem — construirRolagemTeste lê e a
+  // gente limpa logo em seguida (não precisa persistir no personagem).
+  p._altaMontanhaBonusTemp = bonus;
+  rolarTeste(pid, 'geografia');
+  delete p._altaMontanhaBonusTemp;
 }
 
 // Rola um Teste e publica o resultado no feed de dados. Retorna o total
