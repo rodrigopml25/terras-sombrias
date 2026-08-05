@@ -562,7 +562,7 @@ const RACAS_ORIGENS = {
       passiva: {
         id: 'tauren_origem_mulgore_passiva',
         name: 'Mulgore',
-        desc: 'Por ter vivido em Mulgore, possui a capacidade de utilizar Armas Mega Pesadas, independente do caminho da sua Classe.',
+        desc: 'Por ter vivido em Mulgore, possui a capacidade de utilizar Armas Pesadas, independente do caminho da sua Classe.',
       },
     },
   ],
@@ -5265,10 +5265,21 @@ function getPesosArmaPermitidosPersonagem(p) {
     return temMaestriaAprimorada ? ['leve', 'media', 'pesada', 'mega'] : ['leve', 'media', 'pesada'];
   }
   const base = getPesosArmaPermitidos(p.cls); // ex: ['media']
-  if (!temMaestriaAprimorada) return base;
-  const idx = ORDEM_PESO_ARMADURA.indexOf(base[0]);
-  if (idx === -1 || idx >= ORDEM_PESO_ARMADURA.length - 1) return base;
-  return [base[0], ORDEM_PESO_ARMADURA[idx + 1]];
+  let resultado;
+  if (!temMaestriaAprimorada) {
+    resultado = base;
+  } else {
+    const idx = ORDEM_PESO_ARMADURA.indexOf(base[0]);
+    resultado = (idx === -1 || idx >= ORDEM_PESO_ARMADURA.length - 1) ? base : [base[0], ORDEM_PESO_ARMADURA[idx + 1]];
+  }
+  // "Mulgore" (Origem, Tauren): garante acesso a Armas Pesadas, independente
+  // do caminho da Classe — soma 'pesada' ao conjunto já calculado (sem
+  // remover nenhuma categoria que o personagem já tivesse por outro meio).
+  const temMulgore = p.origemId === 'tauren_origem_mulgore';
+  if (temMulgore && !resultado.includes('pesada')) {
+    resultado = [...resultado, 'pesada'];
+  }
+  return resultado;
 }
 
 // O personagem pode comprar/vestir uma Arma/Instrumento de peso `peso`
