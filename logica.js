@@ -2023,6 +2023,14 @@ function abrirProximoSeletorRacial(pid) {
     abrirKalindorModal(pid);
     return;
   }
+  if (p.origemId === 'orc_origem_maghar' && !p.magharTesteMD) {
+    abrirMagharModal(pid);
+    return;
+  }
+  if (magharHabTemPendencia(p)) {
+    abrirMagharHabModal(pid);
+    return;
+  }
 }
 
 function abrirAdaptacaoEspacoModal(pid) {
@@ -2582,6 +2590,157 @@ function escolherKalindor(pid, nivel, papel, testeId) {
   saveState();
   renderAll();
   abrirKalindorEscolhaModal(pid, nivel, papel);
+}
+
+// ─── "Origem Mag'har" (Orc): escolha única (feita uma vez, não repete por
+// Nível) de qual Teste — Arcano ou Místico — fica com Mega Desvantagem fixa
+// pra sempre. Diferente do toggle normal de MD (que o jogador liga/desliga
+// à vontade), aqui é forçado pela Origem: ver mdForcadaPorOrigem em
+// construirRolagemTeste, e o botão MD desse Teste fica travado ligado.
+function abrirMagharModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  if (p.magharTesteMD) { alert('Origem Mag\'har já foi definida para este personagem.'); return; }
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-paw"></i> Origem Mag'har</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha qual Teste fica com Mega Desvantagem fixa pra sempre.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();confirmarMagharMD(${p.id},'arcano')">
+          <span class="tm-opcao-nome">Arcano</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="event.stopPropagation();confirmarMagharMD(${p.id},'mistico')">
+          <span class="tm-opcao-nome">Místico</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function confirmarMagharMD(pid, testeId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || p.magharTesteMD) return;
+  p.magharTesteMD = testeId;
+  fecharCriacaoAnaoModal();
+  saveState();
+  renderAll();
+  abrirProximoSeletorRacial(pid);
+}
+
+// ─── "Origem Mag'har" (Orc), parte 2: a cada Nível, escolhe 1 Habilidade
+// própria pra marcar com +1d4 de Dano/Cura (e +2 de Vantagem também, se for
+// do tipo Golpe). Uma Habilidade só pode ser escolhida 1 vez no total.
+// IMPORTANTE: por enquanto isso é só um MARCADOR VISUAL (badge na
+// Habilidade) — o app ainda não aplica esse bônus sozinho na rolagem de
+// Habilidades (só Testes têm rolagem automática hoje). Quando esse sistema
+// existir, é só ler getMagharHabBonus(p, sk.id) na hora de montar a rolagem.
+function getMagharHabBonus(p, skillId) {
+  if (p.origemId !== 'orc_origem_maghar') return null;
+  const entry = (p.magharHabilidadeEscolhas || []).find(e => e.skillId === skillId);
+  return entry ? true : null;
+}
+
+// Verdadeiro se ainda sobrar algum Nível (1 até o atual) sem Habilidade escolhida.
+function magharHabTemPendencia(p) {
+  if (p.origemId !== 'orc_origem_maghar') return false;
+  if (!(p.skills || []).length) return false; // nada pra escolher ainda
+  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  const escolhas = p.magharHabilidadeEscolhas || [];
+  for (let n = 1; n <= nivel; n++) {
+    if (!escolhas.some(e => e.nivel === n)) return true;
+  }
+  return false;
+}
+
+function abrirMagharHabModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (!Array.isArray(p.magharHabilidadeEscolhas)) p.magharHabilidadeEscolhas = [];
+  renderMagharHabModal(pid);
+  document.getElementById('modal-criacao-anao-overlay').classList.add('open');
+}
+
+function renderMagharHabModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const nivel = Math.max(1, Math.min(5, p.level || 1));
+  if (!Array.isArray(p.magharHabilidadeEscolhas)) p.magharHabilidadeEscolhas = [];
+
+  let niveisHtml = '';
+  for (let n = 1; n <= nivel; n++) {
+    const entry = p.magharHabilidadeEscolhas.find(e => e.nivel === n);
+    const sk = entry ? (p.skills || []).find(s => s.id === entry.skillId) : null;
+    niveisHtml += `<button class="tm-opcao tm-opcao-blue" style="width:100%;text-align:left;margin-bottom:6px" onclick="event.stopPropagation();abrirMagharHabEscolhaModal(${p.id},${n})">
+      <span class="tm-opcao-nome">Nível ${n}</span>
+      <span class="tm-opcao-info">${sk ? `✓ ${escHtml(sk.name)}` : 'Escolher…'}</span>
+    </button>`;
+  }
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-paw"></i> Origem Mag'har — Habilidades</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        A cada Nível, escolha 1 Habilidade pra marcar com +1d4 de Dano/Cura (e +2 de Vantagem também, se for Golpe). Uma Habilidade só pode ser escolhida 1 vez no total.
+        <br><em style="color:var(--text3)">O bônus ainda é aplicado manualmente na hora de usar — isso aqui só marca qual Habilidade tem direito a ele.</em>
+      </div>
+      <div style="max-height:400px;overflow-y:auto">${niveisHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+    </div>`;
+}
+
+function abrirMagharHabEscolhaModal(pid, nivel) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  if (!Array.isArray(p.magharHabilidadeEscolhas)) p.magharHabilidadeEscolhas = [];
+
+  const atual = p.magharHabilidadeEscolhas.find(e => e.nivel === nivel);
+  const skills = p.skills || [];
+
+  const opcoesHtml = skills.length ? skills.map(sk => {
+    const usadoEm = p.magharHabilidadeEscolhas.find(e => e.skillId === sk.id);
+    const jaNesseSlot = !!(atual && atual.skillId === sk.id);
+    const bloqueado = !jaNesseSlot && !!usadoEm;
+    const golpeTag = sk.color === 'red' ? ' <span style="opacity:.6;font-size:11px">(Golpe — também +2 Vantagem)</span>' : '';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)">
+      <span style="flex:1;font-size:13px;color:var(--text)">${escHtml(sk.name)}${golpeTag}</span>
+      <button class="btn" style="font-size:11px;padding:4px 10px;${jaNesseSlot ? 'background:var(--accent);color:#fff' : ''}" ${bloqueado ? 'disabled' : ''} onclick="event.stopPropagation();escolherMagharHab(${p.id},${nivel},'${sk.id}')">${jaNesseSlot ? '✓ Escolhido' : (bloqueado ? '🔒 Já usada' : 'Escolher')}</button>
+    </div>`;
+  }).join('') : `<div style="font-size:12px;color:var(--text3);padding:10px 0">Este personagem ainda não tem Habilidades cadastradas.</div>`;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-paw"></i> Mag'har — Nível ${nivel}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha a Habilidade que recebe +1d4 de Dano/Cura neste Nível.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="event.stopPropagation();abrirMagharHabModal(${p.id})">Voltar</button>
+    </div>`;
+}
+
+function escolherMagharHab(pid, nivel, skillId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (!Array.isArray(p.magharHabilidadeEscolhas)) p.magharHabilidadeEscolhas = [];
+
+  const atual = p.magharHabilidadeEscolhas.find(e => e.nivel === nivel);
+  if (!(atual && atual.skillId === skillId)) {
+    const jaUsado = p.magharHabilidadeEscolhas.some(e => e.skillId === skillId);
+    if (jaUsado) { alert('Essa Habilidade já foi escolhida em outro Nível — só pode ser usada 1 vez no total.'); return; }
+  }
+  if (atual) atual.skillId = skillId;
+  else p.magharHabilidadeEscolhas.push({ nivel, skillId });
+
+  saveState();
+  renderAll();
+  abrirMagharHabEscolhaModal(pid, nivel);
 }
 
 function abrirOrigemComumModal(pid) {
@@ -6078,6 +6237,11 @@ function onLevelUp(p) {
   if (p.origemId === 'humano_origem_kalindor') {
     setTimeout(() => abrirKalindorModal(p.id), 300);
   }
+  // "Origem Mag'har" (Orc): subir de Nível libera 1 escolha nova de
+  // Habilidade pra marcar com +1d4 de Dano/Cura.
+  if (p.origemId === 'orc_origem_maghar' && p.magharTesteMD) {
+    setTimeout(() => abrirMagharHabModal(p.id), 300);
+  }
   // Draenei (Origem Demoníaca): ao subir de Nível, +1 de Passos permanente
   // (acumula no passosBase) e 1d8 de Insanidade — rolado de verdade e
   // publicado no feed de dados (ver rolarInsanidadeOrigemDemoniaca).
@@ -6207,12 +6371,13 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         const efeitoSecTxt = getEfeitoSecundarioTextoPlano(p, sk);
         const efeitoSecIcone = (sk.efeitoSecundario && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo] && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo].icone) || '✨';
         const efeitoSecBadge = efeitoSecTxt ? `<span class="chip-badge" style="background:rgba(124,92,191,0.25);color:#b89aff;border-color:rgba(155,125,224,0.45)">${efeitoSecIcone}</span>` : '';
+        const magharBadge = getMagharHabBonus(p, sk.id) ? `<span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem Mag'har — bônus ainda aplicado manualmente">+1d4${sk.color === 'red' ? '/+2 Vant.' : ''}</span>` : '';
         const podeRecarregar = !ready && ['turno_N','luta','sessao','perturn'].includes(sk.tipo);
         const recarregarBtn = podeRecarregar
           ? `<button class="chip-reload-btn" onclick="event.stopPropagation();recarregarHabilidadeNarrador(${p.id},'${sk.id}')" title="Recarregar agora"><i class="ti ti-reload"></i></button>`
           : '';
         return `<div class="skill-chip sc-${cor} ${ready?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${extra}${recarregarBtn}
+          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${magharBadge}${extra}${recarregarBtn}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
@@ -6236,7 +6401,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
           else if (pas.classeId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(classe · ${p.classeBase})</span>`;
           else if (pas.talentoInferiorId) tag = ` <span style="font-size:10px;color:var(--text3);font-weight:400">(talento inferior)</span>`;
           else if (pas.talentoSuperiorId) tag = ` <span style="font-size:10px;color:var(--accent2);font-weight:400">(talento superior)</span>`;
-          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}</div>`;
+          return `<div class="nar-passiva-item"><div class="nar-passiva-name">${pas.name}${tag}</div><div class="nar-passiva-desc">${pas.desc || '<em>Nenhum efeito descrito.</em>'}</div>${pas.racialId === 'anao_criacao' ? (p.criacaoAnaoUsada ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">✓ Já usada</div>` : `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirCriacaoAnaoModal(${p.id})">Fundir Armas</button>`) : ''}${pas.racialId === 'anao_origem_comum_passiva' && p.origemComumPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="rolarOrigemComum(${p.id})">🎲 Rolar 1d10 (Mega Vantagem)</button>` : ''}${pas.racialId === 'anao_origem_profundezas_passiva' && p.origemProfundezasPendente ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemProfundezasModal(${p.id})">Escolher Arma (+1 Dano)</button>` : ''}${pas.racialId === 'elfo_decreptico' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirDecrepticoModal(${p.id})">Escolher Testes</button>` : ''}${pas.racialId === 'elfo_origem_sangrento_passiva' && !p.origemSangrentaUsado ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemSangrentaModal(${p.id})">Escolher Habilidade</button>` : ''}${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}</div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:4px 0">Nenhuma passiva cadastrada.</div>';
 
@@ -6538,9 +6703,10 @@ function renderTestes(p, readonly) {
       const hasAdaptacao = p.adaptacaoTesteId === tid;
       // "Origem de Vento Bravo" (Humano): nunca tem Mega Vantagem em Teste nenhum.
       const mvBloqueadaOrigem = p.origemId === 'humano_origem_vento_bravo';
+      const mdForcadaOrigem = p.origemId === 'orc_origem_maghar' && p.magharTesteMD === tid;
       const bonusVB = getVentoBravoBonus(p, tid);
       const papelKal = getKalindorPapel(p, tid);
-      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}`;
+      const badgesPassivas = `${hasAdaptacao ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Adaptação do Espaço">+3</span>` : ''}${p.decrepticoTeste1 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+1</span>` : ''}${p.decrepticoTeste2 === tid ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Decréptico">+3</span>` : ''}${(tid === 'resistir' && p.race === 'Elfo' && (p.passivas || []).some(pas => pas.racialId === 'elfo_decreptico')) ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Decréptico">−2</span>` : ''}${(p.race === 'Humano' && !['iniciativa', 'devocao'].includes(tid)) ? ` <span class="chip-badge" title="Normal">+${tid === 'emocao' ? 10 : 2}</span>` : ''}${bonusVB > 0 ? ` <span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Origem de Vento Bravo">+${bonusVB}</span>` : ''}${papelKal === 'bonus' ? ` <span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem de Kalindor">+1d4</span>` : ''}${papelKal === 'penalidade' ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem de Kalindor">−1d4</span>` : ''}${mdForcadaOrigem ? ` <span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Origem Mag'har">MD fixo</span>` : ''}`;
 
       if (readonly) {
         // Narrador: chip com os mesmos controles do Jogador (MV/MD/Bônus),
@@ -6555,7 +6721,7 @@ function renderTestes(p, readonly) {
           ${badges.join('')}
           <div class="teste-ctrl" onclick="event.stopPropagation()">
             <button class="teste-mv-btn ${hasMV && !mvBloqueadaOrigem ? 'ativo' : ''}" ${mvBloqueadaOrigem ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''} onclick="${mvBloqueadaOrigem ? '' : `setTesteMV(${p.id},'${tid}',${!hasMV})`}" title="${mvBloqueadaOrigem ? 'Bloqueado pela Origem de Vento Bravo' : 'Dar Mega Vantagem'}">MV</button>
-            <button class="teste-md-btn ${hasMD ? 'ativo' : ''}" onclick="setTesteMD(${p.id},'${tid}',${!hasMD})" title="Dar Mega Desvantagem">MD</button>
+            <button class="teste-md-btn ${(hasMD || mdForcadaOrigem) ? 'ativo' : ''}" ${mdForcadaOrigem ? 'disabled style="opacity:.7;cursor:not-allowed"' : ''} onclick="${mdForcadaOrigem ? '' : `setTesteMD(${p.id},'${tid}',${!hasMD})`}" title="${mdForcadaOrigem ? 'Fixo pela Origem Mag\'har' : 'Dar Mega Desvantagem'}">MD</button>
             <input class="teste-bonus-input" type="text" value="${t.bonus || ''}" placeholder="Bônus" maxlength="8"
               onchange="setTesteBonus(${p.id},'${tid}',this.value)"
               title="Bônus/penalidade pontual (ex: +3, -1d4)" style="width:52px">
@@ -6570,7 +6736,7 @@ function renderTestes(p, readonly) {
         <span class="teste-nome">${def.name}${badgesPassivas}</span>
         <div class="teste-ctrl">
           <button class="teste-mv-btn ${hasMV && !mvBloqueadaOrigem ? 'ativo' : ''}" ${mvBloqueadaOrigem ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''} onclick="${mvBloqueadaOrigem ? '' : `setTesteMV(${p.id},'${tid}',${!hasMV})`}" title="${mvBloqueadaOrigem ? 'Bloqueado pela Origem de Vento Bravo' : 'Mega Vantagem'}">MV</button>
-          <button class="teste-md-btn ${hasMD ? 'ativo' : ''}" onclick="setTesteMD(${p.id},'${tid}',${!hasMD})" title="Mega Desvantagem">MD</button>
+          <button class="teste-md-btn ${(hasMD || mdForcadaOrigem) ? 'ativo' : ''}" ${mdForcadaOrigem ? 'disabled style="opacity:.7;cursor:not-allowed"' : ''} onclick="${mdForcadaOrigem ? '' : `setTesteMD(${p.id},'${tid}',${!hasMD})`}" title="${mdForcadaOrigem ? 'Fixo pela Origem Mag\'har' : 'Mega Desvantagem'}">MD</button>
           <input class="teste-bonus-input" type="text" value="${t.bonus || ''}" placeholder="Bônus" maxlength="8"
             onchange="setTesteBonus(${p.id},'${tid}',this.value)"
             title="Bônus/penalidade (ex: +3, -1d4)">
@@ -6803,6 +6969,7 @@ function renderJogador() {
           ${sk.ritualMacabro ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🌀 Ritual Macabro</span>` : ''}
           ${sk.encantamentoItemId ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🔮 Encantamento</span>` : ''}
           ${sk.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${sk.concedeNota === 'qualquer' ? 'escolha uma nota' : sk.concedeNota}</span>` : ''}
+          ${getMagharHabBonus(p, sk.id) ? `<span class="sk-tag" style="background:rgba(109,179,63,0.15);color:var(--green)" title="Origem Mag'har — bônus ainda aplicado manualmente">+1d4 Dano/Cura${sk.color === 'red' ? ' · +2 Vantagem' : ''}</span>` : ''}
         </div>
         <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">
             ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
@@ -6859,6 +7026,8 @@ function renderJogador() {
       ${pas.racialId === 'elfo_origem_noturno_passiva' && !p.origemNoturnaUsada ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirOrigemNoturnaModal(${p.id})">Escolher Caminho</button>` : ''}
       ${pas.racialId === 'humano_origem_vento_bravo_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirVentoBravoModal(${p.id})">Configurar Testes</button>` : ''}
       ${pas.racialId === 'humano_origem_kalindor_passiva' ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirKalindorModal(${p.id})">Configurar Testes</button>` : ''}
+      ${pas.racialId === 'orc_origem_maghar_passiva' && !p.magharTesteMD ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirMagharModal(${p.id})">Escolher Teste (MD)</button>` : ''}
+      ${pas.racialId === 'orc_origem_maghar_passiva' && p.magharTesteMD ? `<button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="abrirMagharHabModal(${p.id})">Configurar Habilidades</button>` : ''}
     </div>`;
   }).join('');
 
@@ -12315,7 +12484,11 @@ function construirRolagemTeste(p, testeId) {
   // escondido/desabilitado pra esse personagem, ver renderTestes).
   const mvBloqueadaPorOrigem = p.origemId === 'humano_origem_vento_bravo';
   const temMV = t.mv && !mvBloqueadaPorOrigem;
-  const isMega = !!(temMV || t.md);
+  // "Origem Mag'har" (Orc): o Teste escolhido (Arcano ou Místico) sempre
+  // tem Mega Desvantagem, fixo — não é um toggle, é forçado pela Origem.
+  const mdForcadaPorOrigem = p.origemId === 'orc_origem_maghar' && p.magharTesteMD === testeId;
+  const temMD = t.md || mdForcadaPorOrigem;
+  const isMega = !!(temMV || temMD);
   const d1 = 1 + Math.floor(Math.random() * sides);
   const d2 = isMega ? (1 + Math.floor(Math.random() * sides)) : null;
   const kept = !isMega ? d1 : (temMV ? Math.max(d1, d2) : Math.min(d1, d2));
@@ -12433,7 +12606,7 @@ function construirRolagemTeste(p, testeId) {
   }
 
   const tree = { type: 'sum', terms };
-  const megaLabel = temMV ? ' (Mega Vantagem)' : (t.md ? ' (Mega Desvantagem)' : '');
+  const megaLabel = temMV ? ' (Mega Vantagem)' : (temMD ? ' (Mega Desvantagem)' : '');
   const formula = `Teste de ${def.name}${megaLabel}`;
   const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, testeId, sides);
 
