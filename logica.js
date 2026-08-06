@@ -747,6 +747,8 @@ function escolherFormaSombria(pid, formaId) {
   p.formaSombriaId = formaId;
   ensureFormaSombria(p);
   saveState(); renderAll();
+  const overlay = document.getElementById('modal-forma-overlay');
+  if (overlay) overlay.classList.remove('open');
 }
 
 // Garante que as 2 Habilidades da Forma Sombria escolhida estejam em p.skills,
@@ -1584,6 +1586,8 @@ function escolherEstiloEncantamento(pid, estilo) {
   p.estiloEncantamentoId = estilo;
   saveState();
   renderAll();
+  const overlay = document.getElementById('modal-encantamento-estilo-overlay');
+  if (overlay) overlay.classList.remove('open');
 }
 
 // Estilo de Encantamento (arcano/mistico) do personagem — escolhido uma vez
@@ -7164,6 +7168,16 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
     const formaDragaoBadge = (p.race === 'Dragão' && p.formaDragao) ? ` <span title="Em forma de Dragão: Sopro, Iniciar Voo, Impacto de Pouso e Garras Dracônicas disponíveis" style="display:inline-flex;align-items:center;gap:3px;background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐉 Forma de Dragão</span>` : '';
     const formaSombriaAtivaObj = (p.race === 'Pandaren' && p.formaSombriaAtiva && p.formaSombriaId) ? PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId] : null;
     const formaSombriaBadge = formaSombriaAtivaObj ? ` <span title="Forma Sombria ativa: só pode usar Habilidades de ${FORMA_SOMBRIA_COR_LABEL[formaSombriaAtivaObj.corPermitida]}" style="display:inline-flex;align-items:center;gap:3px;background:var(--accent-bg);border:1px solid var(--accent-bd);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐼 ${formaSombriaAtivaObj.name}</span>` : '';
+    // NPC não passa pela tela obrigatória de Nível-up do Jogador — então, se
+    // tiver a Origem Lun'fan (Pandaren) e ainda não escolheu a Forma Sombria,
+    // ganha aqui um badge clicável pra abrir a escolha manualmente.
+    const pendFormaSombriaBadge = precisaEscolherFormaSombria(p)
+      ? ` <span onclick="event.stopPropagation();renderFormaSombriaModal(PLAYERS.find(x=>x.id===${p.id}))" title="Escolher a Forma Sombria do Caminho Lun'fan" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐼 Escolher Forma Sombria</span>`
+      : '';
+    // Mesma ideia para o Estilo de Encantamento (Talento Inferior "Equipamento Encantado").
+    const pendEstiloEncantamentoBadge = precisaEscolherEstiloEncantamento(p)
+      ? ` <span onclick="event.stopPropagation();renderEscolhaEstiloEncantamentoModal(PLAYERS.find(x=>x.id===${p.id}))" title="Escolher o Estilo de Encantamento (Arcano ou Místico)" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🔮 Escolher Estilo de Encantamento</span>`
+      : '';
     const npcTipoClasse = p.isNPC ? (p.npcTipo === 'inimigo' ? 'npc-inimigo' : 'npc-aliado') : '';
     const npcTipoBadge = p.isNPC
       ? (p.npcTipo === 'inimigo'
@@ -7173,7 +7187,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
     return `<div class="prow ${bm ? 'beira-morte' : ''} ${npcTipoClasse}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${pendEstiloEncantamentoBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
