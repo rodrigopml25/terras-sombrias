@@ -7391,7 +7391,7 @@ function toggleNarTestes(pid) {
   // Padrão: fechado. Só abre quando o valor guardado for explicitamente false.
   const estaFechado = narTestesCollapsed[pid] !== false;
   narTestesCollapsed[pid] = !estaFechado;
-  renderNarrador();
+  renderAll();
 }
 
 // ─── Ações dos Testes ────────────────────────────────────────────────────────
@@ -10096,7 +10096,7 @@ function saveInvItem() {
 
   saveState();
   renderJogador();
-  renderNarrador();
+  renderAll();
   closeInvModal();
 }
 
@@ -10113,7 +10113,7 @@ function deleteInvItem() {
   }
   saveState();
   renderJogador();
-  renderNarrador();
+  renderAll();
   closeInvModal();
 }
 
@@ -11057,19 +11057,19 @@ function savePassiva() {
 // Narrador: alterna a exibição das passivas de um personagem específico (sem sincronizar entre dispositivos)
 function toggleNarPassivas(pid) {
   narPassivasExpanded[pid] = !narPassivasExpanded[pid];
-  renderNarrador();
+  renderAll();
 }
 
 function toggleNarSkills(pid) {
   narSkillsExpanded[pid] = !narSkillsExpanded[pid];
-  renderNarrador();
+  renderAll();
 }
 
 // Narrador: alterna a exibição do Inventário de um personagem específico
 // (mesmo componente usado no jogador — ver renderInventarioArea).
 function toggleNarInventario(pid) {
   narInventarioExpanded[pid] = !narInventarioExpanded[pid];
-  renderNarrador();
+  renderAll();
 }
 
 function toggleJogSkillGroup(cor) {
