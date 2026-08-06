@@ -865,6 +865,13 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   overflow-y: auto;
 }
 .modal-overlay.open { display: flex; }
+/* O Banco de NPCs pode ter outros modais abertos por cima dele (escolha de
+   Habilidade, Talento, Passiva, Inventário, editar ficha do NPC etc.) — como
+   todos usam a mesma classe .modal-overlay (mesmo z-index: 1000), quem fica
+   por cima dependeria só da ordem no HTML. Um z-index um pouco menor aqui
+   garante que qualquer outro modal sempre apareça por cima do Banco,
+   independente de onde cada um está no arquivo. */
+#modal-npc-bank-overlay { z-index: 999; }
 .modal {
   background: var(--surface);
   border: 1px solid var(--border2);
