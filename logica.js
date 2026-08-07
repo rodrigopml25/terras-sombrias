@@ -5925,6 +5925,12 @@ let NPC_BANK = [];
 let bankModeActive = false;
 let campaignPlayersBackup = null; // guarda o PLAYERS real da campanha enquanto o banco está aberto
 let npcBankSearchQuery = ''; // filtro por nome da barra de pesquisa do Banco de NPCs
+// true assim que o Banco é buscado do Firebase pela 1ª vez nesta sessão do
+// navegador. Evita rebuscar (e sobrescrever com uma versão desatualizada, se
+// um save anterior ainda não tiver terminado de replicar) toda vez que o
+// modal é reaberto — dentro da mesma sessão, o NPC_BANK local já reflete
+// tudo que foi salvo (ver saveNpcBank/closeNpcBankModal).
+let npcBankLoaded = false;
 
 // Atualiza o filtro de busca do Banco de NPCs (por nome) e re-renderiza a lista.
 function filterNpcBank(valor) {
@@ -8175,6 +8181,11 @@ function openNpcBankModal() {
     renderAll();
   };
   if (!currentUser || !firebaseConfigured || typeof firebase === 'undefined') { abrir(); return; }
+  // Já buscamos do Firebase nesta sessão — o NPC_BANK local já está em dia
+  // (toda alteração passa por saveNpcBank), então não busca de novo. Isso
+  // evita que uma exclusão/edição recente "volte" por causa de um fetch que
+  // chegou antes do save anterior terminar de replicar no servidor.
+  if (npcBankLoaded) { abrir(); return; }
   firebase.database().ref('ts_users/' + currentUser.id + '/npc_bank').once('value').then(snap => {
     let data = snap.val() || [];
     if (!Array.isArray(data)) data = Object.values(data);
@@ -8184,6 +8195,7 @@ function openNpcBankModal() {
       if (!Array.isArray(p.inventario)) p.inventario = [];
     });
     NPC_BANK = data;
+    npcBankLoaded = true;
     abrir();
   }).catch(err => {
     console.error('Erro ao carregar Banco de NPCs:', err);
