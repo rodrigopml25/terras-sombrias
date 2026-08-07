@@ -2676,9 +2676,12 @@ function getHabilidadesClasseParaEncantar(p) {
 // Habilidade encantada for usada, escolhe entre 1d6 de Dano na Vida OU 1d6
 // de Insanidade. Só se aplica a quem tem essa Origem específica (não afeta
 // quem tem "Comum" ou nenhuma Origem).
+function skillEhEncantamentoTroll(p, sk) {
+  return (p.encantamentoTrollEscolhas || []).some(e => e.skillId === sk.id);
+}
 function skillEhEncantamentoTrollAmaldicoado(p, sk) {
   if (p.origemId !== 'troll_origem_colosso') return false;
-  return (p.encantamentoTrollEscolhas || []).some(e => e.skillId === sk.id);
+  return skillEhEncantamentoTroll(p, sk);
 }
 
 function abrirEncantamentoAmaldicoadoModal(pid, skillId, skillName) {
@@ -7757,7 +7760,7 @@ function renderJogador() {
           ${sk.lendario ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">✨ Feitiço Lendário</span>` : ''}
           ${sk.ritualMacabro ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🌀 Ritual Macabro</span>` : ''}
           ${sk.encantamentoItemId ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🔮 Encantamento</span>` : ''}
-          ${(p.encantamentoTrollEscolhas || []).some(e => e.skillId === sk.id) ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)" title="Encantamento Troll — os dados de lançamento são trocados por um Teste de Arcano OU Místico (à escolha)">🔮 Encantada (Arcano/Místico)</span>` : ''}
+          ${(p.encantamentoTrollEscolhas || []).some(e => e.skillId === sk.id) ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)" title="Encantamento Troll — o Acerto já usa um Teste de Arcano OU Místico completo (maestria, Mega Vantagem/Desvantagem e Bônus configurados nesse Teste), à escolha a cada uso">🔮 Encantada (Arcano/Místico)</span>` : ''}
           ${sk.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${sk.concedeNota === 'qualquer' ? 'escolha uma nota' : sk.concedeNota}</span>` : ''}
           ${getMagharHabBonus(p, sk.id) ? `<span class="sk-tag" style="background:rgba(109,179,63,0.15);color:var(--green)" title="Origem Mag'har — +1d4 Dano/Cura ainda manual${sk.color === 'red' ? '; +2 Vantagem já entra sozinho na rolagem de Acerto' : ''}">+1d4 Dano/Cura${sk.color === 'red' ? ' · +2 Vantagem' : ''}</span>` : ''}
           ${getFilosofiaPandarenicaBonus(p, sk) ? `<span class="sk-tag" style="background:var(--accent-bg);color:var(--accent2)" title="Filosofia Pandarênica — +3 Vantagem já entra sozinho na rolagem de Acerto">+3 Vantagem</span>` : ''}
@@ -13327,7 +13330,81 @@ function rolarAcertoHabilidadeClick(pid, skid) {
   if (!sk) return;
   if (!isReady(sk, p)) return;
   if (formaSombriaBloqueiaHabilidade(p, sk)) return;
+  // "Encantamento Troll": os dados de lançamento (Acerto) são trocados por
+  // um Teste de Arcano OU Místico completo — pergunta qual dos dois antes
+  // de rolar (ver abrirAcertoEncantadoModal/rolarAcertoHabilidadeEncantada).
+  if (skillEhEncantamentoTroll(p, sk)) {
+    abrirAcertoEncantadoModal(pid, skid);
+    return;
+  }
   rolarAcertoHabilidade(pid, sk);
+}
+
+// Pergunta qual Teste (Arcano ou Místico) vai substituir a rolagem de
+// Acerto de uma Habilidade encantada pelo Encantamento Troll — o texto da
+// passiva deixa a escolha livre a cada uso ("Arcano OU Místico").
+function abrirAcertoEncantadoModal(pid, skid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skid);
+  if (!overlay || !p || !sk) return;
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-sparkles"></i> Encantamento Troll</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        "${escHtml(sk.name)}" está encantada: o Acerto usa um Teste de Arcano ou Místico completo (com maestria, Mega Vantagem/Desvantagem e Bônus configurados) no lugar da rolagem normal. Qual dos dois?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="fecharCriacaoAnaoModal();rolarAcertoHabilidadeEncantada(${p.id},'${sk.id}','arcano')">
+          <span class="tm-opcao-nome">Teste de Arcano</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="fecharCriacaoAnaoModal();rolarAcertoHabilidadeEncantada(${p.id},'${sk.id}','mistico')">
+          <span class="tm-opcao-nome">Teste de Místico</span>
+        </button>
+      </div>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+// Rola e publica no feed a checagem de Acerto de uma Habilidade encantada
+// (Encantamento Troll), reaproveitando construirRolagemTeste de verdade —
+// traz junto a maestria do Teste escolhido e qualquer Mega Vantagem/Mega
+// Desvantagem/Bônus já configurado nesse Teste na ficha do personagem.
+function rolarAcertoHabilidadeEncantada(pid, skid, testeId) {
+  if (!currentUser) return null;
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skid);
+  if (!p || !sk) return null;
+  const r = construirRolagemTeste(p, testeId);
+  if (!r) return null;
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Rolagem de Acerto — ${sk.name} (🔮 via ${r.formula})`,
+    tree: r.tree,
+    total: r.total,
+    sides: r.sides,
+    critMin: r.critMin,
+    fumbleMax: r.fumbleMax,
+    fumbleImune: r.fumbleImune,
+    hidden: false,
+    rolling: true,
+    ts: Date.now(),
+    label: '🎯 Rolagem de Acerto',
+  };
+
+  spinDiceFab(true, r.sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  return r.total;
 }
 
 function construirRolagemAcertoHabilidade(p, sk) {
