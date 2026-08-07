@@ -5382,7 +5382,7 @@ const DEUSES_CLERIGO = {
   'Sombras': {
     bencaos: [
       { id: 'sombras_abraco_das_sombras', name: 'Abraço das Sombras', desc: 'As Sombras te cobrem e te deixam Invisível por um turno. Se já estiver Invisível ou Furtivo, lance 2 Essências Sombrias em um ou dois Alvos.' },
-      { id: 'sombras_essencia_sombria', name: 'Essência Sombria', desc: 'Escolha um Alvo e cause apenas 1d4 de Dano na vida dele. O acerto é garantido!' },
+      { id: 'sombras_essencia_sombria', name: 'Essência Sombria', desc: 'Escolha um Alvo e cause apenas 1d4 de Dano na vida dele. O acerto é garantido!', acertoGarantido: true },
       { id: 'sombras_observador_macabro', name: 'Observador Macabro', desc: 'As Sombras invocam um olho sombrio intangível que persegue um Alvo: você terá +2 de Vantagem sobre ele. No seu turno, poderá sacrificar o olho e lançar Essência Sombria no Alvo.' },
     ],
     intervencoes: [
@@ -5393,7 +5393,7 @@ const DEUSES_CLERIGO = {
       { id: 'sombras_visao_divina', name: 'Visão Divina', desc: 'As Sombras invocam uma entidade do caos chamada Xa Vatar, que dura 3 turnos seus. Ela observa todos os Alvos que você desejar: você terá +6 de Vantagem sobre eles. No início do seu turno, lance 1d4 de Essência Sombria e distribua o dano entre todos os Alvos selecionados.' },
     ],
     milagresSupremos: [
-      { id: 'sombras_toque_das_sombras', name: 'Toque das Sombras', desc: 'Só pode ser usado 1 vez por Personagem. As Sombras te concedem o poder supremo dos deuses antigos: escolha um Alvo e cause apenas 10d20 de Dano na vida dele. O acerto é garantido!' },
+      { id: 'sombras_toque_das_sombras', name: 'Toque das Sombras', desc: 'Só pode ser usado 1 vez por Personagem. As Sombras te concedem o poder supremo dos deuses antigos: escolha um Alvo e cause apenas 10d20 de Dano na vida dele. O acerto é garantido!', acertoGarantido: true },
     ],
   },
 };
@@ -7360,7 +7360,8 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
             <div class="sk-tags"><span class="sk-tag">2 ações</span><span class="sk-tag">${tipoLabel(sk)}</span></div>
             <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">${sk.desc}</div>
             <div class="sk-bottom">
-              <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar</button>
+              ${precisaAcertoHabilidade(p, sk) ? `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>` : ''}
+              <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>
               <span class="sk-cd">${notasStatus}</span>
             </div>
           </div>`;
@@ -7771,8 +7772,9 @@ function renderJogador() {
         ${renderEfeitoSecundarioHtml(p, sk)}
         ${renderCorromperHtml(p.id + '-' + sk.id, sk)}
         <div class="sk-bottom">
+          ${precisaAcertoHabilidade(p, sk) ? `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>` : ''}
           <button class="sk-btn ${formaSombriaAtivaCard ? 'sk-btn-desativar' : ''}" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${(!ready && !formaSombriaAtivaCard)?'disabled':''}>
-            ${formaSombriaAtivaCard ? 'Desativar' : 'Usar'}
+            ${formaSombriaAtivaCard ? 'Desativar' : 'Usar Efeito'}
           </button>
           ${dotsHtml}${cdHtml}
         </div>
@@ -7855,7 +7857,8 @@ function renderJogador() {
           ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
       </div>
       <div class="sk-bottom">
-        <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar</button>
+        ${precisaAcertoHabilidade(p, sk) ? `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>` : ''}
+        <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>
         <span class="sk-cd">${notasStatus}</span>
       </div>
     </div>`;
@@ -13236,6 +13239,138 @@ function finishRollEntry(key) {
     const r = DICE_ROLLS.find(x => x.key === key);
     if (r) { r.rolling = false; justRevealedKeys.add(key); renderDiceFeed(); }
   }
+}
+
+// ═══════════════════════════════════════
+// ROLAGEM DE ACERTO DE HABILIDADE (Golpes/Feitiços)
+// ═══════════════════════════════════════
+// Toda Habilidade usada via useSkill() precisa, antes de qualquer efeito,
+// de uma rolagem de 1d20 + maestria (do atributo ligado à cor da Habilidade)
+// + um Bônus fixo opcional (sk.bonusAcerto — ex: +2 de uma Arma encantada).
+// O app NÃO decide sozinho se acertou: só publica a rolagem no feed de
+// dados, igual a um Teste, e quem olha o número (o Narrador, geralmente)
+// decide se o efeito da Habilidade realmente se aplica.
+//
+// Exceções (não rolam Acerto):
+//   - sk.acertoGarantido === true (a própria Habilidade já diz "o acerto é
+//     garantido" — ex: Essência Sombria, Toque das Sombras).
+//   - Habilidades vinculadas a um Teste específico via SKILL_TESTE_LINK
+//     (ex: Acrobacia, Furtividade) — essas já rolam o próprio Teste, que
+//     cumpre o mesmo papel.
+//
+// Convenção de cor -> atributo de maestria (mesma usada nas Subclasses:
+// verde = Agilidade, vermelho = Força, azul = Intelecto). Habilidades
+// cinzas (gerais/raciais, sem atributo de combate claro) rolam só 1d20 +
+// Bônus, sem maestria.
+const ATTR_DA_COR_HABILIDADE = { green: 'agi', red: 'forca', blue: 'intel' };
+
+// Habilidades puramente utilitárias/de alternância — nunca "acertam" nada,
+// então não fazem sentido no botão de Acerto (mesmos casos que useSkill já
+// trata como fluxo especial, com return antecipado, antes de chegar na
+// parte de custo/efeito).
+const HABILIDADES_SEM_ACERTO = new Set([
+  'sk_racial_dragao_metamorfose',
+  'sk_geral_teste_mental',
+  'sk_origem_draenei_forjado_luz',
+  'sk_racial_draenei_adaptacao',
+]);
+
+// Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
+// Efeito"). Não mostra quando: já tem acerto garantido; está vinculada a um
+// Teste próprio (SKILL_TESTE_LINK — o próprio Teste já cumpre esse papel);
+// é uma Habilidade puramente utilitária/de alternância (lista acima); ou é
+// a Habilidade Neutra de uma Forma Sombria (Pandaren) já ativa, cujo botão
+// vira "Desativar" (sempre livre, não é uma ação que "acerta" nada).
+function precisaAcertoHabilidade(p, sk) {
+  if (!sk || sk.acertoGarantido) return false;
+  if (SKILL_TESTE_LINK[sk.id]) return false;
+  if (HABILIDADES_SEM_ACERTO.has(sk.id)) return false;
+  if (p && p.race === 'Pandaren' && p.formaSombriaId
+      && PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId]
+      && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id) return false;
+  return true;
+}
+
+// Handler do botão "Acerto" do card de Habilidade — só rola e publica no
+// feed (não consome custo, uso nem recarga; isso fica pro botão "Usar
+// Efeito"/useSkill). Pode ser clicado quantas vezes quiser enquanto a
+// Habilidade estiver pronta, útil pra rolar de novo se pedirem.
+function rolarAcertoHabilidadeClick(pid, skid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skid);
+  if (!sk) return;
+  if (!isReady(sk, p)) return;
+  if (formaSombriaBloqueiaHabilidade(p, sk)) return;
+  rolarAcertoHabilidade(pid, sk);
+}
+
+function construirRolagemAcertoHabilidade(p, sk) {
+  const sides = 20;
+  const campoAttr = ATTR_DA_COR_HABILIDADE[sk.color] || null;
+  const mst = campoAttr ? maestriaDe(p, campoAttr) : 0;
+
+  const d1 = 1 + Math.floor(Math.random() * sides);
+  const dadoNode = { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null };
+  const terms = [{ sign: '+', node: dadoNode }];
+  let total = d1;
+
+  if (mst) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: mst, label: 'maestria' } });
+    total += mst;
+  }
+
+  const bonusAcerto = Number(sk.bonusAcerto) || 0;
+  if (bonusAcerto) {
+    terms.push({
+      sign: bonusAcerto > 0 ? '+' : '-',
+      node: { type: 'labeled_const', value: Math.abs(bonusAcerto), label: sk.bonusAcertoLabel || 'bônus' }
+    });
+    total += bonusAcerto;
+  }
+
+  const tree = { type: 'sum', terms };
+  const formula = `Rolagem de Acerto — ${sk.name}`;
+  const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, null, sides);
+
+  return { sides, total, tree, formula, critMin, fumbleMax, fumbleImune };
+}
+
+// Rola e publica no feed de dados a checagem de acerto de uma Habilidade,
+// exatamente como um Teste — sem decidir sozinho se acertou ou não.
+function rolarAcertoHabilidade(pid, sk) {
+  if (!currentUser) return null;
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return null;
+  const r = construirRolagemAcertoHabilidade(p, sk);
+  if (!r) return null;
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: r.formula,
+    tree: r.tree,
+    total: r.total,
+    sides: r.sides,
+    critMin: r.critMin,
+    fumbleMax: r.fumbleMax,
+    fumbleImune: r.fumbleImune,
+    hidden: false,
+    rolling: true,
+    ts: Date.now(),
+    label: '🎯 Rolagem de Acerto',
+  };
+
+  spinDiceFab(true, r.sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  return r.total;
 }
 
 // ═══════════════════════════════════════
