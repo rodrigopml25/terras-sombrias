@@ -7197,14 +7197,14 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         ${editable ? `<button class="prow-edit-btn" onclick="deleteCharacter(${p.id})" title="${isBank ? 'Excluir do Banco' : 'Excluir NPC desta campanha'}" style="color:var(--red)"><i class="ti ti-trash"></i></button>` : ''}
         ${isBank ? `<button class="prow-edit-btn" onclick="summonNpcToCampaign(${p.id})" title="Chamar para esta campanha" style="color:var(--green)"><i class="ti ti-send"></i></button>` : ''}
       </div>
-      <div class="bars">
+      ${isBank ? '' : `<div class="bars">
         <div class="bar-wrap vida"><div class="bar-lbl">Vida</div><div class="bar-track"><div class="bar-fill ${vidaClass(p.hp,p.hpMax)}" style="width:${hpPct}%"></div></div></div>
         <div class="bar-wrap ins"><div class="bar-lbl">Insanidade</div><div class="bar-track"><div class="bar-fill bfill-ins" style="width:${insPct}%"></div></div></div>
         ${isBruxo ? `<div class="bar-wrap human"><div class="bar-lbl">Humanidade</div><div class="bar-track"><div class="bar-fill bfill-human" style="width:${humanPct}%"></div></div></div>` : ''}
         <div class="bar-wrap arm"><div class="bar-lbl">Armadura</div><div class="bar-track"><div class="bar-fill bfill-arm" style="width:${armPct}%"></div></div></div>
         <div class="bar-wrap elm"><div class="bar-lbl">Elmo</div><div class="bar-track"><div class="bar-fill bfill-elm" style="width:${elmPct}%"></div></div></div>
-      </div>
-      <div class="nar-ctrl-row">
+      </div>`}
+      ${isBank ? '' : `<div class="nar-ctrl-row">
         <div class="nar-ctrl-group">
           <span class="nar-ctrl-lbl">❤ Vida</span>
           <div class="nar-ctrl-btns">
@@ -7312,7 +7312,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
             <button onclick="addXP(${p.id})" title="Adicionar XP">+XP</button>
           </div>
         </div>`}
-      </div>
+      </div>`}
       ${skillsExpanded ? `<div class="nar-skills-box">${gruposHtml}
         ${editable ? `<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
           <button class="add-skill-btn" onclick="openModal(${p.id})"><i class="ti ti-plus"></i> Adicionar habilidade</button>
