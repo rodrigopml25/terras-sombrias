@@ -3074,10 +3074,9 @@ function confirmarMagharMD(pid, testeId) {
 // ─── "Origem Mag'har" (Orc), parte 2: a cada Nível, escolhe 1 Habilidade
 // própria pra marcar com +1d4 de Dano/Cura (e +2 de Vantagem também, se for
 // do tipo Golpe). Uma Habilidade só pode ser escolhida 1 vez no total.
-// IMPORTANTE: por enquanto isso é só um MARCADOR VISUAL (badge na
-// Habilidade) — o app ainda não aplica esse bônus sozinho na rolagem de
-// Habilidades (só Testes têm rolagem automática hoje). Quando esse sistema
-// existir, é só ler getMagharHabBonus(p, sk.id) na hora de montar a rolagem.
+// O +2 de Vantagem já entra sozinho na rolagem de Acerto (ver
+// construirRolagemAcertoHabilidade). O +1d4 de Dano/Cura continua manual —
+// ainda não existe rolagem de Dano automática pra Habilidades.
 function getMagharHabBonus(p, skillId) {
   if (p.origemId !== 'orc_origem_maghar') return null;
   const entry = (p.magharHabilidadeEscolhas || []).find(e => e.skillId === skillId);
@@ -3099,9 +3098,9 @@ function magharHabTemPendencia(p) {
 // ─── "Filosofia Pandarênica" (Pandaren, Origem Comum): ao chegar no Nível 3,
 // escolhe (uma vez, pra sempre) um tipo de Habilidade — Feitiço (blue),
 // Golpe (red) ou Técnica (green) — e todas as Habilidades desse tipo
-// recebem +3 de Vantagem. Mesma ressalva do Mag'har: por enquanto é só um
-// MARCADOR VISUAL (badge na Habilidade), já que Habilidades não têm
-// rolagem automática hoje (só Testes têm).
+// recebem +3 de Vantagem. O bônus já entra sozinho na rolagem de Acerto
+// (ver construirRolagemAcertoHabilidade); o badge na Habilidade continua
+// como lembrete visual.
 function abrirFilosofiaPandarenicaModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
@@ -7116,8 +7115,8 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         const efeitoSecTxt = getEfeitoSecundarioTextoPlano(p, sk);
         const efeitoSecIcone = (sk.efeitoSecundario && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo] && EFEITOS_SECUNDARIOS_ESPECIAIS[sk.efeitoSecundario.tipo].icone) || '✨';
         const efeitoSecBadge = efeitoSecTxt ? `<span class="chip-badge" style="background:rgba(124,92,191,0.25);color:#b89aff;border-color:rgba(155,125,224,0.45)">${efeitoSecIcone}</span>` : '';
-        const magharBadge = getMagharHabBonus(p, sk.id) ? `<span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem Mag'har — bônus ainda aplicado manualmente">+1d4${sk.color === 'red' ? '/+2 Vant.' : ''}</span>` : '';
-        const filosofiaBadge = getFilosofiaPandarenicaBonus(p, sk) ? `<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Filosofia Pandarênica — bônus ainda aplicado manualmente">+3 Vant.</span>` : '';
+        const magharBadge = getMagharHabBonus(p, sk.id) ? `<span class="chip-badge" style="background:rgba(109,179,63,0.15);color:var(--green);border:1px solid var(--green-bd)" title="Origem Mag'har — +1d4 Dano/Cura ainda manual${sk.color === 'red' ? '; +2 Vantagem já entra sozinho na rolagem de Acerto' : ''}">+1d4${sk.color === 'red' ? '/+2 Vant.' : ''}</span>` : '';
+        const filosofiaBadge = getFilosofiaPandarenicaBonus(p, sk) ? `<span class="chip-badge" style="background:var(--accent-bg);color:var(--accent2);border:1px solid var(--accent-bd)" title="Filosofia Pandarênica — +3 Vantagem já entra sozinho na rolagem de Acerto">+3 Vant.</span>` : '';
         const furiaOrcHabBadge = (p.furiaOrcAtiva && sk.id !== 'sk_racial_orc_furia') ? `<span class="chip-badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)" title="Fúria de Orc — esta é a próxima Habilidade: não pode ser Aparada${sk.color === 'red' ? ' e recebe +1d6 de Dano' : ''}">😡${sk.color === 'red' ? ' +1d6' : ''}</span>` : '';
         const bloqueadaBadge = bloqueadaPorForma ? `<span class="chip-badge" style="background:var(--red-bg);color:#f08080;border:1px solid var(--red-bd)" title="Bloqueada pela Forma Sombria">🔒</span>` : '';
         // Chip da Habilidade Neutra da Forma Sombria enquanto ela estiver
@@ -7760,8 +7759,8 @@ function renderJogador() {
           ${sk.encantamentoItemId ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🔮 Encantamento</span>` : ''}
           ${(p.encantamentoTrollEscolhas || []).some(e => e.skillId === sk.id) ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)" title="Encantamento Troll — os dados de lançamento são trocados por um Teste de Arcano OU Místico (à escolha)">🔮 Encantada (Arcano/Místico)</span>` : ''}
           ${sk.concedeNota ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 ${sk.concedeNota === 'qualquer' ? 'escolha uma nota' : sk.concedeNota}</span>` : ''}
-          ${getMagharHabBonus(p, sk.id) ? `<span class="sk-tag" style="background:rgba(109,179,63,0.15);color:var(--green)" title="Origem Mag'har — bônus ainda aplicado manualmente">+1d4 Dano/Cura${sk.color === 'red' ? ' · +2 Vantagem' : ''}</span>` : ''}
-          ${getFilosofiaPandarenicaBonus(p, sk) ? `<span class="sk-tag" style="background:var(--accent-bg);color:var(--accent2)" title="Filosofia Pandarênica — bônus ainda aplicado manualmente">+3 Vantagem</span>` : ''}
+          ${getMagharHabBonus(p, sk.id) ? `<span class="sk-tag" style="background:rgba(109,179,63,0.15);color:var(--green)" title="Origem Mag'har — +1d4 Dano/Cura ainda manual${sk.color === 'red' ? '; +2 Vantagem já entra sozinho na rolagem de Acerto' : ''}">+1d4 Dano/Cura${sk.color === 'red' ? ' · +2 Vantagem' : ''}</span>` : ''}
+          ${getFilosofiaPandarenicaBonus(p, sk) ? `<span class="sk-tag" style="background:var(--accent-bg);color:var(--accent2)" title="Filosofia Pandarênica — +3 Vantagem já entra sozinho na rolagem de Acerto">+3 Vantagem</span>` : ''}
           ${(p.furiaOrcAtiva && sk.id !== 'sk_racial_orc_furia') ? `<span class="sk-tag" style="background:var(--red-bg);color:var(--red)" title="Fúria de Orc — esta é a próxima Habilidade: não pode ser Aparada${sk.color === 'red' ? ' e recebe +1d6 de Dano' : ''}">😡 Não Aparável${sk.color === 'red' ? ' · +1d6 Dano' : ''}</span>` : ''}
           ${bloqueadaPorForma ? `<span class="sk-tag" style="background:var(--red-bg);color:var(--red)" title="Bloqueada pela Forma Sombria — só ${FORMA_SOMBRIA_COR_LABEL[PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].corPermitida]} podem ser usados agora">🔒 Bloqueada</span>` : ''}
           ${formaSombriaAtivaCard ? `<span class="sk-tag" style="background:var(--red-bg);color:var(--red)" title="Forma Sombria ativa">🐼 Ativa</span>` : ''}
@@ -9090,6 +9089,15 @@ let invEncantamentoEscolhido = null;
 
 function _updateInvModalSections(tipo) {
   const ehArmaOuInstrumento = (tipo === 'arma' || tipo === 'instrumento');
+  // Comprar/Ganhar: só pra item NOVO de Arma/Instrumento/Proteção (tem Preço).
+  // Editar item existente, ou tipo 'item' genérico (sem Preço), usa "Salvar" normal.
+  const mostraComprarGanhar = !modalInvId && tipo !== 'item';
+  const btnSalvar  = document.getElementById('inv-m-salvar');
+  const btnComprar = document.getElementById('inv-m-comprar');
+  const btnGanhar  = document.getElementById('inv-m-ganhar');
+  if (btnSalvar)  btnSalvar.style.display  = mostraComprarGanhar ? 'none' : '';
+  if (btnComprar) btnComprar.style.display = mostraComprarGanhar ? '' : 'none';
+  if (btnGanhar)  btnGanhar.style.display  = mostraComprarGanhar ? '' : 'none';
   document.getElementById('inv-sec-arma').style.display         = tipo === 'arma'        ? '' : 'none';
   document.getElementById('inv-sec-instrumento').style.display  = tipo === 'instrumento' ? '' : 'none';
   document.getElementById('inv-sec-alcance').style.display      = ehArmaOuInstrumento     ? '' : 'none';
@@ -9926,7 +9934,7 @@ function closeInvModal() {
   document.getElementById('modal-inv-overlay').classList.remove('open');
 }
 
-function saveInvItem() {
+function saveInvItem(cobrarDinheiro) {
   const p = PLAYERS.find(x => x.id === modalInvPid);
   if (!p) return;
   if (!Array.isArray(p.inventario)) p.inventario = [];
@@ -9947,6 +9955,24 @@ function saveInvItem() {
   }
 
   const tipo    = _invSelectedTipo();
+  // "Comprar" (cobrarDinheiro === true) desconta o Preço do Dinheiro do
+  // personagem; "Ganhar" (=== false) mantém o Dinheiro intacto. Só se aplica
+  // a item NOVO de Arma/Instrumento/Proteção (ver toggle dos botões em
+  // _updateInvModalSections) — editar um item existente, ou salvar um item
+  // genérico (sem Preço), usa "Salvar" normal e nunca cobra. A arma/
+  // armadura/elmo inicial ganha no wizard de criação de personagem não passa
+  // por aqui e continua sem custo.
+  if (!modalInvId && tipo !== 'item' && cobrarDinheiro === true) {
+    const precoCobrancaRaw = (document.getElementById('inv-m-preco') || {}).value || '';
+    const precoCobranca = precoCobrancaRaw.trim() !== '' ? Number(precoCobrancaRaw.trim()) : 0;
+    if (precoCobranca > 0) {
+      if ((p.dinheiro || 0) < precoCobranca) {
+        alert(`Dinheiro insuficiente! Este item custa ${precoCobranca} de Dinheiro, e ${p.name} só tem ${p.dinheiro || 0}.`);
+        return;
+      }
+      p.dinheiro = Math.max(0, (p.dinheiro || 0) - precoCobranca);
+    }
+  }
   const efeito  = document.getElementById('inv-m-efeito').value.trim();
   const peso    = _invSelectedPeso();
   const dano    = document.getElementById('inv-m-dano').value.trim();
@@ -13326,6 +13352,23 @@ function construirRolagemAcertoHabilidade(p, sk) {
       node: { type: 'labeled_const', value: Math.abs(bonusAcerto), label: sk.bonusAcertoLabel || 'bônus' }
     });
     total += bonusAcerto;
+  }
+
+  // "Origem Mag'har" (Orc): +2 de Vantagem na rolagem de Acerto se esta
+  // Habilidade foi marcada (ver getMagharHabBonus) e for do tipo Golpe
+  // (color 'red'). O +1d4 de Dano/Cura da mesma marcação continua manual —
+  // ainda não existe rolagem de Dano automática pra Habilidades.
+  if (getMagharHabBonus(p, sk.id) && sk.color === 'red') {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: 2, label: "Mag'har" } });
+    total += 2;
+  }
+
+  // "Filosofia Pandarênica" (Pandaren, Origem Comum): +3 de Vantagem na
+  // rolagem de Acerto pra toda Habilidade do tipo escolhido (ver
+  // getFilosofiaPandarenicaBonus).
+  if (getFilosofiaPandarenicaBonus(p, sk)) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: 3, label: 'Filosofia Pandarênica' } });
+    total += 3;
   }
 
   const tree = { type: 'sum', terms };
