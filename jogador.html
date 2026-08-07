@@ -382,7 +382,9 @@
           <button class="btn btn-danger" id="inv-m-del" style="display:none" onclick="deleteInvItem()"><i class="ti ti-trash"></i> Excluir</button>
           <div style="display:flex;gap:10px;margin-left:auto">
             <button class="btn" onclick="closeInvModal()">Cancelar</button>
-            <button class="btn btn-primary" onclick="saveInvItem()">Salvar</button>
+            <button class="btn btn-primary" id="inv-m-salvar" onclick="saveInvItem()">Salvar</button>
+            <button class="btn" id="inv-m-ganhar" style="display:none;border-color:var(--border2)" onclick="saveInvItem(false)"><i class="ti ti-gift"></i> Ganhar</button>
+            <button class="btn btn-primary" id="inv-m-comprar" style="display:none" onclick="saveInvItem(true)"><i class="ti ti-coin"></i> Comprar</button>
           </div>
         </div>
       </div>
@@ -688,6 +690,6 @@
       appId: "1:32314412947:web:758ee7ab153dd002482266"
     };
     </script>
-    <script src="logica.js?v=20260807e"></script>
+    <script src="logica.js?v=20260807h"></script>
   </body>
 </html>
