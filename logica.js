@@ -6645,6 +6645,28 @@ function construirRolagemDanoArma(p, item) {
   const terms = baseNode.type === 'sum' ? baseNode.terms.slice() : [{ sign: '+', node: baseNode }];
   let total = parsed.value;
 
+  // Acerto Crítico da Arma: dobra os dados de Dano desta rolagem (ex: 1d6 →
+  // 2d6, 1d8+1d6 → 2d8+2d6) — marca deixada por rolarAcertoArma quando o
+  // Acerto sai Crítico (ver rollCritInfo), consumida aqui, então só vale
+  // pra essa PRÓXIMA rolagem de Dano dessa Arma específica.
+  const critDobro = !!item.critPendente;
+  if (critDobro) {
+    terms.forEach(t => {
+      if (t.node.type === 'dice' && Array.isArray(t.node.results)) {
+        const extra = [];
+        for (let i = 0; i < t.node.count; i++) {
+          extra.push(1 + Math.floor(Math.random() * t.node.sides));
+        }
+        const extraSum = extra.reduce((a, b) => a + b, 0);
+        t.node.results = t.node.results.concat(extra);
+        t.node.count = t.node.count * 2;
+        t.node.sum = (t.node.sum || 0) + extraSum;
+        total += (t.sign === '-' ? -extraSum : extraSum);
+      }
+    });
+    item.critPendente = false;
+  }
+
   // "Origem Comum" (Orc): precisa saber se a arma causou o Dano Total dela
   // mesma (todos os dados da FÓRMULA BASE do item caíram no valor máximo) —
   // por isso este cálculo tem que ser feito ANTES de empilhar os termos de
@@ -6678,7 +6700,7 @@ function construirRolagemDanoArma(p, item) {
   }
 
   const tree = { type: 'sum', terms };
-  const formula = `Dano — ${item.name}`;
+  const formula = `Dano — ${item.name}${critDobro ? ' (🎯 Crítico! dados dobrados)' : ''}`;
   return { tree, total, formula, danoTotal };
 }
 
@@ -6720,10 +6742,115 @@ function rolarDanoArma(pid, itemId) {
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
 
-  if (origemComumAtiva) {
-    saveState();
-    renderAll();
+  // item.critPendente pode ter sido consumido acima (dados dobrados) — salva
+  // e re-renderiza sempre, não só no caso de Origem Comum (mesma correção
+  // já aplicada em rolarTeste/rolarAcertoHabilidade/rolarAcertoArma).
+  saveState();
+  renderAll();
+
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  return r.total;
+}
+
+// Monta a árvore de rolagem de Acerto de uma Arma/Instrumento — 1d20 +
+// Maestria conforme o peso (getArmaMaestriaBonus), igual ao Acerto de uma
+// Habilidade (construirRolagemAcertoHabilidade), incluindo os mesmos bônus
+// "de mesa" que valem pra qualquer rolagem: Duelo (+1d6/-1d6 contra o Alvo)
+// e Motivar (+1d12, consumido na hora).
+function construirRolagemAcertoArma(p, item) {
+  const sides = 20;
+  const mb = getArmaMaestriaBonus(p, item.peso);
+  const mst = mb ? mb.val : 0;
+
+  const d1 = 1 + Math.floor(Math.random() * sides);
+  const dadoNode = { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null };
+  const terms = [{ sign: '+', node: dadoNode }];
+  let total = d1;
+
+  if (mst) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: mst, label: 'Maestria ' + mb.attr } });
+    total += mst;
   }
+
+  // "Duelo" (Campeão): mesmo bônus/penalidade de +1d6/-1d6 do Teste e do
+  // Acerto de Habilidade (ver construirRolagemTeste) — atacar com Arma
+  // também conta como "acerto" pro efeito do Duelo.
+  if (p.dueloAtivo) {
+    const duRoll = 1 + Math.floor(Math.random() * 6);
+    if (p.dueloContraAlvo) {
+      terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [duRoll], sum: duRoll, countNode: null, label: 'Duelo' } });
+      total += duRoll;
+    } else {
+      terms.push({ sign: '-', node: { type: 'dice', sides: 6, count: 1, results: [duRoll], sum: duRoll, countNode: null, label: 'Duelo' } });
+      total -= duRoll;
+    }
+  }
+
+  // "Motivar" (Campeão): mesmo bônus de +1d12 do Teste/Acerto de Habilidade
+  // — atacar com Arma também conta como "próxima Ação ou Teste" de Motivar.
+  if (p.motivarPendente) {
+    const motRoll = 1 + Math.floor(Math.random() * 12);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 12, count: 1, results: [motRoll], sum: motRoll, countNode: null, label: 'Motivar' } });
+    total += motRoll;
+    p.motivarPendente = false;
+  }
+
+  const tree = { type: 'sum', terms };
+  const formula = `Rolagem de Acerto — ${item.name}`;
+  const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, null, sides);
+
+  return { sides, total, tree, formula, critMin, fumbleMax, fumbleImune };
+}
+
+// Rola e publica no feed de dados a checagem de Acerto de uma Arma/
+// Instrumento, exatamente como o Acerto de uma Habilidade — sem decidir
+// sozinho se acertou ou não, só monta a rolagem completa (dado + maestria +
+// bônus ativos) pra Narrador/Jogador julgarem o resultado.
+function rolarAcertoArma(pid, itemId) {
+  if (!currentUser) return null;
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  if (!p || !item) return null;
+  const r = construirRolagemAcertoArma(p, item);
+  if (!r) return null;
+
+  // Acerto Crítico: marca a Arma pra dobrar os dados na PRÓXIMA rolagem de
+  // Dano dela (ver construirRolagemDanoArma), e já entra com o aviso certo
+  // no feed — precisa ser calculado ANTES de montar/publicar a entry, já
+  // que pushRollEntry serializa o objeto na hora (mutar depois não teria efeito).
+  const critInfo = rollCritInfo({ tree: r.tree, critMin: r.critMin, fumbleMax: r.fumbleMax, fumbleImune: r.fumbleImune });
+  if (critInfo.hasCrit) item.critPendente = true;
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: r.formula,
+    tree: r.tree,
+    total: r.total,
+    sides: r.sides,
+    critMin: r.critMin,
+    fumbleMax: r.fumbleMax,
+    fumbleImune: r.fumbleImune,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+    label: critInfo.hasCrit ? '🎯 Acerto Crítico! Próximo Dano desta Arma sai com os dados dobrados' : '🎯 Rolagem de Acerto',
+  };
+
+  spinDiceFab(true, r.sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  // Motivar/crítico podem ter sido consumidos/marcados acima — salva e
+  // re-renderiza pra valer pra mesa inteira (mesma correção aplicada em
+  // rolarTeste/rolarAcertoHabilidade).
+  saveState();
+  renderAll();
 
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
@@ -9047,10 +9174,14 @@ function renderInventarioArea(p, readOnly) {
       const rolarDanoBtn = item.dano
         ? `<button class="teste-roll-btn" style="margin-left:6px" onclick="event.stopPropagation();rolarDanoArma(${p.id},'${item.id}')" title="Rolar Dano (${escHtml(item.dano)}${mb && mb.val ? ' +' + mb.val + ' ' + mb.attr : ''}${temAfiacaoAprimorada(item) ? ' +1d6 ✨' : ''}${profundezasVal > 0 ? ' +' + profundezasVal + ' Profundezas' : ''})"><i class="ti ti-dice"></i></button>`
         : '';
+      const rolarAcertoBtn = `<button class="sk-btn" style="margin-left:6px;padding:4px 10px;font-size:11.5px" onclick="event.stopPropagation();rolarAcertoArma(${p.id},'${item.id}')" title="Rolar Acerto (1d20${mb && mb.val ? ' +' + mb.val + ' ' + mb.attr : ''})">🎯 Acerto</button>`;
       const danoPart = item.dano ? `<div class="inv-stat"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}${afiacaoBonus}${profundezasBonus}${rolarDanoBtn}</div>` : '';
       const precoPart = item.preco != null ? `<div class="inv-stat"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val" style="color:var(--amber)">${item.preco}</span></div>` : '';
-      if (!danoPart && !precoPart) return '';
-      return `<div class="inv-stats-row">${danoPart}${precoPart}</div>`;
+      const acertoPart = `<div class="inv-stat"><span class="inv-dano-label">Acerto</span>${!item.dano ? bonus : ''}${rolarAcertoBtn}</div>`;
+      const critBadge = item.critPendente
+        ? `<div style="font-size:11px;color:#e8c53a;margin-top:2px" title="Próxima rolagem de Dano desta Arma sai com os dados dobrados">🎯 Crítico! Próximo Dano dobrado</div>`
+        : '';
+      return `<div class="inv-stats-row">${danoPart}${acertoPart}${precoPart}</div>${critBadge}`;
     }
     const encantamentoBox = item.encantamento
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>`
