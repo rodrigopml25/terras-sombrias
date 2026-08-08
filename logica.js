@@ -6916,6 +6916,22 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Grito de Guerra" (Campeão): concede Mega Vantagem em TODOS os Testes
+  // dos Aliados (os demais Jogadores) até o próximo turno — sem mexer no
+  // botão MV manual de cada Teste; fica marcado à parte em
+  // p.gritoDeGuerraAtivo (ver construirRolagemTeste, que soma essa marca à
+  // condição de Mega Vantagem) e é limpo automaticamente no próximo reset de
+  // turno (ver aplicarResetDeTurno). "Eles não podem Desviar" é uma
+  // restrição ampla igual à de Fúria — não é bloqueada pelo app, fica por
+  // conta da mesa/Narrador.
+  if (sk.id === 'sk_banco_campeao_grito_de_guerra') {
+    PLAYERS.forEach(aliado => {
+      if (aliado.id !== p.id) aliado.gritoDeGuerraAtivo = true;
+    });
+    saveState();
+    renderAll();
+  }
+
   // "Fôlego Extra" (Campeão): concede 1 Ação a mais imediatamente ao ser usada.
   if (sk.id === 'sk_banco_campeao_folego_extra') {
     p.acoesAtuais = (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) + 1;
@@ -6939,6 +6955,9 @@ function aplicarResetDeTurno() {
   turnGlobal++;
   PLAYERS.forEach(p => {
     p.acoesAtuais = p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
+    // "Grito de Guerra" (Campeão): a Mega Vantagem concedida aos Aliados vale
+    // só até o próximo turno — limpa a marca aqui.
+    p.gritoDeGuerraAtivo = false;
     // "Treinamento Militar" (Orc): +1 Ação garantida neste turno, escolhida
     // como recompensa do Crítico no Aparar — consome a marca ao aplicar.
     if (p.treinamentoMilitarAcaoExtra) {
@@ -6974,6 +6993,7 @@ function resetLuta() {
   combatAtivo = false;
   PLAYERS.forEach(p => {
     p.acoesAtuais = p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
+    p.gritoDeGuerraAtivo = false;
     p.skills.forEach(sk => {
       if (['perturn','luta','turno_N'].includes(sk.tipo)) {
         sk.usosAtuais = sk.usosMax;
@@ -7554,7 +7574,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${dueloBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
@@ -13718,6 +13738,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_campeao_dose_dupla',
   'sk_banco_campeao_folego_extra',
   'sk_banco_campeao_gambiarra_de_alto_nivel',
+  'sk_banco_campeao_grito_de_guerra',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
@@ -14040,7 +14061,10 @@ function construirRolagemTeste(p, testeId) {
   // t.mv estiver marcado (proteção extra — o botão MV já fica desabilitado
   // pra esse personagem, ver renderTestes).
   const mvBloqueadaPorOrigem = p.origemId === 'humano_origem_vento_bravo';
-  const temMV = t.mv && !mvBloqueadaPorOrigem;
+  // "Grito de Guerra" (Campeão): Mega Vantagem em TODOS os Testes do Aliado
+  // até o próximo turno, marcada em p.gritoDeGuerraAtivo (ver useSkill) — vale
+  // como uma segunda fonte de Mega Vantagem, ao lado do toggle MV manual.
+  const temMV = (t.mv || p.gritoDeGuerraAtivo) && !mvBloqueadaPorOrigem;
   const temMD = t.md;
   const isMega = !!(temMV || temMD);
   const d1 = 1 + Math.floor(Math.random() * sides);
