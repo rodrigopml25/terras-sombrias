@@ -2221,6 +2221,65 @@ function escolherTreinamentoMilitarRecompensa(pid, escolha) {
   renderAll();
 }
 
+// "Conclamar" (Campeão), em Luta: escolha entre chamar a atenção de um
+// Alvo (narrativo, resolvido na mesa) ou reduzir em 2 turnos a recarga de
+// Grito de Guerra ou Motivar. As duas reduções de recarga só ficam
+// clicáveis se o personagem tiver a Habilidade correspondente E ela
+// estiver de fato em recarga no momento (senão não há o que reduzir).
+function abrirConclamarModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  const grito = p.skills.find(s => s.id === 'sk_banco_campeao_grito_de_guerra');
+  const motivar = p.skills.find(s => s.id === 'sk_banco_campeao_motivar');
+
+  const opcaoRecarga = (sk, label) => {
+    if (!sk) return '';
+    const emRecarga = sk.tipo === 'turno_N' && sk.cdRestante > 0;
+    const info = !emRecarga ? 'já pronta' : `faltam ${sk.cdRestante} ${sk.cdRestante === 1 ? 'turno' : 'turnos'}`;
+    return `<button class="tm-opcao tm-opcao-blue" ${!emRecarga ? 'disabled' : ''} onclick="escolherConclamar(${p.id},'${sk.id}')">
+      <span class="tm-opcao-nome">⏱️ Reduzir 2 turnos — ${escHtml(label)}</span>
+      <span class="tm-opcao-info">${info}</span>
+    </button>`;
+  };
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-speakerphone"></i> Conclamar — em Luta</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha o efeito de ${escHtml(p.name)}:
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherConclamar(${p.id},null)">
+          <span class="tm-opcao-nome">🎯 Chamar a atenção de um Alvo</span>
+          <span class="tm-opcao-info">narrativo</span>
+        </button>
+        ${opcaoRecarga(grito, 'Grito de Guerra')}
+        ${opcaoRecarga(motivar, 'Motivar')}
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherConclamar(pid, skidAlvo) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (skidAlvo) {
+    const sk = p.skills.find(s => s.id === skidAlvo);
+    if (sk && sk.tipo === 'turno_N' && sk.cdRestante > 0) {
+      sk.cdRestante = Math.max(0, sk.cdRestante - 2);
+      if (sk.cdRestante === 0) sk.usosAtuais = sk.usosMax;
+    }
+  }
+  // "Chamar a atenção de um Alvo": sem efeito automático — narrativo,
+  // resolvido na mesa (igual ao Contra-Ataque do Treinamento Militar).
+  fecharCriacaoAnaoModal();
+  saveState();
+  renderAll();
+}
+
 // "Decréptico" (Elfo): escolhe 2 Testes de Intelecto — um recebe +1 de
 // Vantagem, o outro +3 (termos à parte na rolagem, iguais à Adaptação do
 // Espaço). A -2 de Desvantagem em Resistir é fixa e automática (ver
@@ -6731,6 +6790,16 @@ function useSkill(pid, skid) {
   // getCritThresholds, que leem e consomem essa marca.
   if (sk.id === 'sk_banco_campeao_analise_rapida') {
     p.analiseRapidaPendente = true;
+  }
+
+  // "Conclamar" (Campeão): fora de Luta, o efeito é só chamar a atenção de
+  // todos ao redor (puramente narrativo, sem automação). Em Luta, abre a
+  // escolha entre chamar a atenção de um Alvo (narrativo, resolvido na
+  // mesa) ou reduzir em 2 turnos a recarga de Grito de Guerra ou Motivar
+  // (automatizado de verdade — ver abrirConclamarModal/escolherConclamar).
+  if (sk.id === 'sk_banco_campeao_conclamar' && combatAtivo) {
+    abrirConclamarModal(pid);
+    return;
   }
 
   // Habilidade vinculada a um único Teste (ex: Acrobacia) — rola automaticamente.
@@ -13504,6 +13573,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_origem_draenei_forjado_luz',
   'sk_racial_draenei_adaptacao',
   'sk_banco_campeao_adaptacao',
+  'sk_banco_campeao_conclamar',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
