@@ -6832,6 +6832,14 @@ function useSkill(pid, skid) {
   if (sk.id === 'sk_banco_campeao_duelo') {
     p.dueloAtivo = true;
     p.dueloContraAlvo = true;
+    // Diferente das outras marcas acima (ex: Análise Rápida), o Duelo não
+    // é consumido por uma rolagem logo em seguida — o badge/toggle precisa
+    // aparecer JÁ na tela assim que a Habilidade é usada, então salva e
+    // renderiza aqui mesmo (o saveState()/renderAll() geral já rodou antes
+    // deste bloco, então sem isso o estado só apareceria no próximo render
+    // disparado por outra ação, ou só após recarregar a página).
+    saveState();
+    renderAll();
   }
 
   // Habilidade vinculada a um único Teste (ex: Acrobacia) — rola automaticamente.
