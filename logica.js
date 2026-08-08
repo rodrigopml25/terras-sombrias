@@ -1978,7 +1978,7 @@ function rolarOrigemComum(pid) {
     formula: 'Origem Comum (1d10 Mega Vantagem)',
     tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'megaroll', mode: 'mv', sides, d1, d2, kept } }] },
     total: kept,
-    hidden: false,
+    hidden: hiddenPadrao(p),
     rolling: true,
     ts: Date.now()
   };
@@ -2018,7 +2018,7 @@ function rolarInsanidadeOrigemDemoniaca(pid) {
     formula: 'Origem Demoníaca — Insanidade ao subir de Nível',
     tree: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null },
     total: d1,
-    hidden: false,
+    hidden: hiddenPadrao(p),
     rolling: true,
     ts: Date.now()
   };
@@ -2397,7 +2397,7 @@ function escolherHonra(pid, opcao) {
       tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides: 20, count: 2, results: [d1, d2], sum: cura, countNode: null } }] },
       total: cura,
       sides: 20,
-      hidden: false,
+      hidden: hiddenPadrao(p),
       rolling: true,
       ts: Date.now(),
       label: '❤️ Honra — Cura',
@@ -2623,7 +2623,7 @@ function confirmarOrigemNoturna(pid, className, subNome) {
     formula: `Origem Noturna — ${subNome} (1d10)`,
     tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null } }] },
     total: d1,
-    hidden: false,
+    hidden: hiddenPadrao(p),
     rolling: true,
     ts: Date.now()
   };
@@ -2976,7 +2976,7 @@ function resolverEncantamentoAmaldicoado(pid, tipo, skillId) {
     formula: `Encantamento Amaldiçoado — ${tipo === 'dano' ? 'Dano' : 'Insanidade'} (1d6)${sk ? ' · ' + sk.name : ''}`,
     tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null } }] },
     total: d1,
-    hidden: false,
+    hidden: hiddenPadrao(p),
     rolling: true,
     ts: Date.now()
   };
@@ -5484,7 +5484,7 @@ function rolarExpressaoEterea(pid, tipo) {
     formula: `Expressão Etérea — ${tipoLabelTxt} (1d6)`,
     tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null } }] },
     total: d1,
-    hidden: false,
+    hidden: hiddenPadrao(p),
     rolling: true,
     ts: Date.now()
   };
@@ -6708,7 +6708,7 @@ function rolarDanoArma(pid, itemId) {
     formula: r.formula,
     tree: r.tree,
     total: r.total,
-    hidden: false,
+    hidden: hiddenPadrao(p),
     rolling: true,
     ts: Date.now(),
     ...(origemComumAtiva ? { label: '🩸 Origem Comum — Dano Total! +1 Ação neste turno (ataca o alvo mais próximo, exceto se for um Golpe)' } : {})
@@ -13790,6 +13790,15 @@ function spinDiceFab(on, sides) {
   }
 }
 
+// Toda rolagem de um NPC (p.isNPC), feita pelo Narrador, começa oculta dos
+// Jogadores por padrão — só o Narrador vê o resultado até clicar em
+// "Revelar para os jogadores" (ver revelarRolagem). Rolagens de Jogadores
+// continuam abertas normalmente. Usado em todo lugar que cria uma entry de
+// rolagem vinculada a um personagem (Teste, Acerto, Dano de Arma etc.).
+function hiddenPadrao(p) {
+  return !!(IS_NARRADOR && p && p.isNPC);
+}
+
 function pushRollEntry(entry, afterKeyKnown) {
   if (firebaseConfigured && diceBaseRef) {
     const newRef = diceBaseRef.push();
@@ -13943,7 +13952,7 @@ function rolarAcertoHabilidadeEncantada(pid, skid, testeId) {
     critMin: r.critMin,
     fumbleMax: r.fumbleMax,
     fumbleImune: r.fumbleImune,
-    hidden: false,
+    hidden: hiddenPadrao(p),
     rolling: true,
     ts: Date.now(),
     label: '🎯 Rolagem de Acerto',
@@ -14070,7 +14079,7 @@ function rolarAcertoHabilidade(pid, sk) {
     critMin: r.critMin,
     fumbleMax: r.fumbleMax,
     fumbleImune: r.fumbleImune,
-    hidden: false,
+    hidden: hiddenPadrao(p),
     rolling: true,
     ts: Date.now(),
     label: '🎯 Rolagem de Acerto',
@@ -14485,7 +14494,7 @@ function rolarTeste(pid, testeId) {
     critMin: r.critMin,
     fumbleMax: r.fumbleMax,
     fumbleImune: r.fumbleImune,
-    hidden: false,
+    hidden: hiddenPadrao(p),
     rolling: true,
     ts: Date.now(),
     ...(r.garantido ? { garantido: true, label: '⚔️ Treinamento Militar — Aparar Garantido (50% de Crítico)' } : {})
