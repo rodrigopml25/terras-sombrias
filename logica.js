@@ -1563,6 +1563,15 @@ function buscarEncantamentoPorId(id) {
     || null;
 }
 
+// "Multifunções" (passiva fixa do Campeão): sabe usar TODAS as Armas e
+// Instrumentos, de qualquer categoria de peso — inclusive Mega Pesada,
+// Exótica e Encantada — sem depender de Talento Inferior. NÃO vale pra
+// Armadura/Elmo (a passiva é só sobre Armas, ver descrição).
+function temMultifuncoesArma(p) {
+  if (p.isNPC) return false; // NPC já libera tudo por outro caminho
+  return getSubclassePassivas(p).some(pas => pas.id === 'campeao_multifuncoes');
+}
+
 // O personagem tem o Talento Inferior "Equipamento Encantado"? Sem ele, não
 // pode aplicar (nem manter) Encantamentos em seus equipamentos.
 function temAcessoEquipamentoEncantado(p) {
@@ -1581,7 +1590,7 @@ function temAcessoEquipamentoExotico(p) {
 // agora (tem o Talento Inferior "Equipamento Encantado" mas ainda não
 // escolheu Arcano ou Místico) — ver renderEscolhaEstiloEncantamentoModal.
 function precisaEscolherEstiloEncantamento(p) {
-  return temAcessoEquipamentoEncantado(p) && !p.estiloEncantamentoId;
+  return (temAcessoEquipamentoEncantado(p) || temMultifuncoesArma(p)) && !p.estiloEncantamentoId;
 }
 
 // Define o Estilo de Encantamento do personagem (Arcano ou Místico) — escolha
@@ -5572,12 +5581,13 @@ function temAcessoArmaduraMegaPesada(p) {
 // original): Leve -> Leve+Média; Média -> Média+Pesada; Pesada -> Pesada+Mega.
 function getPesosArmaPermitidosPersonagem(p) {
   // "Multifunções" (passiva fixa do Campeão): sabe usar TODAS as Armas,
-  // independente do atributo da subclasse — ignora a regra exclusiva normal.
+  // independente do atributo da subclasse — ignora a regra exclusiva normal,
+  // e já inclui Mega Pesada de cara (sem depender da Maestria de Peso
+  // Aprimorada — essa só serve pra outras classes chegarem em Mega).
   const temMultifuncoes = getSubclassePassivas(p).some(pas => pas.id === 'campeao_multifuncoes');
   const temMaestriaAprimorada = getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'maestria_de_peso_aprimorada');
   if (temMultifuncoes) {
-    // Já tem Leve/Média/Pesada; com a Maestria de Peso Aprimorada, chega em Mega também.
-    return temMaestriaAprimorada ? ['leve', 'media', 'pesada', 'mega'] : ['leve', 'media', 'pesada'];
+    return ['leve', 'media', 'pesada', 'mega'];
   }
   const base = getPesosArmaPermitidos(p.cls); // ex: ['media']
   let resultado;
@@ -5642,7 +5652,7 @@ function getBaseClass(subclasseName) {
 // precisar serem cadastradas manualmente. Segue o mesmo padrão de RACAS.
 const SUBCLASSES_PASSIVAS = {
   'Campeão': [
-    { id: 'campeao_multifuncoes', name: 'Multifunções', desc: 'Sabe usar TODAS as Armas.' },
+    { id: 'campeao_multifuncoes', name: 'Multifunções', desc: 'Sabe usar TODAS as Armas e Instrumentos, de qualquer categoria de peso — incluindo Mega Pesada, Exótica e Encantada — sem precisar de Talento Inferior pra isso.' },
     { id: 'campeao_maestria_mediana', name: 'Maestria Mediana', desc: 'Sabe usar Armadura Média e Armas Médias. Escolha um Teste de Agilidade e receberá Mega Vantagem.' },
   ],
   'Combatente': [
@@ -9416,16 +9426,23 @@ function renderInvCatalogo() {
   const pOwner = modalInvPid != null ? PLAYERS.find(x => x.id === modalInvPid) : null;
   const temEncantado = pOwner ? temAcessoEquipamentoEncantado(pOwner) : false;
   const temExotico   = pOwner ? temAcessoEquipamentoExotico(pOwner) : false;
+  // "Multifunções" (Campeão): sabe usar TODAS as Armas e Instrumentos, de
+  // qualquer categoria — inclusive Exótica e Encantada — sem precisar dos
+  // Talentos Inferiores "Equipamento Exótico"/"Equipamento Encantado". Só
+  // vale pro tipo 'arma'/'instrumento', nunca pra Armadura/Elmo.
+  const temMultifuncoesAqui = pOwner && (tipo === 'arma' || tipo === 'instrumento') && temMultifuncoesArma(pOwner);
+  const temEncantadoAqui = temEncantado || temMultifuncoesAqui;
+  const temExoticoAqui = temExotico || temMultifuncoesAqui;
   // NPC: Narrador pode dar qualquer item pro NPC — Encantado, Exótico ou
   // qualquer categoria de peso (inclusive Mega) — sem depender de Talento
   // Inferior nem do atributo da subclasse, que só valem pra fichas de jogador.
   const isNPCOwner = !!(pOwner && pOwner.isNPC);
 
   const filtrados = banco.filter(item => {
-    // Itens de peso 'encantada' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Encantado"
-    if (!isNPCOwner && item.peso === 'encantada' && !temEncantado) return false;
-    // Itens de peso 'exotica' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Exótico"
-    if (!isNPCOwner && item.peso === 'exotica' && !temExotico) return false;
+    // Itens de peso 'encantada' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Encantado" (ou Multifunções, se for Arma/Instrumento)
+    if (!isNPCOwner && item.peso === 'encantada' && !temEncantadoAqui) return false;
+    // Itens de peso 'exotica' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Exótico" (ou Multifunções, se for Arma/Instrumento)
+    if (!isNPCOwner && item.peso === 'exotica' && !temExoticoAqui) return false;
     // Armadura e Elmo: TODAS as categorias de peso (Leve/Média/Pesada/Mega) são
     // travadas pelo atributo da subclasse + Talento Inferior "Maestria de Peso
     // Aprimorada" (ver getPesoMaximoArmaduraPersonagem/temAcessoPesoArmaduraOuElmo).
@@ -9933,7 +9950,7 @@ function _buildEncantamentoListHtml(subtipoAlvo) {
   const p = PLAYERS.find(x => x.id === modalInvPid);
   if (!p) return '';
 
-  if (!temAcessoEquipamentoEncantado(p)) {
+  if (!temAcessoEquipamentoEncantado(p) && !(subtipoAlvo === 'arma' && temMultifuncoesArma(p))) {
     return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Requer o Talento Inferior <strong>"Equipamento Encantado"</strong>.</div>`;
   }
 
