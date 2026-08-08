@@ -6916,6 +6916,19 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Motivar" (Campeão): concede +1d12 de Vantagem no próximo Teste OU
+  // Acerto de Habilidade de cada Aliado (os demais Jogadores) — 1 uso só,
+  // consumido na hora (ver p.motivarPendente, lido e apagado tanto em
+  // construirRolagemTeste quanto em construirRolagemAcertoHabilidade,
+  // qualquer que role primeiro).
+  if (sk.id === 'sk_banco_campeao_motivar') {
+    PLAYERS.forEach(aliado => {
+      if (aliado.id !== p.id) aliado.motivarPendente = true;
+    });
+    saveState();
+    renderAll();
+  }
+
   // "Grito de Guerra" (Campeão): concede Mega Vantagem em TODOS os Testes
   // dos Aliados (os demais Jogadores) até o próximo turno — sem mexer no
   // botão MV manual de cada Teste; fica marcado à parte em
@@ -7574,7 +7587,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${dueloBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
@@ -8303,6 +8316,14 @@ function renderJogador() {
           <div style="flex:1">
             <div style="font-size:12px;font-weight:700;color:var(--green)">Grito de Guerra ativo</div>
             <div style="font-size:11px;color:var(--text2)">Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar</div>
+          </div>
+        </div>` : ''}
+        ${p.motivarPendente ? `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">📢</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--green)">Motivar ativo</div>
+            <div style="font-size:11px;color:var(--text2)">+1d12 de Vantagem no próximo Teste ou Acerto — some sozinho ao ser usado</div>
           </div>
         </div>` : ''}
         ${p.pontosPendentes > 0 ? `
@@ -13747,6 +13768,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_campeao_folego_extra',
   'sk_banco_campeao_gambiarra_de_alto_nivel',
   'sk_banco_campeao_grito_de_guerra',
+  'sk_banco_campeao_motivar',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
@@ -13905,6 +13927,16 @@ function construirRolagemAcertoHabilidade(p, sk) {
       terms.push({ sign: '-', node: { type: 'dice', sides: 6, count: 1, results: [duRoll], sum: duRoll, countNode: null, label: 'Duelo' } });
       total -= duRoll;
     }
+  }
+
+  // "Motivar" (Campeão): mesmo bônus de +1d12 do Teste normal (ver
+  // construirRolagemTeste) — o Acerto de Habilidade também conta como
+  // "próxima Ação ou Teste" pro efeito de Motivar.
+  if (p.motivarPendente) {
+    const motRoll = 1 + Math.floor(Math.random() * 12);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 12, count: 1, results: [motRoll], sum: motRoll, countNode: null, label: 'Motivar' } });
+    total += motRoll;
+    p.motivarPendente = false;
   }
 
   const tree = { type: 'sum', terms };
@@ -14184,6 +14216,15 @@ function construirRolagemTeste(p, testeId) {
     terms.push({ sign: '+', node: { type: 'dice', sides: 4, count: 1, results: [arRoll], sum: arRoll, countNode: null, label: 'Análise Rápida' } });
     total += arRoll;
     p.analiseRapidaPendente = false;
+  }
+
+  // "Motivar" (Campeão): +1d12 de Vantagem no próximo Teste do Aliado —
+  // 1 uso só, consumido nesta rolagem (marca deixada por useSkill).
+  if (p.motivarPendente) {
+    const motRoll = 1 + Math.floor(Math.random() * 12);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 12, count: 1, results: [motRoll], sum: motRoll, countNode: null, label: 'Motivar' } });
+    total += motRoll;
+    p.motivarPendente = false;
   }
 
   // "Duelo" (Campeão): enquanto ativo, +1d6 de Vantagem se esta rolagem é
