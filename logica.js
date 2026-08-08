@@ -13494,6 +13494,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_geral_teste_mental',
   'sk_origem_draenei_forjado_luz',
   'sk_racial_draenei_adaptacao',
+  'campeao_adaptacao',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
