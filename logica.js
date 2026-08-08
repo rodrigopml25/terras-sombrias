@@ -13574,6 +13574,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_racial_draenei_adaptacao',
   'sk_banco_campeao_adaptacao',
   'sk_banco_campeao_conclamar',
+  'sk_banco_campeao_dose_dupla',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
