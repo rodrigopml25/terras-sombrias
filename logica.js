@@ -13868,12 +13868,16 @@ function rolarAcertoHabilidadeEncantada(pid, skid, testeId) {
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
 
+  // Mesma correção de rolarTeste/rolarAcertoHabilidade: essa rolagem também
+  // passa por construirRolagemTeste e pode consumir Motivar/Análise Rápida.
+  saveState();
+  renderAll();
+
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
 
   return r.total;
 }
-
 function construirRolagemAcertoHabilidade(p, sk) {
   const sides = 20;
   const campoAttr = ATTR_DA_COR_HABILIDADE[sk.color] || null;
@@ -13977,6 +13981,13 @@ function rolarAcertoHabilidade(pid, sk) {
     setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
+
+  // Marca de 1 uso consumida em construirRolagemAcertoHabilidade (Motivar) —
+  // precisa salvar e re-renderizar, senão o badge fica errado pros outros e
+  // a marca pode "voltar" num sync do Firebase (ver mesma correção em
+  // rolarTeste).
+  saveState();
+  renderAll();
 
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
@@ -14400,9 +14411,15 @@ function rolarTeste(pid, testeId) {
   // consumida (ver construirRolagemTeste) — persiste isso pra todos na mesa
   // e some com o badge "pronto" da Habilidade. Se o Aparar saiu Crítico
   // (10+ no d20, pelo limiar especial), abre a escolha de recompensa.
+  // Qualquer marca de 1 uso consumida em construirRolagemTeste (Motivar,
+  // Análise Rápida, Treinamento Militar) só existe de fato pros outros na
+  // mesa — e continua consumida depois de um F5 — se for salva e
+  // re-renderizada agora. Sem isso, o badge ficava "grudado" pra quem ainda
+  // não tinha rolado, e a marca podia voltar (efeito "voltou pra todo mundo")
+  // se um sync do Firebase sobrescrevesse o estado local não salvo.
+  saveState();
+  renderAll();
   if (r.garantido) {
-    saveState();
-    renderAll();
     const critInfo = rollCritInfo(entry);
     if (critInfo.hasCrit) {
       setTimeout(() => abrirTreinamentoMilitarEscolhaModal(pid), ROLL_ANIM_MS + 250);
