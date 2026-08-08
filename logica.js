@@ -8297,6 +8297,14 @@ function renderJogador() {
           </div>
           <button onclick="event.stopPropagation();desativarDuelo(${p.id})" title="Encerrar o Duelo" style="background:none;border:1px solid var(--border2);color:var(--text2);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:11px;flex-shrink:0">✕</button>
         </div>` : ''}
+        ${p.gritoDeGuerraAtivo ? `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">📣</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--green)">Grito de Guerra ativo</div>
+            <div style="font-size:11px;color:var(--text2)">Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar</div>
+          </div>
+        </div>` : ''}
         ${p.pontosPendentes > 0 ? `
         <div onclick="editCharacter(${p.id})" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(124,92,191,0.15);border:1px solid rgba(124,92,191,0.45);border-radius:10px;padding:8px 12px;margin-top:10px">
           <span style="font-size:18px">⬆</span>
