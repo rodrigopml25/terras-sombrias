@@ -8179,6 +8179,15 @@ function renderJogador() {
             <div style="font-size:11px;color:var(--text2)">Só pode usar Habilidades de ${FORMA_SOMBRIA_COR_LABEL[PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].corPermitida]} · toque em "${PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].name}" pra desfazer</div>
           </div>
         </div>` : ''}
+        ${p.dueloAtivo ? `
+        <div style="display:flex;align-items:center;gap:8px;background:${p.dueloContraAlvo ? 'var(--green-bg)' : 'var(--red-bg)'};border:1px solid ${p.dueloContraAlvo ? 'var(--green-bd)' : 'var(--red-bd)'};border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">⚔️</span>
+          <div style="flex:1;cursor:pointer" onclick="toggleDueloAlvo(${p.id})">
+            <div style="font-size:12px;font-weight:700;color:${p.dueloContraAlvo ? 'var(--green)' : '#f08080'}">Duelo ativo: ${p.dueloContraAlvo ? '+1d6 contra o Alvo' : '−1d6 contra outro Alvo'}</div>
+            <div style="font-size:11px;color:var(--text2)">Toque para trocar antes de rolar</div>
+          </div>
+          <button onclick="event.stopPropagation();desativarDuelo(${p.id})" title="Encerrar o Duelo" style="background:none;border:1px solid var(--border2);color:var(--text2);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:11px;flex-shrink:0">✕</button>
+        </div>` : ''}
         ${p.pontosPendentes > 0 ? `
         <div onclick="editCharacter(${p.id})" style="cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(124,92,191,0.15);border:1px solid rgba(124,92,191,0.45);border-radius:10px;padding:8px 12px;margin-top:10px">
           <span style="font-size:18px">⬆</span>
