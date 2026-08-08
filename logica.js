@@ -2075,6 +2075,19 @@ function abrirProximoSeletorRacial(pid) {
     abrirBrutaoModal(pid);
     return;
   }
+  // "Maestria" de subclasse (Mediana/Pesada/Leve): igual às outras passivas
+  // de escolha, abre assim que o personagem é criado (a subclasse já vem
+  // junto da classe escolhida na criação, ver getSubclassePassivas).
+  for (const tipo of Object.keys(MAESTRIA_SUBCLASSE_IDS)) {
+    if (temMaestriaTipo(p, tipo) && !p[MAESTRIA_CAMPO[tipo]]) {
+      abrirMaestriaModal(pid, tipo);
+      return;
+    }
+  }
+  if (p.origemId === 'troll_origem_comum' && !p.origemComumTrocaConfigurada) {
+    abrirOrigemComumModal(pid);
+    return;
+  }
   if (trollEncantamentoTemPendencia(p)) {
     abrirEncantamentoTrollModal(pid);
     return;
@@ -2908,9 +2921,11 @@ function escolherOrigemComumTroca(pid, area, testeId) {
   if (!p) return;
   p.origemComumTrocaArea = area;
   p.origemComumTrocaTesteId = testeId;
+  p.origemComumTrocaConfigurada = true;
   saveState();
   renderAll();
   fecharCriacaoAnaoModal();
+  abrirProximoSeletorRacial(pid);
 }
 
 function limparOrigemComumTroca(pid) {
@@ -2918,9 +2933,11 @@ function limparOrigemComumTroca(pid) {
   if (!p) return;
   p.origemComumTrocaArea = null;
   p.origemComumTrocaTesteId = null;
+  p.origemComumTrocaConfigurada = true;
   saveState();
   renderAll();
   fecharCriacaoAnaoModal();
+  abrirProximoSeletorRacial(pid);
 }
 
 // ─── "Origem de Kalindor" (Humano): a cada Nível, escolhe 1 Teste pra
@@ -3360,6 +3377,7 @@ function escolherOrigemProfundezas(pid, nome) {
   fecharCriacaoAnaoModal();
   saveState();
   renderAll();
+  abrirProximoSeletorRacial(pid);
 }
 
 function confirmarCriacaoAnao(pid) {
@@ -5806,7 +5824,7 @@ function abrirMaestriaModal(pid, tipo) {
         Escolha um Teste de ${MAESTRIA_ATTR_LABEL[attr]} para receber Mega Vantagem por padrão (o botão MV continua liberado — pode ser desligado manualmente quando não se aplicar).
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">${opcoes}</div>
-      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal();abrirProximoSeletorRacial(${p.id})">Fechar</button>
     </div>`;
   overlay.classList.add('open');
 }
