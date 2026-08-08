@@ -6685,6 +6685,14 @@ function construirRolagemDanoArma(p, item) {
   if (mb && mb.val) {
     terms.push({ sign: '+', node: { type: 'labeled_const', value: mb.val, label: 'Maestria ' + mb.attr } });
     total += mb.val;
+    // "Sem Arma": a base de Dano é fixa em "1", sem dado pra dobrar no
+    // Crítico — então o Crítico soma a Maestria de Força mais uma vez, no
+    // lugar de dobrar dados (ver bloco de critDobro acima, que não afeta
+    // termos que não são dado).
+    if (item.id === 'sem_arma' && critDobro) {
+      terms.push({ sign: '+', node: { type: 'labeled_const', value: mb.val, label: 'Maestria ' + mb.attr + ' (Crítico)' } });
+      total += mb.val;
+    }
   }
 
   if (typeof temAfiacaoAprimorada === 'function' && temAfiacaoAprimorada(item)) {
@@ -6700,7 +6708,7 @@ function construirRolagemDanoArma(p, item) {
   }
 
   const tree = { type: 'sum', terms };
-  const formula = `Dano — ${item.name}${critDobro ? ' (🎯 Crítico! dados dobrados)' : ''}`;
+  const formula = `Dano — ${item.name}${critDobro ? (item.id === 'sem_arma' ? ' (🎯 Crítico! Maestria em dobro)' : ' (🎯 Crítico! dados dobrados)') : ''}`;
   return { tree, total, formula, danoTotal };
 }
 
@@ -6710,7 +6718,7 @@ function construirRolagemDanoArma(p, item) {
 function rolarDanoArma(pid, itemId) {
   if (!currentUser) return null;
   const p = PLAYERS.find(x => x.id === pid);
-  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  const item = p && resolverArmaOuInstrumento(p, itemId);
   if (!p || !item) return null;
   const r = construirRolagemDanoArma(p, item);
   if (!r) return null;
@@ -6811,7 +6819,7 @@ function construirRolagemAcertoArma(p, item) {
 function rolarAcertoArma(pid, itemId) {
   if (!currentUser) return null;
   const p = PLAYERS.find(x => x.id === pid);
-  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  const item = p && resolverArmaOuInstrumento(p, itemId);
   if (!p || !item) return null;
   const r = construirRolagemAcertoArma(p, item);
   if (!r) return null;
@@ -9018,9 +9026,44 @@ const INV_PESO_BG    = { leve:'var(--blue-bg)', media:'var(--green-bg)', pesada:
 const INV_PESO_BD    = { leve:'var(--blue-bd)', media:'var(--green-bd)', pesada:'var(--red-bd)', exotica:'var(--green-bd)', mega:'rgba(139,31,31,0.4)', encantada:'rgba(58,95,192,0.5)' };
 const INV_ALCANCE_LABEL = { curto: 'Curto Alcance', longo: 'Longo Alcance', ambos: 'Curto e Longo Alcance' };
 
+// "Sem Arma": pseudo-arma sempre disponível na lista de Armas/Instrumentos,
+// além das que o personagem tem cadastradas — representa lutar desarmado
+// (armas guardadas): 1 de Dano fixo + Maestria de Força (mesma maestria de
+// armas Pesadas). Em Acerto Crítico, a Maestria de Força entra em dobro no
+// Dano (ver construirRolagemDanoArma) — não dobra dado, já que a base "1"
+// não tem dado pra dobrar. Nunca é salva dentro de p.inventario (é recriada
+// a cada chamada), então critPendente é lido/gravado direto em
+// p.semArmaCritPendente via getter/setter, pra continuar funcionando com o
+// mesmo mecanismo de rolarAcertoArma/rolarDanoArma usado por qualquer outra
+// arma real.
+function criarSemArmaItem(p) {
+  return {
+    id: 'sem_arma',
+    name: 'Sem Arma',
+    tipo: 'arma',
+    peso: 'pesada',
+    dano: '1',
+    alcance: 'curto',
+    get critPendente() { return !!p.semArmaCritPendente; },
+    set critPendente(v) { p.semArmaCritPendente = v; },
+  };
+}
+// Resolve uma Arma/Instrumento pelo id, incluindo o pseudo-id 'sem_arma' —
+// usado por rolarDanoArma/rolarAcertoArma no lugar da busca direta em
+// p.inventario, já que 'sem_arma' nunca está lá.
+function resolverArmaOuInstrumento(p, itemId) {
+  if (itemId === 'sem_arma') return criarSemArmaItem(p);
+  return (p.inventario || []).find(i => i.id === itemId);
+}
+
 function renderInventarioArea(p, readOnly) {
   const inv = Array.isArray(p.inventario) ? p.inventario : [];
   const armas     = inv.filter(i => i.tipo === 'arma' || i.tipo === 'instrumento');
+  // "Sem Arma" aparece sempre no fim da lista, mesmo com outras Armas/
+  // Instrumentos cadastrados — representa o personagem guardando as armas e
+  // lutando desarmado, uma opção sempre disponível, não só quando o
+  // Inventário de Armas está vazio.
+  const armasExibir = armas.concat([criarSemArmaItem(p)]);
   const protecoes = inv.filter(i => i.tipo === 'protecao');
   const itens     = inv.filter(i => i.tipo === 'item');
 
@@ -9210,7 +9253,7 @@ function renderInventarioArea(p, readOnly) {
       return `<div class="inv-card">
         <div class="inv-card-header" style="flex-wrap:nowrap;align-items:center">
           <div class="inv-card-title">${icone} ${item.name}</div>
-          ${readOnly ? '' : `<button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>`}
+          ${(readOnly || item.id === 'sem_arma') ? '' : `<button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>`}
         </div>
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px">
           <span class="inv-peso-tag" style="color:#e8a838;background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.3)">🎵 Instrumento</span>
@@ -9227,7 +9270,7 @@ function renderInventarioArea(p, readOnly) {
     return `<div class="inv-card">
       <div class="inv-card-header" style="flex-wrap:nowrap;align-items:center">
         <div class="inv-card-title">${icone} ${item.name}</div>
-        ${readOnly ? '' : `<button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>`}
+        ${(readOnly || item.id === 'sem_arma') ? '' : `<button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>`}
       </div>
       <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px">
         ${alcanceTag(item)}
@@ -9308,7 +9351,7 @@ function renderInventarioArea(p, readOnly) {
       <span>Inventário</span>
       ${readOnly ? '' : `<button class="btn btn-success inv-add-btn" onclick="openInvModal(${p.id})"><i class="ti ti-plus"></i> Adicionar</button>`}
     </div>
-    ${invSection('armas',     '⚔️ Armas',    'ti-sword',   'var(--red)',    armas,     renderArmaCard)}
+    ${invSection('armas',     '⚔️ Armas',    'ti-sword',   'var(--red)',    armasExibir, renderArmaCard)}
     ${invSection('protecoes', '🛡 Proteções', 'ti-shield',  'var(--amber)',  protecoes, renderProtecaoCard)}
     ${invSection('itens',     '📦 Itens',     'ti-package', 'var(--text3)', itens,     renderItemCard)}
   </div>`;
