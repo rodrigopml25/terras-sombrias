@@ -2281,23 +2281,26 @@ function escolherConclamar(pid, skidAlvo) {
 }
 
 // "Gambiarra de Alto Nível" (Campeão): lista as Armas do inventário que têm
-// "usos" (item.usos, ex: Pente de Balas) e/ou Munição (item.municao) pra
-// escolher qual recarregar. Cada Arma elegível mostra um botão por opção
-// disponível — uma Arma sem nenhuma das duas simplesmente não aparece.
+// "usos" (item.usos) pra escolher qual recarregar. Dentro de item.usos, cada
+// entrada com custoRecarga é uma "Munição" no sentido da Habilidade (mesmo
+// padrão da Aljava do Arco, do Pente de Balas do Revólver etc. — normalmente
+// custam Dinheiro pra recarregar); as entradas sem custoRecarga são "Usos"
+// genéricos da Arma (ex: Explosão Mágica da Aliança Encantada). Uma Arma só
+// aparece se tiver pelo menos um dos dois tipos.
 function abrirGambiarraModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
   if (!overlay || !p) return;
 
-  const armas = (p.inventario || []).filter(i => i.tipo === 'arma');
+  const armas = (p.inventario || []).filter(i => i.tipo === 'arma' && Array.isArray(i.usos) && i.usos.length > 0);
   const linhasHtml = armas.map(item => {
-    const temUsos = Array.isArray(item.usos) && item.usos.length > 0;
-    const temMunicao = item.municao != null;
-    if (!temUsos && !temMunicao) return '';
+    const temMunicao = item.usos.some(u => u.custoRecarga);
+    const temUsosGerais = item.usos.some(u => !u.custoRecarga);
+    if (!temMunicao && !temUsosGerais) return '';
     return `<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--border);border-radius:10px">
       <span style="font-size:13px;font-weight:600">${escHtml(item.name)}</span>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${temUsos ? `<button class="tm-opcao tm-opcao-blue" style="flex:1;min-width:130px" onclick="event.stopPropagation();escolherGambiarra(${p.id},'${item.id}','usos')">🔄 Recarregar Usos</button>` : ''}
+        ${temUsosGerais ? `<button class="tm-opcao tm-opcao-blue" style="flex:1;min-width:130px" onclick="event.stopPropagation();escolherGambiarra(${p.id},'${item.id}','usos')">🔄 Recarregar Usos</button>` : ''}
         ${temMunicao ? `<button class="tm-opcao tm-opcao-blue" style="flex:1;min-width:130px" onclick="event.stopPropagation();escolherGambiarra(${p.id},'${item.id}','municao')">🎯 Recarregar Munição</button>` : ''}
       </div>
     </div>`;
@@ -2320,24 +2323,22 @@ function abrirGambiarraModal(pid) {
   overlay.classList.add('open');
 }
 
-// Aplica a recarga escolhida no modal acima: "usos" zera todos os contadores
-// de item.usos de volta ao usosMax; "municao" pede o novo valor (não existe
-// um "máximo" fixo de Munição no sistema — é um contador livre, igual ao
-// ajuste manual +/- do inventário).
+// Aplica a recarga escolhida no modal acima — de graça (a Gambiarra não
+// cobra o custoRecarga em Dinheiro normal desses "usos"): "usos" recarrega
+// as entradas de item.usos SEM custoRecarga; "municao" recarrega as
+// entradas COM custoRecarga (Aljava, Pente de Balas/Cartuchos/Munição/
+// Granadas, Bolsa de Adagas — o "container de munição" da Arma).
 function escolherGambiarra(pid, itemId, tipo) {
   const p = PLAYERS.find(x => x.id === pid);
   const item = p && (p.inventario || []).find(i => i.id === itemId);
-  if (!item) return;
+  if (!item || !Array.isArray(item.usos)) return;
 
-  if (tipo === 'usos' && Array.isArray(item.usos)) {
-    item.usos.forEach(u => { u.usosAtuais = u.usosMax; });
-  } else if (tipo === 'municao') {
-    const atual = item.municao || 0;
-    const resposta = prompt(`Nova quantidade de Munição para "${item.name}" (atual: ${atual}):`, atual);
-    if (resposta === null) return;
-    const val = parseInt(resposta, 10);
-    if (!isNaN(val)) item.municao = Math.max(0, val);
-  }
+  item.usos.forEach(u => {
+    const eMunicao = !!u.custoRecarga;
+    if ((tipo === 'municao' && eMunicao) || (tipo === 'usos' && !eMunicao)) {
+      u.usosAtuais = u.usosMax;
+    }
+  });
 
   fecharCriacaoAnaoModal();
   saveState();
