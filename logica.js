@@ -6842,6 +6842,13 @@ function useSkill(pid, skid) {
     renderAll();
   }
 
+  // "Fôlego Extra" (Campeão): concede 1 Ação a mais imediatamente ao ser usada.
+  if (sk.id === 'sk_banco_campeao_folego_extra') {
+    p.acoesAtuais = (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) + 1;
+    saveState();
+    renderAll();
+  }
+
   // Habilidade vinculada a um único Teste (ex: Acrobacia) — rola automaticamente.
   const testeVinculado = SKILL_TESTE_LINK[sk.id];
   if (testeVinculado) rolarTeste(pid, testeVinculado);
@@ -13635,6 +13642,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_campeao_adaptacao',
   'sk_banco_campeao_conclamar',
   'sk_banco_campeao_dose_dupla',
+  'sk_banco_campeao_folego_extra',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
