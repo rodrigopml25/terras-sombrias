@@ -6547,6 +6547,7 @@ const SKILL_TESTE_LINK = {
   'sk_geral_empurrar':    'empurrar',
   'sk_geral_furtividade': 'furtividade',
   'sk_classe_clerigo_teste_devocao': 'devocao',
+  'sk_banco_campeao_analise_rapida': 'percepcao',
 };
 
 // Narrador recarrega manualmente uma Habilidade de um Jogador, a qualquer
@@ -6722,6 +6723,14 @@ function useSkill(pid, skid) {
   if (sk.id === 'sk_racial_draenei_adaptacao') {
     abrirAdaptacaoEspacoModal(pid);
     return;
+  }
+
+  // "Análise Rápida" (Campeão): marca o próximo Teste de Percepção (rolado
+  // automaticamente logo abaixo, via SKILL_TESTE_LINK) para receber +1d4 de
+  // Vantagem e não poder tirar Falha Crítica — ver construirRolagemTeste/
+  // getCritThresholds, que leem e consomem essa marca.
+  if (sk.id === 'sk_banco_campeao_analise_rapida') {
+    p.analiseRapidaPendente = true;
   }
 
   // Habilidade vinculada a um único Teste (ex: Acrobacia) — rola automaticamente.
@@ -13751,6 +13760,12 @@ function getCritThresholds(p, testeId, sides) {
     critMin = Math.min(critMin, 10);
   }
 
+  // "Análise Rápida" (Campeão): o Teste de Percepção que ela aciona nunca
+  // pode tirar Falha Crítica. A marca é consumida em construirRolagemTeste.
+  if (testeId === 'percepcao' && p.analiseRapidaPendente) {
+    fumbleImune = true;
+  }
+
   return { critMin, fumbleMax, fumbleImune };
 }
 
@@ -13899,6 +13914,16 @@ function construirRolagemTeste(p, testeId) {
       terms.push({ sign: kalSign, node: { type: 'dice', sides: 4, count: 1, results: [kalRoll], sum: kalRoll, countNode: null, label: 'Kalindor' } });
       total += (kalSign === '+' ? kalRoll : -kalRoll);
     }
+  }
+
+  // "Análise Rápida" (Campeão): +1d4 de Vantagem rolado de verdade no Teste
+  // de Percepção que a Habilidade aciona (marca deixada por useSkill) —
+  // consumida aqui, então só vale para esta rolagem.
+  if (testeId === 'percepcao' && p.analiseRapidaPendente) {
+    const arRoll = 1 + Math.floor(Math.random() * 4);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 4, count: 1, results: [arRoll], sum: arRoll, countNode: null, label: 'Análise Rápida' } });
+    total += arRoll;
+    p.analiseRapidaPendente = false;
   }
 
   // Teste de Emoção: subtrai a Insanidade atual do personagem (0-100)
