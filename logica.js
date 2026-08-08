@@ -9174,7 +9174,7 @@ function renderInventarioArea(p, readOnly) {
       const rolarDanoBtn = item.dano
         ? `<button class="teste-roll-btn" style="margin-left:6px" onclick="event.stopPropagation();rolarDanoArma(${p.id},'${item.id}')" title="Rolar Dano (${escHtml(item.dano)}${mb && mb.val ? ' +' + mb.val + ' ' + mb.attr : ''}${temAfiacaoAprimorada(item) ? ' +1d6 ✨' : ''}${profundezasVal > 0 ? ' +' + profundezasVal + ' Profundezas' : ''})"><i class="ti ti-dice"></i></button>`
         : '';
-      const rolarAcertoBtn = `<button class="sk-btn" style="margin-left:6px;padding:4px 10px;font-size:11.5px" onclick="event.stopPropagation();rolarAcertoArma(${p.id},'${item.id}')" title="Rolar Acerto (1d20${mb && mb.val ? ' +' + mb.val + ' ' + mb.attr : ''})">🎯 Acerto</button>`;
+      const rolarAcertoBtn = `<button class="sk-btn sk-btn-acerto" style="margin-left:6px;padding:4px 10px;font-size:11.5px" onclick="event.stopPropagation();rolarAcertoArma(${p.id},'${item.id}')" title="Rolar Acerto (1d20${mb && mb.val ? ' +' + mb.val + ' ' + mb.attr : ''})">🎯 Acerto</button>`;
       const danoPart = item.dano ? `<div class="inv-stat"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}${afiacaoBonus}${profundezasBonus}${rolarDanoBtn}</div>` : '';
       const precoPart = item.preco != null ? `<div class="inv-stat"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val" style="color:var(--amber)">${item.preco}</span></div>` : '';
       const acertoPart = `<div class="inv-stat"><span class="inv-dano-label">Acerto</span>${!item.dano ? bonus : ''}${rolarAcertoBtn}</div>`;
