@@ -754,11 +754,11 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .sk-btn-desativar { background: var(--red) !important; }
 .sk-btn-desativar:hover:not(:disabled) { background: #e05050 !important; }
 .sk-btn-acerto {
-  background: transparent !important;
-  border: 1px solid var(--border2) !important;
-  color: var(--text2) !important;
+  background: var(--accent-bg) !important;
+  border: 1px solid var(--accent-bd) !important;
+  color: var(--accent2) !important;
 }
-.sk-btn-acerto:hover:not(:disabled) { border-color: var(--text3) !important; color: var(--text) !important; }
+.sk-btn-acerto:hover:not(:disabled) { background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }
 
 .sk-dots { display: flex; gap: 4px; margin-left: auto; }
 .sdot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid; }
