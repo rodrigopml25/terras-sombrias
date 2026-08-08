@@ -2345,6 +2345,76 @@ function escolherGambiarra(pid, itemId, tipo) {
   renderAll();
 }
 
+// "Honra" (Campeão): "Pelo que você luta?" — escolha entre restaurar 2d20 de
+// Vida, dar Mega Vantagem no Acerto da próxima Técnica ou Golpe (ver
+// p.honraMegaVantagemPendente, consumido em construirRolagemAcertoHabilidade),
+// ou remover todos os efeitos Negativos. Esse último não tem estrutura de
+// dados no app (efeitos Negativos são só narrativos/anotados na mesa), então
+// fica registrado como aviso pro Narrador — igual ao resto do sistema trata
+// restrições e efeitos amplos desse tipo (ex: Fúria).
+function abrirHonraModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-shield-check"></i> Honra</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        "Pelo que você luta?" Escolha o efeito para ${escHtml(p.name)}.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherHonra(${p.id},'vida')">
+          <span class="tm-opcao-nome">❤️ Restaurar 2d20 de Vida</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherHonra(${p.id},'mv')">
+          <span class="tm-opcao-nome">⚔️ Mega Vantagem na próxima Técnica ou Golpe</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherHonra(${p.id},'limpar')">
+          <span class="tm-opcao-nome">✨ Remover todos os efeitos Negativos</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherHonra(pid, opcao) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  fecharCriacaoAnaoModal();
+
+  if (opcao === 'vida') {
+    const d1 = 1 + Math.floor(Math.random() * 20);
+    const d2 = 1 + Math.floor(Math.random() * 20);
+    const cura = d1 + d2;
+    p.hp = Math.min(p.hpMax, (p.hp || 0) + cura);
+    const entry = {
+      playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+      charName: p.name,
+      isNarrator: !!IS_NARRADOR,
+      formula: 'Honra — Restaurar Vida',
+      tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides: 20, count: 2, results: [d1, d2], sum: cura, countNode: null } }] },
+      total: cura,
+      sides: 20,
+      hidden: false,
+      rolling: true,
+      ts: Date.now(),
+      label: '❤️ Honra — Cura',
+    };
+    pushRollEntry(entry, key => setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS));
+    if (!dicePanelOpen) toggleDicePanel();
+    else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+  } else if (opcao === 'mv') {
+    p.honraMegaVantagemPendente = true;
+  } else if (opcao === 'limpar') {
+    alert(`${p.name} remove TODOS os efeitos Negativos que possui (efeito narrativo — não há uma lista automática no app; ajustem juntos na mesa).`);
+  }
+
+  saveState();
+  renderAll();
+}
+
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
 // como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
 // (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o
@@ -6916,6 +6986,14 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Honra" (Campeão): abre a escolha entre as 3 opções (ver
+  // abrirHonraModal/escolherHonra) — o custo (1 ação) e o uso já foram
+  // aplicados acima, o modal só resolve o efeito.
+  if (sk.id === 'sk_banco_campeao_honra') {
+    abrirHonraModal(pid);
+    return;
+  }
+
   // "Motivar" (Campeão): concede +1d12 de Vantagem no próximo Teste OU
   // Acerto de Habilidade de cada Aliado (os demais Jogadores) — 1 uso só,
   // consumido na hora (ver p.motivarPendente, lido e apagado tanto em
@@ -7587,7 +7665,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${dueloBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
@@ -8324,6 +8402,14 @@ function renderJogador() {
           <div style="flex:1">
             <div style="font-size:12px;font-weight:700;color:var(--green)">Motivar ativo</div>
             <div style="font-size:11px;color:var(--text2)">+1d12 de Vantagem no próximo Teste ou Acerto — some sozinho ao ser usado</div>
+          </div>
+        </div>` : ''}
+        ${p.honraMegaVantagemPendente ? `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">⚔️</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--green)">Honra ativa</div>
+            <div style="font-size:11px;color:var(--text2)">Mega Vantagem no Acerto da próxima Técnica ou Golpe — some sozinho ao ser usado</div>
           </div>
         </div>` : ''}
         ${p.pontosPendentes > 0 ? `
@@ -13769,6 +13855,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_campeao_gambiarra_de_alto_nivel',
   'sk_banco_campeao_grito_de_guerra',
   'sk_banco_campeao_motivar',
+  'sk_banco_campeao_honra',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
@@ -13883,8 +13970,21 @@ function construirRolagemAcertoHabilidade(p, sk) {
   const campoAttr = ATTR_DA_COR_HABILIDADE[sk.color] || null;
   const mst = campoAttr ? maestriaDe(p, campoAttr) : 0;
 
-  const d1 = 1 + Math.floor(Math.random() * sides);
-  const dadoNode = { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null };
+  // "Honra" (Campeão): Mega Vantagem no Acerto da próxima Habilidade do tipo
+  // Técnica (verde) ou Golpe (vermelho) — 1 uso só, consumido aqui.
+  const honraAplica = !!p.honraMegaVantagemPendente && (sk.color === 'green' || sk.color === 'red');
+  if (honraAplica) p.honraMegaVantagemPendente = false;
+
+  let d1, dadoNode;
+  if (honraAplica) {
+    const dA = 1 + Math.floor(Math.random() * sides);
+    const dB = 1 + Math.floor(Math.random() * sides);
+    d1 = Math.max(dA, dB);
+    dadoNode = { type: 'megaroll', mode: 'mv', sides, d1: dA, d2: dB, kept: d1 };
+  } else {
+    d1 = 1 + Math.floor(Math.random() * sides);
+    dadoNode = { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null };
+  }
   const terms = [{ sign: '+', node: dadoNode }];
   let total = d1;
 
@@ -13944,7 +14044,7 @@ function construirRolagemAcertoHabilidade(p, sk) {
   }
 
   const tree = { type: 'sum', terms };
-  const formula = `Rolagem de Acerto — ${sk.name}`;
+  const formula = `Rolagem de Acerto — ${sk.name}${honraAplica ? ' (Mega Vantagem — Honra)' : ''}`;
   const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, null, sides);
 
   return { sides, total, tree, formula, critMin, fumbleMax, fumbleImune };
