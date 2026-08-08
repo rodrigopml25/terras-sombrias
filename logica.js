@@ -2280,6 +2280,29 @@ function escolherConclamar(pid, skidAlvo) {
   renderAll();
 }
 
+// "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
+// como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
+// (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o
+// estado só é consultado (não consumido) na hora de rolar, então continua
+// valendo pras rolagens seguintes até o jogador trocar de novo.
+function toggleDueloAlvo(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || !p.dueloAtivo) return;
+  p.dueloContraAlvo = !p.dueloContraAlvo;
+  saveState();
+  renderAll();
+}
+
+// Encerra o status de "Duelo" por completo (ex: o Alvo perdeu ou desistiu
+// da Luta) — some o badge e para de afetar rolagens futuras.
+function desativarDuelo(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  p.dueloAtivo = false;
+  saveState();
+  renderAll();
+}
+
 // "Decréptico" (Elfo): escolhe 2 Testes de Intelecto — um recebe +1 de
 // Vantagem, o outro +3 (termos à parte na rolagem, iguais à Adaptação do
 // Espaço). A -2 de Desvantagem em Resistir é fixa e automática (ver
@@ -6802,6 +6825,15 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Duelo" (Campeão): ativa o status persistente — o jogador alterna
+  // manualmente pelo badge no cabeçalho se cada rolagem seguinte conta como
+  // "contra o Alvo" ou "contra outro Alvo" (ver toggleDueloAlvo). Começa
+  // marcado como "contra o Alvo", já que acabou de escolher o Alvo agora.
+  if (sk.id === 'sk_banco_campeao_duelo') {
+    p.dueloAtivo = true;
+    p.dueloContraAlvo = true;
+  }
+
   // Habilidade vinculada a um único Teste (ex: Acrobacia) — rola automaticamente.
   const testeVinculado = SKILL_TESTE_LINK[sk.id];
   if (testeVinculado) rolarTeste(pid, testeVinculado);
@@ -6866,6 +6898,7 @@ function resetLuta() {
       NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
     }
     p.furiaOrcAtiva = false;
+    p.dueloAtivo = false;
   });
   saveState();
   renderAll();
@@ -7411,6 +7444,16 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
     const pendFormaSombriaBadge = precisaEscolherFormaSombria(p)
       ? ` <span onclick="event.stopPropagation();renderFormaSombriaModal(PLAYERS.find(x=>x.id===${p.id}))" title="Escolher a Forma Sombria do Caminho Lun'fan" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;background:rgba(124,92,191,0.18);border:1px solid rgba(124,92,191,0.5);color:var(--accent2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">🐼 Escolher Forma Sombria</span>`
       : '';
+    // "Duelo" (Campeão): enquanto ativo, o jogador alterna manualmente se a
+    // PRÓXIMA rolagem (Acerto ou Teste) conta como "contra o Alvo do Duelo"
+    // (+1d6 de Vantagem) ou "contra outro Alvo" (-1d6 de Desvantagem) — o
+    // app não sabe quem é o alvo de cada rolagem, então quem decide é o
+    // jogador, clicando no badge antes de rolar (ver toggleDueloAlvo/
+    // construirRolagemTeste/construirRolagemAcertoHabilidade). O ✕ encerra o
+    // Duelo por completo (ex: perdeu ou desistiu da Luta).
+    const dueloBadge = p.dueloAtivo
+      ? ` <span onclick="event.stopPropagation();toggleDueloAlvo(${p.id})" title="Duelo — clique para alternar: rolagem atual contra o Alvo (+1d6) ou contra outro Alvo (−1d6)" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;background:${p.dueloContraAlvo ? 'var(--green-bg)' : 'var(--red-bg)'};border:1px solid ${p.dueloContraAlvo ? 'var(--green-bd)' : 'var(--red-bd)'};color:${p.dueloContraAlvo ? 'var(--green)' : '#f08080'};font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">⚔️ Duelo: ${p.dueloContraAlvo ? '+1d6 vs Alvo' : '−1d6 vs outro'}</span><span onclick="event.stopPropagation();desativarDuelo(${p.id})" title="Encerrar o Duelo" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:9px;font-weight:700;border-radius:50%;margin-left:3px;vertical-align:middle">✕</span>`
+      : '';
     const npcTipoClasse = p.isNPC ? (p.npcTipo === 'inimigo' ? 'npc-inimigo' : 'npc-aliado') : '';
     const npcTipoBadge = p.isNPC
       ? (p.npcTipo === 'inimigo'
@@ -7420,7 +7463,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
     return `<div class="prow ${bm ? 'beira-morte' : ''} ${npcTipoClasse}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${dueloBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -13721,6 +13764,20 @@ function construirRolagemAcertoHabilidade(p, sk) {
     total += 3;
   }
 
+  // "Duelo" (Campeão): mesmo bônus/penalidade de +1d6/-1d6 do Teste normal
+  // (ver construirRolagemTeste) — a rolagem de Acerto de Habilidade também
+  // conta como "acerto" pro efeito da Habilidade.
+  if (p.dueloAtivo) {
+    const duRoll = 1 + Math.floor(Math.random() * 6);
+    if (p.dueloContraAlvo) {
+      terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [duRoll], sum: duRoll, countNode: null, label: 'Duelo' } });
+      total += duRoll;
+    } else {
+      terms.push({ sign: '-', node: { type: 'dice', sides: 6, count: 1, results: [duRoll], sum: duRoll, countNode: null, label: 'Duelo' } });
+      total -= duRoll;
+    }
+  }
+
   const tree = { type: 'sum', terms };
   const formula = `Rolagem de Acerto — ${sk.name}`;
   const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, null, sides);
@@ -13995,6 +14052,21 @@ function construirRolagemTeste(p, testeId) {
     terms.push({ sign: '+', node: { type: 'dice', sides: 4, count: 1, results: [arRoll], sum: arRoll, countNode: null, label: 'Análise Rápida' } });
     total += arRoll;
     p.analiseRapidaPendente = false;
+  }
+
+  // "Duelo" (Campeão): enquanto ativo, +1d6 de Vantagem se esta rolagem é
+  // contra o Alvo do Duelo, ou -1d6 de Desvantagem se é contra outro Alvo —
+  // o jogador escolhe qual dos dois pelo badge no cabeçalho (não é
+  // consumido: continua valendo pra próxima rolagem até ele trocar de novo).
+  if (p.dueloAtivo) {
+    const duRoll = 1 + Math.floor(Math.random() * 6);
+    if (p.dueloContraAlvo) {
+      terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [duRoll], sum: duRoll, countNode: null, label: 'Duelo' } });
+      total += duRoll;
+    } else {
+      terms.push({ sign: '-', node: { type: 'dice', sides: 6, count: 1, results: [duRoll], sum: duRoll, countNode: null, label: 'Duelo' } });
+      total -= duRoll;
+    }
   }
 
   // Teste de Emoção: subtrai a Insanidade atual do personagem (0-100)
