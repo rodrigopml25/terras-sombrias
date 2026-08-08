@@ -2280,6 +2280,70 @@ function escolherConclamar(pid, skidAlvo) {
   renderAll();
 }
 
+// "Gambiarra de Alto Nível" (Campeão): lista as Armas do inventário que têm
+// "usos" (item.usos, ex: Pente de Balas) e/ou Munição (item.municao) pra
+// escolher qual recarregar. Cada Arma elegível mostra um botão por opção
+// disponível — uma Arma sem nenhuma das duas simplesmente não aparece.
+function abrirGambiarraModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  const armas = (p.inventario || []).filter(i => i.tipo === 'arma');
+  const linhasHtml = armas.map(item => {
+    const temUsos = Array.isArray(item.usos) && item.usos.length > 0;
+    const temMunicao = item.municao != null;
+    if (!temUsos && !temMunicao) return '';
+    return `<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--border);border-radius:10px">
+      <span style="font-size:13px;font-weight:600">${escHtml(item.name)}</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${temUsos ? `<button class="tm-opcao tm-opcao-blue" style="flex:1;min-width:130px" onclick="event.stopPropagation();escolherGambiarra(${p.id},'${item.id}','usos')">🔄 Recarregar Usos</button>` : ''}
+        ${temMunicao ? `<button class="tm-opcao tm-opcao-blue" style="flex:1;min-width:130px" onclick="event.stopPropagation();escolherGambiarra(${p.id},'${item.id}','municao')">🎯 Recarregar Munição</button>` : ''}
+      </div>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  if (!linhasHtml) {
+    alert(`${p.name} não tem nenhuma Arma com "usos" ou Munição pra recarregar.`);
+    return;
+  }
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-tool"></i> Gambiarra de Alto Nível</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Escolha a Arma de ${escHtml(p.name)} e o que recarregar.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto">${linhasHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+// Aplica a recarga escolhida no modal acima: "usos" zera todos os contadores
+// de item.usos de volta ao usosMax; "municao" pede o novo valor (não existe
+// um "máximo" fixo de Munição no sistema — é um contador livre, igual ao
+// ajuste manual +/- do inventário).
+function escolherGambiarra(pid, itemId, tipo) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  if (!item) return;
+
+  if (tipo === 'usos' && Array.isArray(item.usos)) {
+    item.usos.forEach(u => { u.usosAtuais = u.usosMax; });
+  } else if (tipo === 'municao') {
+    const atual = item.municao || 0;
+    const resposta = prompt(`Nova quantidade de Munição para "${item.name}" (atual: ${atual}):`, atual);
+    if (resposta === null) return;
+    const val = parseInt(resposta, 10);
+    if (!isNaN(val)) item.municao = Math.max(0, val);
+  }
+
+  fecharCriacaoAnaoModal();
+  saveState();
+  renderAll();
+}
+
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
 // como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
 // (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o
@@ -6840,6 +6904,15 @@ function useSkill(pid, skid) {
     // disparado por outra ação, ou só após recarregar a página).
     saveState();
     renderAll();
+  }
+
+  // "Gambiarra de Alto Nível" (Campeão): abre o seletor de Arma pra escolher
+  // se recarrega os "usos" dela ou a Munição (ver abrirGambiarraModal/
+  // escolherGambiarra). O custo (1 ação) e o uso já foram aplicados acima,
+  // igual qualquer outra Habilidade — o modal só resolve o efeito.
+  if (sk.id === 'sk_banco_campeao_gambiarra_de_alto_nivel') {
+    abrirGambiarraModal(pid);
+    return;
   }
 
   // "Fôlego Extra" (Campeão): concede 1 Ação a mais imediatamente ao ser usada.
@@ -13643,6 +13716,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_campeao_conclamar',
   'sk_banco_campeao_dose_dupla',
   'sk_banco_campeao_folego_extra',
+  'sk_banco_campeao_gambiarra_de_alto_nivel',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
