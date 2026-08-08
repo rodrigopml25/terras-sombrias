@@ -5579,12 +5579,15 @@ function temAcessoArmaduraMegaPesada(p) {
 // categoria). Com o Talento Inferior "Maestria de Peso Aprimorada", o
 // personagem passa a ter acesso à categoria seguinte TAMBÉM (sem perder a
 // original): Leve -> Leve+Média; Média -> Média+Pesada; Pesada -> Pesada+Mega.
-function getPesosArmaPermitidosPersonagem(p) {
+function getPesosArmaPermitidosPersonagem(p, ignorarMultifuncoes) {
   // "Multifunções" (passiva fixa do Campeão): sabe usar TODAS as Armas,
   // independente do atributo da subclasse — ignora a regra exclusiva normal,
   // e já inclui Mega Pesada de cara (sem depender da Maestria de Peso
-  // Aprimorada — essa só serve pra outras classes chegarem em Mega).
-  const temMultifuncoes = getSubclassePassivas(p).some(pas => pas.id === 'campeao_multifuncoes');
+  // Aprimorada — essa só serve pra outras classes chegarem em Mega). Porém,
+  // só pode GANHAR essas categorias extras, não comprar — ver saveInvItem,
+  // que usa `ignorarMultifuncoes=true` pra saber o que o personagem teria
+  // "de direito próprio" (sem contar a passiva) na hora de validar a compra.
+  const temMultifuncoes = !ignorarMultifuncoes && getSubclassePassivas(p).some(pas => pas.id === 'campeao_multifuncoes');
   const temMaestriaAprimorada = getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'maestria_de_peso_aprimorada');
   if (temMultifuncoes) {
     return ['leve', 'media', 'pesada', 'mega'];
@@ -7843,13 +7846,10 @@ function renderJogador() {
   }
   renderFormaSombriaModal(pendente || null);
 
-  // Mesma lógica para quem acabou de escolher o Talento Inferior "Equipamento
-  // Encantado" e ainda não definiu o Estilo de Encantamento (Arcano/Místico).
-  const pendenteEncantamento = myPlayers.find(precisaEscolherEstiloEncantamento);
-  if (pendenteEncantamento && parseInt(psel.value) !== pendenteEncantamento.id) {
-    psel.value = pendenteEncantamento.id;
-  }
-  renderEscolhaEstiloEncantamentoModal(pendenteEncantamento || null);
+  // O Estilo de Encantamento (Arcano/Místico) não usa mais uma tela
+  // separada forçada — trava sozinho no primeiro Encantamento que o
+  // personagem ganha/compra (ver saveInvItem), então não há mais nada
+  // pendente aqui pra checar antes de renderizar a ficha.
 
   const pid = parseInt(psel.value) || myPlayers[0].id;
   const p = myPlayers.find(x => x.id === pid) || myPlayers[0];
@@ -10122,6 +10122,27 @@ function saveInvItem(cobrarDinheiro) {
   }
 
   const tipo    = _invSelectedTipo();
+  const peso    = _invSelectedPeso();
+  // "Multifunções" (Campeão) só permite GANHAR Armas/Instrumentos Mega
+  // Pesados/Exóticos/Encantados — não comprar. Se o acesso a essa categoria
+  // vier só da passiva (sem o Talento Inferior/atributo correspondente),
+  // bloqueia o botão "Comprar" (cobrarDinheiro === true); "Ganhar" continua liberado.
+  if (!modalInvId && (tipo === 'arma' || tipo === 'instrumento') && cobrarDinheiro === true && temMultifuncoesArma(p)) {
+    const semMultifuncoesMega = getPesosArmaPermitidosPersonagem(p, true).includes('mega');
+    if (peso === 'mega' && !semMultifuncoesMega) {
+      alert('Multifunções só permite GANHAR Armas/Instrumentos Mega Pesados, não comprar. Use o botão "Ganhar".');
+      return;
+    }
+    if (peso === 'exotica' && !temAcessoEquipamentoExotico(p)) {
+      alert('Multifunções só permite GANHAR Armas/Instrumentos Exóticos, não comprar. Use o botão "Ganhar".');
+      return;
+    }
+    if (peso === 'encantada' && !temAcessoEquipamentoEncantado(p)) {
+      alert('Multifunções só permite GANHAR Armas/Instrumentos Encantados, não comprar. Use o botão "Ganhar".');
+      return;
+    }
+  }
+
   // "Comprar" (cobrarDinheiro === true) desconta o Preço do Dinheiro do
   // personagem; "Ganhar" (=== false) mantém o Dinheiro intacto. Só se aplica
   // a item NOVO de Arma/Instrumento/Proteção (ver toggle dos botões em
@@ -10141,7 +10162,6 @@ function saveInvItem(cobrarDinheiro) {
     }
   }
   const efeito  = document.getElementById('inv-m-efeito').value.trim();
-  const peso    = _invSelectedPeso();
   const dano    = document.getElementById('inv-m-dano').value.trim();
   const alcance = _invSelectedAlcance();
   const municaoRaw = document.getElementById('inv-m-municao').value.trim();
@@ -10219,13 +10239,21 @@ function saveInvItem(cobrarDinheiro) {
   // Preço (dinheiro): armas, instrumentos e proteções (armaduras/elmos)
   if (tipo !== 'item') base.preco = preco;
 
-  // Encantamento (Armadura/Elmo Encantados — peso 'encantada')
+  // Encantamento (Armadura/Elmo/Arma Encantados — peso 'encantada')
   if (tipo !== 'item') {
     if (peso === 'encantada' && invEncantamentoEscolhido) {
       const catEnc = buscarEncantamentoPorId(invEncantamentoEscolhido);
       base.encantamento = catEnc
         ? { id: catEnc.id, name: catEnc.name, estilo: catEnc.estilo, passivaDesc: catEnc.passivaDesc, custo: catEnc.custo }
         : null;
+      // O Estilo de Encantamento (Arcano/Místico) do personagem não é mais
+      // escolhido numa tela separada — trava sozinho, pra sempre, no
+      // primeiro Encantamento que o personagem ganha/compra. Os próximos
+      // itens encantados já vêm filtrados pra esse mesmo estilo (ver
+      // getEncantamentosDisponiveis).
+      if (catEnc && !p.estiloEncantamentoId) {
+        p.estiloEncantamentoId = catEnc.estilo;
+      }
     } else {
       base.encantamento = null;
     }
