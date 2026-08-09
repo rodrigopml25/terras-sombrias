@@ -96,6 +96,15 @@ let saveDebounceTimer = null;
 let lastWrittenJSON = null;
 let pendingSave = false;
 let pendingSaveSafetyTimer = null;
+// Trava de segurança contra o bug que já zerou uma campanha real (ver
+// bindCampaign): só libera ESCRITA no Firebase depois que os dados da
+// campanha foram genuinamente confirmados (veio PLAYERS de verdade, OU
+// confirmamos — com o SDK realmente conectado ao servidor, não a um cache
+// antigo — que a campanha está mesmo vazia). Enquanto não armada, saveState()
+// continua salvando no localStorage (não destrutivo), só pula o .set() no
+// Firebase, pra nenhuma ação do usuário durante essa janela de incerteza
+// poder sobrescrever dados reais com um estado local incompleto.
+let firebaseWriteArmed = false;
 
 // ═══════════════════════════════════════
 // CAMPANHAS
@@ -304,6 +313,7 @@ function bindCampaign(campaignId) {
   }
 
   setSyncStatus('connecting');
+  firebaseWriteArmed = false;
 
   const metaRef = firebase.database().ref('campaigns/' + campaignId + '/meta');
   const dataRef = firebase.database().ref('campaigns/' + campaignId + '/data');
@@ -319,6 +329,8 @@ function bindCampaign(campaignId) {
     const data = snapshot.val();
     if (data) {
       applyData(data);
+      // Dados reais vieram do servidor — seguro liberar escrita.
+      firebaseWriteArmed = true;
     } else {
       // ATENÇÃO: NÃO escrever de volta no Firebase aqui. Uma leitura vazia
       // pode ser uma campanha genuinamente nova, MAS também pode ser uma
@@ -335,6 +347,17 @@ function bindCampaign(campaignId) {
       PLAYERS = JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
       turnGlobal = 1; INITIATIVE = []; turnoAtualId = null; combatAtivo = false;
       notes = {geral:'', missão:'', inimigos:'', locais:''};
+      // A leitura vazia só é confiável se o SDK está REALMENTE conectado ao
+      // servidor agora (não respondendo com um cache antigo/offline). Só
+      // então libera a escrita — do contrário, qualquer clique do jogador
+      // nesse meio tempo (ex.: usar uma Habilidade) chamaria saveState() e
+      // sobrescreveria a campanha real com esse estado vazio.
+      firebase.database().ref('.info/connected').once('value').then(connSnap => {
+        if (connSnap.val() === true) firebaseWriteArmed = true;
+        // Se não estiver conectado ainda, deixa desarmado: o próprio
+        // listener .on('value') abaixo arma assim que trouxer uma
+        // atualização real do servidor (ver dataListenerHandler).
+      });
     }
     firebaseOnline = true;
     setSyncStatus('on');
@@ -343,6 +366,10 @@ function bindCampaign(campaignId) {
     dataListenerHandler = snapshot2 => {
       if (pendingSave) return;
       const incoming = snapshot2.val();
+      // Qualquer disparo deste listener já é uma confirmação real de
+      // sincronização com o servidor — arma a escrita mesmo se `incoming`
+      // vier vazio (campanha genuinamente sem personagens ainda).
+      firebaseWriteArmed = true;
       if (!incoming) return;
       const incomingJSON = JSON.stringify(incoming);
       if (incomingJSON === lastWrittenJSON) return;
@@ -365,6 +392,7 @@ function trocarCampanha() {
   dataListenerRef = null;
   dataListenerHandler = null;
   firebaseRef = null;
+  firebaseWriteArmed = false;
   activeCampaignId = null;
   activeCampaignMeta = null;
   bindRollsSync(null);
@@ -391,6 +419,15 @@ function saveState() {
   const localKey = 'rpg_dashboard_data_' + (activeCampaignId || 'local');
   localStorage.setItem(localKey, JSON.stringify(snapshotState()));
   if (!firebaseRef) return;
+  if (!firebaseWriteArmed) {
+    // Ainda não confirmamos os dados reais da campanha (ver bindCampaign) —
+    // não arrisca sobrescrever o Firebase com um estado local incompleto.
+    // O que já foi feito localmente/no localStorage não se perde: assim que
+    // a trava for armada, a próxima ação do usuário (ou o próprio
+    // sincronismo) salva normalmente.
+    console.warn('saveState: escrita no Firebase adiada — dados da campanha ainda não confirmados.');
+    return;
+  }
 
   pendingSave = true;
   clearTimeout(pendingSaveSafetyTimer);
