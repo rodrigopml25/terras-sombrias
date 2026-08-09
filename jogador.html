@@ -299,6 +299,16 @@
           </div>
         </div>
 
+        <!-- Seção: STATUS (Arma/Instrumento) -->
+        <div class="form-row" id="inv-sec-status-arma" style="display:none">
+          <label class="form-label">Status</label>
+          <div class="inv-tipo-group">
+            <button class="inv-equip-arma-btn active" data-equip="1" onclick="invSelectEquipArma(true)"><i class="ti ti-check"></i> Equipado</button>
+            <button class="inv-equip-arma-btn"        data-equip="0" onclick="invSelectEquipArma(false)">Guardado</button>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:5px">Só 1 Arma ou Instrumento pode estar equipado por vez — o resto fica guardado</div>
+        </div>
+
         <!-- Seção: PROTEÇÃO -->
         <div id="inv-sec-protecao" style="display:none">
           <div class="form-row">
@@ -690,6 +700,6 @@
       appId: "1:32314412947:web:758ee7ab153dd002482266"
     };
     </script>
-    <script src="logica.js?v=20260808b"></script>
+    <script src="logica.js?v=20260808j"></script>
   </body>
 </html>
