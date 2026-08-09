@@ -1020,9 +1020,30 @@ function useSkill(pid, skid) {
     renderAll();
   }
 
+  // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
+  // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
+  // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
+  // Cura do texto da Habilidade (1d20 ou 10 de Vida) e consome 1 unidade
+  // dela; sem esse item específico, fica só como consumo narrativo (outros
+  // tipos de Poção não têm efeito automatizado no app).
+  if (sk.id === 'sk_geral_beber_pocao') {
+    const pocaoCura = (p.inventario || []).find(it =>
+      normalizarNomeItem(it.name).includes('pocao de cura') && (it.qtd == null || it.qtd > 0));
+    if (pocaoCura) {
+      abrirBeberPocaoModal(pid, pocaoCura.id);
+      return;
+    }
+  }
+
   // Habilidade vinculada a um único Teste (ex: Acrobacia) — rola automaticamente.
   const testeVinculado = SKILL_TESTE_LINK[sk.id];
   if (testeVinculado) rolarTeste(pid, testeVinculado);
+}
+
+// Remove acentos/caixa pra comparar nomes de item de forma tolerante (ex:
+// "Poção de Cura", "poção de cura", "POÇÃO DE CURA" todos batem igual).
+function normalizarNomeItem(nome) {
+  return (nome || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
 
 // Reset de recursos de turno: incrementa o contador global (turnGlobal),

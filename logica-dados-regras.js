@@ -2415,6 +2415,87 @@ function escolherHonra(pid, opcao) {
   renderAll();
 }
 
+// "Beber Poção" (Habilidade Geral): quando o Inventário tem uma "Poção de
+// Cura" (ver useSkill), pergunta qual dos dois efeitos de Cura usar — 1d20
+// ou 10 de Vida fixo — e consome 1 unidade do item ao escolher.
+function abrirBeberPocaoModal(pid, itemId) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-flask"></i> Beber Poção</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        ${escHtml(p.name)} bebe uma Poção de Cura. Escolha o efeito.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherBeberPocao(${p.id},'${itemId}','dado')">
+          <span class="tm-opcao-nome">🎲 Curar 1d20 de Vida</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherBeberPocao(${p.id},'${itemId}','fixo')">
+          <span class="tm-opcao-nome">❤️ Curar 10 de Vida</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherBeberPocao(pid, itemId, opcao) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  fecharCriacaoAnaoModal();
+
+  // Consome 1 unidade da Poção usada: reduz a quantidade se o item tiver
+  // stack (qtd), ou remove o item inteiro se for uma unidade avulsa.
+  const item = (p.inventario || []).find(it => it.id === itemId);
+  if (item) {
+    if (item.qtd != null) {
+      item.qtd = Math.max(0, item.qtd - 1);
+      if (item.qtd === 0) p.inventario = p.inventario.filter(it => it.id !== itemId);
+    } else {
+      p.inventario = (p.inventario || []).filter(it => it.id !== itemId);
+    }
+  }
+
+  let cura, tree, sides = null, rolling = false, doneCb;
+  if (opcao === 'dado') {
+    const d1 = 1 + Math.floor(Math.random() * 20);
+    cura = d1;
+    tree = { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides: 20, count: 1, results: [d1], sum: cura, countNode: null } }] };
+    sides = 20;
+    rolling = true;
+    doneCb = key => setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+  } else {
+    cura = 10;
+    tree = { type: 'sum', terms: [{ sign: '+', node: { type: 'const', value: cura } }] };
+    doneCb = key => finishRollEntry(key);
+  }
+
+  p.hp = Math.min(p.hpMax, (p.hp || 0) + cura);
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: 'Beber Poção — Cura',
+    tree,
+    total: cura,
+    sides,
+    hidden: hiddenPadrao(p),
+    rolling,
+    ts: Date.now(),
+    label: '🧪 Beber Poção — Cura',
+  };
+  pushRollEntry(entry, doneCb);
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  saveState();
+  renderAll();
+}
+
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
 // como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
 // (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o
