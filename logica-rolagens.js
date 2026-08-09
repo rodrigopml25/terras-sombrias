@@ -700,6 +700,7 @@ const ATTR_DA_COR_HABILIDADE = { green: 'agi', red: 'forca', blue: 'intel' };
 const HABILIDADES_SEM_ACERTO = new Set([
   'sk_racial_dragao_metamorfose',
   'sk_geral_teste_mental',
+  'sk_geral_arsenal',
   'sk_origem_draenei_forjado_luz',
   'sk_racial_draenei_adaptacao',
   'sk_banco_campeao_adaptacao',
