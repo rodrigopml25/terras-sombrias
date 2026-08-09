@@ -1508,6 +1508,28 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .inv-equip-btn:hover { border-color: var(--border2); }
 .inv-equip-btn.active { background: var(--green-bg); border-color: var(--green-bd); color: var(--green); }
 
+/* Mesmo visual do .inv-equip-btn (Proteção), classe própria pro bloco de
+   Status de Arma/Instrumento — evita colisão de seletor .active entre os
+   dois blocos, que ficam no mesmo modal (ver _invSelectedEquipArma). */
+.inv-equip-arma-btn {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.inv-equip-arma-btn:hover { border-color: var(--border2); }
+.inv-equip-arma-btn.active { background: var(--green-bg); border-color: var(--green-bd); color: var(--green); }
+
 
 /* ── Modal inventário ── */
 .inv-tipo-group, .inv-peso-group {
