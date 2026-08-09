@@ -712,6 +712,8 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_campeao_motivar',
   'sk_banco_campeao_honra',
   'sk_geral_beber_poção',
+  'sk_geral_correr',
+  'sk_geral_engajar',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
