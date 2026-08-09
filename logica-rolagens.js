@@ -714,6 +714,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_geral_beber_poção',
   'sk_geral_correr',
   'sk_geral_engajar',
+  'sk_geral_recurso',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar

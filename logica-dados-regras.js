@@ -2415,6 +2415,109 @@ function escolherHonra(pid, opcao) {
   renderAll();
 }
 
+// "Recurso" (Habilidade Geral): pergunta qual tipo de item pegar. Pequeno,
+// Médio e Grande têm o custo em Dinheiro decidido por dado (1 do dado = 25 de
+// Dinheiro: Pequeno 1d2, Médio 1d4, Grande 1d6) e abrem a tela normal de
+// criação de Item pro jogador nomear/descrever; Poção de Cura tem custo fixo
+// (50 de Dinheiro) e vai direto pro Inventário, sem tela de criação.
+const RECURSO_TAMANHOS = {
+  pequeno: { label: 'Pequeno', sides: 2 },
+  medio:   { label: 'Médio',   sides: 4 },
+  grande:  { label: 'Grande',  sides: 6 },
+};
+
+function abrirRecursoModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-backpack"></i> Recurso</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        ${escHtml(p.name)} pega um objeto na mochila. Escolha o tipo (o custo em Dinheiro é decidido por dado).
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherRecurso(${p.id},'pequeno')">
+          <span class="tm-opcao-nome">📦 Pequeno — 1d2 × 25 de Dinheiro</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherRecurso(${p.id},'medio')">
+          <span class="tm-opcao-nome">📦 Médio — 1d4 × 25 de Dinheiro</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherRecurso(${p.id},'grande')">
+          <span class="tm-opcao-nome">📦 Grande — 1d6 × 25 de Dinheiro</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherRecurso(${p.id},'pocao')">
+          <span class="tm-opcao-nome">🧪 Poção de Cura — 50 de Dinheiro</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherRecurso(pid, tamanho) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  fecharCriacaoAnaoModal();
+
+  if (tamanho === 'pocao') {
+    const custo = 50;
+    if ((p.dinheiro || 0) < custo) {
+      alert(`Dinheiro insuficiente! Uma Poção de Cura custa ${custo} de Dinheiro, e ${p.name} só tem ${p.dinheiro || 0}.`);
+      return;
+    }
+    p.dinheiro = Math.max(0, (p.dinheiro || 0) - custo);
+
+    // Empilha na Poção de Cura já existente (mesma checagem de nome usada
+    // em "Beber Poção"), ou cria uma nova unidade se ainda não tiver.
+    if (!Array.isArray(p.inventario)) p.inventario = [];
+    const existente = p.inventario.find(it => normalizarNomeItem(it.name).includes('pocao de cura'));
+    if (existente) {
+      existente.qtd = (existente.qtd != null ? existente.qtd : 1) + 1;
+    } else {
+      p.inventario.push({ id: 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: 'Poção de Cura', tipo: 'item', efeito: '', qtd: 1 });
+    }
+    saveState();
+    renderAll();
+    return;
+  }
+
+  const info = RECURSO_TAMANHOS[tamanho];
+  if (!info) return;
+  const d = 1 + Math.floor(Math.random() * info.sides);
+  const custo = d * 25;
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Recurso — ${info.label} (× 25 de Dinheiro)`,
+    tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides: info.sides, count: 1, results: [d], sum: d, countNode: null } }] },
+    total: d,
+    sides: info.sides,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+    label: `📦 Recurso — ${info.label}`,
+  };
+  pushRollEntry(entry, key => setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS));
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  if ((p.dinheiro || 0) < custo) {
+    alert(`Dinheiro insuficiente! O item ${info.label} saiu por ${custo} de Dinheiro (1d${info.sides} × 25), e ${p.name} só tem ${p.dinheiro || 0}. Nenhum item foi adicionado.`);
+    return;
+  }
+  p.dinheiro = Math.max(0, (p.dinheiro || 0) - custo);
+  saveState();
+  renderAll();
+
+  // Abre a tela normal de criação de Item pro jogador nomear/descrever o
+  // que pegou — mesma tela usada pro botão "Adicionar Item" do Inventário.
+  openInvModal(pid, { tipo: 'item', qtd: 1 });
+}
+
 // "Beber Poção" (Habilidade Geral): quando o Inventário tem uma "Poção de
 // Cura" (ver useSkill), pergunta qual dos dois efeitos de Cura usar — 1d20
 // ou 10 de Vida fixo — e consome 1 unidade do item ao escolher.

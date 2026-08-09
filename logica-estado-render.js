@@ -1057,6 +1057,14 @@ function useSkill(pid, skid) {
     renderAll();
   }
 
+  // "Recurso" (Habilidade Geral): não "acerta" nada — abre a escolha de qual
+  // tipo de item pegar (Pequeno/Médio/Grande, com custo em Dinheiro decidido
+  // por dado, OU Poção de Cura por um valor fixo). Ver abrirRecursoModal.
+  if (sk.id === 'sk_geral_recurso') {
+    abrirRecursoModal(pid);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
