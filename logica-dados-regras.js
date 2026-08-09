@@ -1594,6 +1594,26 @@ function temAmbidestro(p) {
   return getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'ambidestro');
 }
 
+// "Guerreiro Perfeito" (passiva fixa do Combatente): pode segurar uma Arma
+// Pesada de corpo a corpo (duasMaos, alcance curto/ambos — não serve pra
+// alcance longo) em CADA mão, mesmo sendo Armas de duas mãos. Reaproveita
+// toda a infra da "mão secundária" (equipadoSecundaria/toggleEquipArma
+// Secundária/getArmaSecundariaEquipada) e da Habilidade Geral "Ataque com 2
+// Armas" — só muda QUAIS Armas são elegíveis pro slot secundário (ver
+// itemElegivelMaoSecundaria em logica-estado-render.js).
+function temGuerreiroPerfeito(p) {
+  if (p.isNPC) return false; // NPC já libera tudo por outro caminho
+  return getSubclassePassivas(p).some(pas => pas.id === 'combatente_guerreiro_perfeito');
+}
+
+// Alguma fonte (Talento Inferior "Ambidestro" ou passiva "Guerreiro
+// Perfeito") dá acesso à "mão secundária"/"Ataque com 2 Armas"? Ver
+// itemElegivelMaoSecundaria pra saber QUAIS Armas cada uma libera.
+function temSegundaArmaHabilitada(p) {
+  if (p.isNPC) return true;
+  return temAmbidestro(p) || temGuerreiroPerfeito(p);
+}
+
 // Retorna true se o personagem precisa escolher o Estilo de Encantamento
 // agora (tem o Talento Inferior "Equipamento Encantado" mas ainda não
 // escolheu Arcano ou Místico) — ver renderEscolhaEstiloEncantamentoModal.
@@ -6365,11 +6385,12 @@ function ensureGeneralSkills(p) {
     else if (existente.color !== def.color) existente.color = def.color;
   });
   // "Ataque com 2 Armas": só existe pra quem tem o Talento Inferior
-  // "Ambidestro" — some se o jogador perder o talento (mesmo padrão de
-  // ensureClassePassivas ao trocar de classe).
+  // "Ambidestro" ou a passiva "Guerreiro Perfeito" (Combatente) — some se o
+  // jogador perder ambas (mesmo padrão de ensureClassePassivas ao trocar de
+  // classe).
   const ambidestroSkillId = 'sk_geral_' + AMBIDESTRO_SKILL_DEF.name.toLowerCase().replace(/\s+/g, '_');
   const temSkill = p.skills.some(sk => sk.id === ambidestroSkillId);
-  if (temAmbidestro(p)) {
+  if (temSegundaArmaHabilitada(p)) {
     if (!temSkill) p.skills.push(makeGeneralSkill(AMBIDESTRO_SKILL_DEF));
   } else if (temSkill) {
     p.skills = p.skills.filter(sk => sk.id !== ambidestroSkillId);

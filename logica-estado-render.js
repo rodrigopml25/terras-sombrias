@@ -688,7 +688,7 @@ function construirRolagemAcertoArma(p, item, opts) {
   const ambidestroUsado = !!(opts.forcarAmbidestro && item.id !== 'sem_arma' && getArmaSecundariaEquipada(p));
   if (mst) {
     const mstFinal = ambidestroUsado ? Math.ceil(mst / 2) : mst;
-    terms.push({ sign: '+', node: { type: 'labeled_const', value: mstFinal, label: 'Maestria ' + mb.attr + (ambidestroUsado ? ' /2 (Ambidestro)' : '') } });
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: mstFinal, label: 'Maestria ' + mb.attr + (ambidestroUsado ? ' /2 (2 Armas)' : '') } });
     total += mstFinal;
   }
 
@@ -3156,13 +3156,15 @@ function renderInventarioArea(p, readOnly) {
       : (item.equipado
           ? `<span class="inv-equip-badge inv-equip-on" onclick="toggleEquipArma(${p.id},'${item.id}')" title="Equipado — clique para guardar"><i class="ti ti-check"></i> Equipado</span>`
           : `<span class="inv-equip-badge inv-equip-off" onclick="toggleEquipArma(${p.id},'${item.id}')" title="Guardado — clique para equipar">Guardado</span>`);
-    // Badge da "mão secundária" (Talento Inferior "Ambidestro") — só pra
-    // Armas/Instrumentos de uma mão só (!duasMaos), fora "Sem Arma", e só
-    // pra quem tem o Talento. Independente do slot principal (equipBadge).
-    const offhandBadge = (item.id !== 'sem_arma' && !item.duasMaos && temAmbidestro(p))
+    // Badge da "mão secundária" (Talento Inferior "Ambidestro" ou passiva
+    // "Guerreiro Perfeito") — fora "Sem Arma", só pra Armas/Instrumentos
+    // elegíveis pro personagem (ver itemElegivelMaoSecundaria). Independente
+    // do slot principal (equipBadge).
+    const podeMaoSecundaria = item.id !== 'sem_arma' && itemElegivelMaoSecundaria(p, item);
+    const offhandBadge = podeMaoSecundaria
       ? (item.equipadoSecundaria
-          ? `<span class="inv-equip-badge inv-equip-on" onclick="toggleEquipArmaSecundaria(${p.id},'${item.id}')" title="Mão secundária (Ambidestro) — clique para guardar"><i class="ti ti-check"></i> 🤝 Mão Secundária</span>`
-          : `<span class="inv-equip-badge inv-equip-off" onclick="toggleEquipArmaSecundaria(${p.id},'${item.id}')" title="Equipar na mão secundária (Ambidestro)">🤝 Mão Secundária</span>`)
+          ? `<span class="inv-equip-badge inv-equip-on" onclick="toggleEquipArmaSecundaria(${p.id},'${item.id}')" title="Mão secundária — clique para guardar"><i class="ti ti-check"></i> 🤝 Mão Secundária</span>`
+          : `<span class="inv-equip-badge inv-equip-off" onclick="toggleEquipArmaSecundaria(${p.id},'${item.id}')" title="Equipar na mão secundária">🤝 Mão Secundária</span>`)
       : '';
     const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>{
@@ -3449,24 +3451,33 @@ function toggleEquipArma(pid, itemId) {
 }
 
 // Retorna a Arma/Instrumento equipado na "mão secundária" (Talento Inferior
-// "Ambidestro"), se houver.
+// "Ambidestro" ou passiva "Guerreiro Perfeito"), se houver.
 function getArmaSecundariaEquipada(p) {
   return (p.inventario || []).find(it => (it.tipo === 'arma' || it.tipo === 'instrumento') && it.equipadoSecundaria);
 }
 
-// Equipa/desequipa uma Arma/Instrumento de uma mão só na "mão secundária" —
-// só disponível com o Talento Inferior "Ambidestro" (temAmbidestro) e só
-// pra itens que não exigem as duas mãos (!item.duasMaos). Independente do
-// slot principal (item.equipado): um item nunca fica nos dois slots ao
-// mesmo tempo (ver toggleEquipArma). Só 1 item por vez na mão secundária —
-// equipar outro guarda o anterior, mesmo padrão de toggleEquipArma/
-// toggleEquipProt. Sujeito à mesma trava de troca em Luta (Arsenal).
+// Esta Arma/Instrumento pode ir na "mão secundária" deste personagem?
+// Ambidestro (Talento Inferior): qualquer item de uma mão só (!duasMaos).
+// Guerreiro Perfeito (passiva do Combatente): só Arma Pesada de duas mãos
+// E de corpo a corpo (alcance curto/ambos — nunca alcance longo).
+function itemElegivelMaoSecundaria(p, item) {
+  if (!item.duasMaos) return temAmbidestro(p);
+  return temGuerreiroPerfeito(p) && item.peso === 'pesada' && item.alcance !== 'longo';
+}
+
+// Equipa/desequipa uma Arma/Instrumento na "mão secundária" — só disponível
+// com o Talento Inferior "Ambidestro" ou a passiva "Guerreiro Perfeito"
+// (ver itemElegivelMaoSecundaria, que decide QUAIS Armas cada uma libera).
+// Independente do slot principal (item.equipado): um item nunca fica nos
+// dois slots ao mesmo tempo (ver toggleEquipArma). Só 1 item por vez na mão
+// secundária — equipar outro guarda o anterior, mesmo padrão de
+// toggleEquipArma/toggleEquipProt. Sujeito à mesma trava de troca em Luta
+// (Arsenal).
 function toggleEquipArmaSecundaria(pid, itemId) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
   const item = (p.inventario || []).find(x => x.id === itemId);
-  if (!item || item.duasMaos) return;
-  if (!temAmbidestro(p)) return;
+  if (!item || !itemElegivelMaoSecundaria(p, item)) return;
   if (!_podeTrocarArmaEquipada(p)) return;
   const novoEstado = !item.equipadoSecundaria;
   if (novoEstado) {
@@ -3496,7 +3507,7 @@ function getArmaEquipadaPrincipal(p) {
 // vez de "Rolagem de Acerto — <item>". "Ataque com 2 Armas" sempre força a
 // Maestria pela metade (ver construirRolagemAcertoArma/opts.forcarAmbidestro)
 // — se não houver uma 2ª Arma na mão secundária, avisa em vez de rolar
-// (Talento Inferior "Ambidestro").
+// (Talento Inferior "Ambidestro" ou passiva "Guerreiro Perfeito").
 function rolarAcertoAtaqueGeral(pid, skid) {
   const p = PLAYERS.find(x => x.id === pid);
   const sk = p && p.skills.find(s => s.id === skid);
