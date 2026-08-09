@@ -501,7 +501,8 @@ function getArmaMaestriaBonus(p, peso) {
 // Ponto de extensão: qualquer novo bônus de Dano que dependa de arma/item
 // (encantamentos, outros Aprimoramentos Dourados, passivas raciais futuras)
 // entra aqui, como mais um termo — nunca direto na string item.dano.
-function construirRolagemDanoArma(p, item) {
+function construirRolagemDanoArma(p, item, opts) {
+  opts = opts || {};
   if (!p || !item) return null;
   const danoStr = (item.dano || '').trim();
   if (!danoStr) return null;
@@ -579,14 +580,13 @@ function construirRolagemDanoArma(p, item) {
     total += profundezasVal;
   }
 
-  // "Ambidestro" (Talento Inferior): marca deixada por rolarAcertoArma quando
-  // o jogador ativou o uso da 2ª arma (mão secundária) NESTE ataque — soma o
-  // Dano dela como termos extras, rolado agora na hora (fórmula própria dela,
-  // igual a rolarDanoArma normal), sem tocar na Maestria desta rolagem (a
-  // redução já aconteceu no Acerto). Consumida aqui, só vale pra essa
-  // PRÓXIMA rolagem de Dano dessa Arma específica.
+  // "Ambidestro" (Talento Inferior): usado pela Habilidade Geral "Ataque
+  // com 2 Armas" (ver rolarAcertoAtaqueGeral/opts.forcarAmbidestro) — soma o
+  // Dano da 2ª arma (mão secundária) como termos extras, rolado agora na
+  // hora (fórmula própria dela, igual a uma rolagem normal), sem tocar na
+  // Maestria desta rolagem (a redução já aconteceu no Acerto).
   let ambidestroNome = null;
-  if (item.ambidestroDanoPendente) {
+  if (opts.forcarAmbidestro) {
     const armaSec = getArmaSecundariaEquipada(p);
     const danoSecStr = armaSec && (armaSec.dano || '').trim();
     if (armaSec && danoSecStr) {
@@ -604,7 +604,6 @@ function construirRolagemDanoArma(p, item) {
         ambidestroNome = armaSec.name;
       } catch (e) { /* fórmula inválida na 2ª arma — ignora o bônus */ }
     }
-    item.ambidestroDanoPendente = false;
   }
 
   const tree = { type: 'sum', terms };
@@ -613,14 +612,17 @@ function construirRolagemDanoArma(p, item) {
 }
 
 // Rola o Dano de uma Arma/Instrumento e publica no feed de dados, igual a
-// um Teste — chamado pelo botão de dado ao lado do valor de Dano na Ficha
-// (ver renderInventarioArea) tanto pelo Jogador quanto pelo Narrador.
-function rolarDanoArma(pid, itemId) {
+// um Teste — chamado pela Habilidade Geral "Ataque com Arma"/"Ataque com 2
+// Armas" (ver useSkill), sempre sobre a Arma/Instrumento atualmente
+// equipado. opts.forcarAmbidestro/opts.labelPrefixo: ver
+// construirRolagemDanoArma.
+function rolarDanoArma(pid, itemId, opts) {
+  opts = opts || {};
   if (!currentUser) return null;
   const p = PLAYERS.find(x => x.id === pid);
   const item = p && resolverArmaOuInstrumento(p, itemId);
   if (!p || !item) return null;
-  const r = construirRolagemDanoArma(p, item);
+  const r = construirRolagemDanoArma(p, item, opts);
   if (!r) return null;
 
   // "Origem Comum" (Orc): a arma causou o Dano Total dela mesma — concede
@@ -635,7 +637,7 @@ function rolarDanoArma(pid, itemId) {
     playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
     charName: p.name,
     isNarrator: !!IS_NARRADOR,
-    formula: r.formula,
+    formula: opts.labelPrefixo ? `${opts.labelPrefixo} — ${item.name}` : r.formula,
     tree: r.tree,
     total: r.total,
     hidden: hiddenPadrao(p),
@@ -667,7 +669,13 @@ function rolarDanoArma(pid, itemId) {
 // Habilidade (construirRolagemAcertoHabilidade), incluindo os mesmos bônus
 // "de mesa" que valem pra qualquer rolagem: Duelo (+1d6/-1d6 contra o Alvo)
 // e Motivar (+1d12, consumido na hora).
-function construirRolagemAcertoArma(p, item) {
+// opts.forcarAmbidestro: usado pela Habilidade Geral "Ataque com 2 Armas"
+// (ver rolarAcertoAtaqueGeral) — a Maestria cai pela metade (arredonda pra
+// cima), exigindo uma Arma na mão secundária equipada (Talento Inferior
+// "Ambidestro"); o ganho de Dano da 2ª arma acontece na rolagem de Dano
+// (ver construirRolagemDanoArma), não aqui.
+function construirRolagemAcertoArma(p, item, opts) {
+  opts = opts || {};
   const sides = 20;
   const mb = getArmaMaestriaBonus(p, item.peso);
   const mst = mb ? mb.val : 0;
@@ -677,11 +685,7 @@ function construirRolagemAcertoArma(p, item) {
   const terms = [{ sign: '+', node: dadoNode }];
   let total = d1;
 
-  // "Ambidestro" (Talento Inferior): se o jogador ativou o uso da 2ª arma
-  // (mão secundária) pra este ataque, a Maestria do Acerto cai pela metade
-  // (arredondando pra cima) — o ganho de Dano da 2ª arma acontece depois, na
-  // rolagem de Dano (ver construirRolagemDanoArma), não aqui.
-  const ambidestroUsado = !!(p.ambidestroAtivo && item.id !== 'sem_arma' && getArmaSecundariaEquipada(p));
+  const ambidestroUsado = !!(opts.forcarAmbidestro && item.id !== 'sem_arma' && getArmaSecundariaEquipada(p));
   if (mst) {
     const mstFinal = ambidestroUsado ? Math.ceil(mst / 2) : mst;
     terms.push({ sign: '+', node: { type: 'labeled_const', value: mstFinal, label: 'Maestria ' + mb.attr + (ambidestroUsado ? ' /2 (Ambidestro)' : '') } });
@@ -721,13 +725,18 @@ function construirRolagemAcertoArma(p, item) {
 // Rola e publica no feed de dados a checagem de Acerto de uma Arma/
 // Instrumento, exatamente como o Acerto de uma Habilidade — sem decidir
 // sozinho se acertou ou não, só monta a rolagem completa (dado + maestria +
-// bônus ativos) pra Narrador/Jogador julgarem o resultado.
-function rolarAcertoArma(pid, itemId) {
+// bônus ativos) pra Narrador/Jogador julgarem o resultado. Chamada pela
+// Habilidade Geral "Ataque com Arma"/"Ataque com 2 Armas" (ver
+// rolarAcertoAtaqueGeral), sempre sobre a Arma/Instrumento atualmente
+// equipado. opts.forcarAmbidestro/opts.labelPrefixo: ver
+// construirRolagemAcertoArma.
+function rolarAcertoArma(pid, itemId, opts) {
+  opts = opts || {};
   if (!currentUser) return null;
   const p = PLAYERS.find(x => x.id === pid);
   const item = p && resolverArmaOuInstrumento(p, itemId);
   if (!p || !item) return null;
-  const r = construirRolagemAcertoArma(p, item);
+  const r = construirRolagemAcertoArma(p, item, opts);
   if (!r) return null;
 
   // Acerto Crítico: marca a Arma pra dobrar os dados na PRÓXIMA rolagem de
@@ -737,24 +746,16 @@ function rolarAcertoArma(pid, itemId) {
   const critInfo = rollCritInfo({ tree: r.tree, critMin: r.critMin, fumbleMax: r.fumbleMax, fumbleImune: r.fumbleImune });
   if (critInfo.hasCrit) item.critPendente = true;
 
-  // "Ambidestro": a escolha foi consumida nesta rolagem (ver
-  // construirRolagemAcertoArma) — desliga o toggle e marca esta MESMA Arma
-  // pra somar o Dano da 2ª arma na próxima rolagem de Dano dela.
-  if (r.ambidestroUsado) {
-    item.ambidestroDanoPendente = true;
-    p.ambidestroAtivo = false;
-  }
-
   const armaSecNome = r.ambidestroUsado && getArmaSecundariaEquipada(p) ? getArmaSecundariaEquipada(p).name : null;
   const labelPadrao = armaSecNome
-    ? `🎯 Rolagem de Acerto (🤝 Ambidestro: Maestria pela metade — próximo Dano soma ${armaSecNome})`
+    ? `🎯 Rolagem de Acerto (🤝 Ambidestro: Maestria pela metade — ${armaSecNome})`
     : '🎯 Rolagem de Acerto';
 
   const entry = {
     playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
     charName: p.name,
     isNarrator: !!IS_NARRADOR,
-    formula: r.formula,
+    formula: opts.labelPrefixo ? `${opts.labelPrefixo} — ${item.name}` : r.formula,
     tree: r.tree,
     total: r.total,
     sides: r.sides,
@@ -1127,6 +1128,17 @@ function useSkill(pid, skid) {
     }
   }
 
+  // "Ataque com Arma"/"Ataque com 2 Armas" (Habilidades Gerais): não abrem
+  // modal — o "Usar Efeito" É a rolagem de Dano da Arma/Instrumento
+  // equipado na mão principal (ver getArmaEquipadaPrincipal). "Ataque com 2
+  // Armas" soma o Dano da 2ª arma (mão secundária) também — reaproveita
+  // rolarDanoArma/opts.forcarAmbidestro, mesmo mecanismo do Talento
+  // Inferior "Ambidestro" (ver rolarDanoAtaqueGeral).
+  if (sk.id === 'sk_geral_ataque_com_arma' || sk.id === 'sk_geral_ataque_com_2_armas') {
+    rolarDanoAtaqueGeral(pid, sk.id);
+    return;
+  }
+
   // Habilidade vinculada a um único Teste (ex: Acrobacia) — rola automaticamente.
   const testeVinculado = SKILL_TESTE_LINK[sk.id];
   if (testeVinculado) rolarTeste(pid, testeVinculado);
@@ -1206,8 +1218,6 @@ function resetLuta() {
     p.furiaOrcAtiva = false;
     p.dueloAtivo = false;
     p.arsenalPendente = false;
-    p.ambidestroAtivo = false;
-    (p.inventario || []).forEach(it => { it.ambidestroDanoPendente = false; });
   });
   saveState();
   renderAll();
@@ -3216,27 +3226,13 @@ function renderInventarioArea(p, readOnly) {
       const profundezasBonus = profundezasVal > 0
         ? `<span style="font-size:11px;color:#8ab8e8;margin-left:2px" title="Origem das Profundezas">+${profundezasVal} <span style="font-size:10px;opacity:.8">Profundezas</span></span>`
         : '';
-      const rolarDanoBtn = item.dano
-        ? `<button class="teste-roll-btn" style="margin-left:6px" onclick="event.stopPropagation();rolarDanoArma(${p.id},'${item.id}')" title="Rolar Dano (${escHtml(item.dano)}${mb && mb.val ? ' +' + mb.val + ' ' + mb.attr : ''}${temAfiacaoAprimorada(item) ? ' +1d6 ✨' : ''}${profundezasVal > 0 ? ' +' + profundezasVal + ' Profundezas' : ''})"><i class="ti ti-dice"></i></button>`
-        : '';
-      const rolarAcertoBtn = `<button class="sk-btn sk-btn-acerto" style="margin-left:6px;padding:4px 10px;font-size:11.5px" onclick="event.stopPropagation();rolarAcertoArma(${p.id},'${item.id}')" title="Rolar Acerto (1d20${mb && mb.val ? ' +' + mb.val + ' ' + mb.attr : ''})">🎯 Acerto</button>`;
-      // "Ambidestro": toggle pro PRÓXIMO Acerto (de qualquer Arma/Instrumento
-      // da ficha) usar a 2ª arma (mão secundária) — Maestria do Acerto cai
-      // pela metade, +Dano da 2ª arma no próximo Dano dessa mesma Arma.
-      const armaSecundaria = item.id !== 'sem_arma' && temAmbidestro(p) ? getArmaSecundariaEquipada(p) : null;
-      const ambidestroBtn = armaSecundaria
-        ? `<button class="sk-btn" style="margin-left:6px;padding:4px 10px;font-size:11.5px${p.ambidestroAtivo ? ';background:var(--accent-bg);border-color:var(--accent-bd);color:var(--accent)' : ''}" onclick="event.stopPropagation();toggleAmbidestroAtivo(${p.id})" title="Ambidestro: usar ${escHtml(armaSecundaria.name)} (mão secundária) neste ataque — Maestria do Acerto cai pela metade, +Dano da 2ª arma no próximo Dano">🤝${p.ambidestroAtivo ? ' Ativo' : ''}</button>`
-        : '';
-      const danoPart = item.dano ? `<div class="inv-stat"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}${afiacaoBonus}${profundezasBonus}${rolarDanoBtn}</div>` : '';
+      const danoPart = item.dano ? `<div class="inv-stat"><span class="inv-dano-label">Dano</span><span class="inv-dano-val">${item.dano}</span>${bonus}${afiacaoBonus}${profundezasBonus}</div>` : '';
       const precoPart = item.preco != null ? `<div class="inv-stat"><span class="inv-dano-label">💰 Preço</span><span class="inv-dano-val" style="color:var(--amber)">${item.preco}</span></div>` : '';
-      const acertoPart = `<div class="inv-stat"><span class="inv-dano-label">Acerto</span>${!item.dano ? bonus : ''}${rolarAcertoBtn}${ambidestroBtn}</div>`;
+      const acertoPart = !item.dano ? `<div class="inv-stat"><span class="inv-dano-label">Acerto</span>${bonus}</div>` : '';
       const critBadge = item.critPendente
         ? `<div style="font-size:11px;color:#e8c53a;margin-top:2px" title="Próxima rolagem de Dano desta Arma sai com os dados dobrados">🎯 Crítico! Próximo Dano dobrado</div>`
         : '';
-      const ambidestroDanoBadge = item.ambidestroDanoPendente
-        ? `<div style="font-size:11px;color:var(--accent2);margin-top:2px" title="Próximo Dano desta Arma soma o Dano da 2ª arma">🤝 Ambidestro! Próximo Dano soma a 2ª arma</div>`
-        : '';
-      return `<div class="inv-stats-row">${danoPart}${acertoPart}${precoPart}</div>${critBadge}${ambidestroDanoBadge}`;
+      return `<div class="inv-stats-row">${danoPart}${acertoPart}${precoPart}</div>${critBadge}`;
     }
     const encantamentoBox = item.encantamento
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>`
@@ -3484,22 +3480,55 @@ function toggleEquipArmaSecundaria(pid, itemId) {
   renderAll();
 }
 
-// Liga/desliga o uso do Talento Inferior "Ambidestro" pro PRÓXIMO Acerto de
-// Arma (qualquer Arma/Instrumento da ficha): enquanto ativo, esse Acerto usa
-// a Maestria pela metade (arredondando pra cima — ver
-// construirRolagemAcertoArma) e o próximo Dano da MESMA Arma usada nesse
-// Acerto soma o Dano da 2ª arma (mão secundária) como termos extras (ver
-// construirRolagemDanoArma). Consumido em rolarAcertoArma assim que usado —
-// escolha manual do jogador antes de rolar, mesmo espírito do toggle de
-// Duelo/Motivar, mas precisa de uma Arma na mão secundária equipada.
-function toggleAmbidestroAtivo(pid) {
-  const p = PLAYERS.find(x => x.id === pid);
-  if (!p) return;
-  if (!temAmbidestro(p) || !getArmaSecundariaEquipada(p)) return;
-  p.ambidestroAtivo = !p.ambidestroAtivo;
-  saveState();
-  renderAll();
+// Retorna a Arma/Instrumento equipado na mão principal, ou a pseudo-arma
+// "Sem Arma" se nenhum estiver equipado — usado pelas Habilidades Gerais
+// "Ataque com Arma"/"Ataque com 2 Armas" (ver rolarAcertoAtaqueGeral/
+// useSkill), que sempre agem sobre o que está equipado no momento, sem
+// precisar apontar pra um item específico.
+function getArmaEquipadaPrincipal(p) {
+  const eq = (p.inventario || []).find(it => (it.tipo === 'arma' || it.tipo === 'instrumento') && it.equipado);
+  return eq || criarSemArmaItem(p);
 }
+
+// Rola o Acerto das Habilidades Gerais "Ataque com Arma"/"Ataque com 2
+// Armas" — sempre sobre a Arma/Instrumento equipado na mão principal (ver
+// getArmaEquipadaPrincipal), publicado com o nome da própria Habilidade em
+// vez de "Rolagem de Acerto — <item>". "Ataque com 2 Armas" sempre força a
+// Maestria pela metade (ver construirRolagemAcertoArma/opts.forcarAmbidestro)
+// — se não houver uma 2ª Arma na mão secundária, avisa em vez de rolar
+// (Talento Inferior "Ambidestro").
+function rolarAcertoAtaqueGeral(pid, skid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skid);
+  if (!p || !sk) return;
+  const usa2Armas = skid === 'sk_geral_ataque_com_2_armas';
+  const item = getArmaEquipadaPrincipal(p);
+  if (usa2Armas && !getArmaSecundariaEquipada(p)) {
+    alert('Equipe uma 2ª Arma/Instrumento na mão secundária antes (badge "🤝 Mão Secundária" no Inventário).');
+    return;
+  }
+  rolarAcertoArma(pid, item.id, { forcarAmbidestro: usa2Armas, labelPrefixo: sk.name });
+}
+
+// Rola o Dano das Habilidades Gerais "Ataque com Arma"/"Ataque com 2
+// Armas" — mesma ideia de rolarAcertoAtaqueGeral, mas pro botão "Usar
+// Efeito" (chamado por useSkill). "Ataque com 2 Armas" sempre soma o Dano
+// da 2ª arma equipada, mesmo sem ter rolado o Acerto antes — os botões
+// "Acerto" e "Usar Efeito" de uma Habilidade sempre foram independentes.
+function rolarDanoAtaqueGeral(pid, skid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skid);
+  if (!p || !sk) return;
+  const usa2Armas = skid === 'sk_geral_ataque_com_2_armas';
+  const item = getArmaEquipadaPrincipal(p);
+  if (usa2Armas && !getArmaSecundariaEquipada(p)) {
+    alert('Equipe uma 2ª Arma/Instrumento na mão secundária antes (badge "🤝 Mão Secundária" no Inventário).');
+    return;
+  }
+  if (!item.dano) return;
+  rolarDanoArma(pid, item.id, { forcarAmbidestro: usa2Armas, labelPrefixo: sk.name });
+}
+
 
 // Equipa a pseudo-arma "Sem Arma": guarda todas as Armas/Instrumentos reais
 // do personagem, representando lutar desarmado. Chamada pelo badge do card

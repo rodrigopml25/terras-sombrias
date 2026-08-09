@@ -743,6 +743,13 @@ function rolarAcertoHabilidadeClick(pid, skid) {
   if (!sk) return;
   if (!isReady(sk, p)) return;
   if (formaSombriaBloqueiaHabilidade(p, sk)) return;
+  // "Ataque com Arma"/"Ataque com 2 Armas" (Habilidades Gerais): o Acerto
+  // usa a Maestria da Arma equipada (peso), não a Maestria por cor de
+  // Habilidade — rota própria, ver rolarAcertoAtaqueGeral.
+  if (sk.id === 'sk_geral_ataque_com_arma' || sk.id === 'sk_geral_ataque_com_2_armas') {
+    rolarAcertoAtaqueGeral(pid, sk.id);
+    return;
+  }
   // "Encantamento Troll": os dados de lançamento (Acerto) são trocados por
   // um Teste de Arcano OU Místico completo — pergunta qual dos dois antes
   // de rolar (ver abrirAcertoEncantadoModal/rolarAcertoHabilidadeEncantada).

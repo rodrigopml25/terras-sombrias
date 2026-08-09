@@ -6325,6 +6325,7 @@ const GENERAL_SKILLS = [
   { name: 'Arremesso',     color: 'red',  cost: 1, tipo: 'infinite', desc: 'Faça um teste de Arremesso para arremessar um objeto que você consiga carregar. Se acertar um Alvo que possa receber Dano e que não tenha sido atingido por uma arma, cause: Leve → 1d4; Médio → 1d6; Pesado → 1d8 e Mega Pesado → 1d10 de dano.' },
   { name: 'Acrobacia',     color: 'green', cost: 1, tipo: 'perturn', desc: 'Faça um teste de Acrobacia para fazer uma manobra. Caso queira se movimentar, consumirá a Ação de Movimento também e receberá um deslocamento extra para a maestria de Peso: Leve +6 casas; Médio +4 casas; Pesado +2 casas ou Mega Pesado +1 casa.' },
   { name: 'Arsenal',       color: 'gray', cost: 1, tipo: 'perturn', desc: 'Equipe uma Arma, troque de Arma OU pegue e equipe uma Arma do chão.' },
+  { name: 'Ataque com Arma', color: 'red', cost: 1, tipo: 'infinite', desc: 'Use sua Arma/Instrumento equipado (mão principal) para atacar. O Acerto usa 1d20 + Maestria da Arma equipada.' },
   { name: 'Beber Poção',   color: 'gray', cost: 1, tipo: 'infinite', desc: 'Consuma uma Poção. Se for de Cura: Cure apenas 1d20 de Vida OU Cure apenas 10 de Vida (Requer uma Poção).' },
   { name: 'Empurrar',      color: 'red',  cost: 1, tipo: 'perturn', desc: 'Faça um Teste de Empurrar para deslocar um Objeto ou alguém que você aguenta em 1d2 Casa(s); para cada Maestria de Peso superior que você tiver em relação ao Alvo, empurrará +2 casas.' },
   { name: 'Correr',        color: 'gray', cost: 1, tipo: 'perturn', desc: 'Ganha mais uma ação de movimento neste turno.' },
@@ -6333,6 +6334,11 @@ const GENERAL_SKILLS = [
   { name: 'Teste Mental',  color: 'blue', cost: 1, tipo: 'perturn', desc: 'Faça um teste de uma área intelectual ou de Emoção, esse último é 1d100 − Insanidade.' },
   { name: 'Furtividade',   color: 'green', cost: 1, tipo: 'perturn', desc: 'Faça um teste de Furtividade; a dificuldade varia conforme o grau de luminosidade ao qual está exposto. Se estiver totalmente exposto à luz, não pode fazer o teste.' },
 ];
+
+// "Ataque com 2 Armas": não entra em GENERAL_SKILLS (que é incondicional
+// pra todos) porque só existe pra quem tem o Talento Inferior "Ambidestro"
+// (ver ensureGeneralSkills, que adiciona/remove conforme o talento).
+const AMBIDESTRO_SKILL_DEF = { name: 'Ataque com 2 Armas', color: 'gray', cost: 1, tipo: 'infinite', desc: 'Ataque usando a Arma da mão principal e a da mão secundária ao mesmo tempo — soma o Dano das duas, mas o Acerto usa a Maestria pela metade (arredonda para cima). Requer uma 2ª Arma/Instrumento equipado na mão secundária.' };
 
 function makeGeneralSkill(def) {
   return {
@@ -6352,6 +6358,16 @@ function ensureGeneralSkills(p) {
     const jaTem = p.skills.some(sk => sk.id === 'sk_geral_' + def.name.toLowerCase().replace(/\s+/g, '_'));
     if (!jaTem) p.skills.push(makeGeneralSkill(def));
   });
+  // "Ataque com 2 Armas": só existe pra quem tem o Talento Inferior
+  // "Ambidestro" — some se o jogador perder o talento (mesmo padrão de
+  // ensureClassePassivas ao trocar de classe).
+  const ambidestroSkillId = 'sk_geral_' + AMBIDESTRO_SKILL_DEF.name.toLowerCase().replace(/\s+/g, '_');
+  const temSkill = p.skills.some(sk => sk.id === ambidestroSkillId);
+  if (temAmbidestro(p)) {
+    if (!temSkill) p.skills.push(makeGeneralSkill(AMBIDESTRO_SKILL_DEF));
+  } else if (temSkill) {
+    p.skills = p.skills.filter(sk => sk.id !== ambidestroSkillId);
+  }
 }
 
 const AVATARS = [
