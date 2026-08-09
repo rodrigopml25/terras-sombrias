@@ -1437,6 +1437,59 @@ function escolherTesteMental(pid, testeId) {
   rolarTeste(pid, testeId);
 }
 
+// ─── Modal de escolha de Arma — habilidade "Arsenal" ───────────────────────
+// Ao usar Arsenal, mostra direto todas as Armas/Instrumentos do Inventário
+// (+ a pseudo-opção "Sem Arma", pra guardar tudo e lutar desarmado) com um
+// botão por item — clicar já chama toggleEquipArma/equiparSemArma, que
+// tratam a checagem de Luta/marca pendente (_podeTrocarArmaEquipada).
+function abrirArsenalModal(pid) {
+  const overlay = document.getElementById('modal-arsenal-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  const armas = (p.inventario || []).filter(it => it.tipo === 'arma' || it.tipo === 'instrumento');
+  const opcoesHtml = armas.map(item => {
+    const jaEquipada = !!item.equipado;
+    const icone = item.tipo === 'instrumento' ? 'ti-music' : 'ti-sword';
+    return `<button class="tm-opcao ${item.tipo === 'instrumento' ? 'tm-opcao-blue' : 'tm-opcao-red'}" ${jaEquipada ? 'disabled style="opacity:0.5;cursor:default"' : ''} onclick="escolherArsenalArma(${p.id},'${item.id}')">
+      <span class="tm-opcao-nome"><i class="ti ${icone}"></i> ${escHtml(item.name)}</span>
+      <span class="tm-opcao-info">${jaEquipada ? 'Equipada' : 'Equipar'}</span>
+    </button>`;
+  }).join('');
+
+  const semArmaEquipada = !armas.some(it => it.equipado);
+  const semArmaHtml = `<button class="tm-opcao tm-opcao-gray" ${semArmaEquipada ? 'disabled style="opacity:0.5;cursor:default"' : ''} onclick="escolherArsenalSemArma(${p.id})">
+      <span class="tm-opcao-nome"><i class="ti ti-hand-stop"></i> Sem Arma (lutar desarmado)</span>
+      <span class="tm-opcao-info">${semArmaEquipada ? 'Equipada' : 'Equipar'}</span>
+    </button>`;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px">
+      <h3><i class="ti ti-backpack"></i> Arsenal — ${escHtml(p.name)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+        Escolha a Arma ou Instrumento para equipar.
+      </div>
+      <div class="tm-opcoes">${opcoesHtml}${semArmaHtml}</div>
+      <button class="tm-cancelar" onclick="fecharArsenalModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function fecharArsenalModal() {
+  const overlay = document.getElementById('modal-arsenal-overlay');
+  if (overlay) { overlay.classList.remove('open'); overlay.innerHTML = ''; }
+}
+
+function escolherArsenalArma(pid, itemId) {
+  fecharArsenalModal();
+  toggleEquipArma(pid, itemId);
+}
+
+function escolherArsenalSemArma(pid) {
+  fecharArsenalModal();
+  equiparSemArma(pid);
+}
+
 // Narrador revela para os jogadores uma rolagem que estava marcada como oculta
 function revelarRolagem(key) {
   if (!IS_NARRADOR) return;

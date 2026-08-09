@@ -906,6 +906,16 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Arsenal": abre direto a lista de Armas/Instrumentos do Inventário (+
+  // "Sem Arma") pra escolher com um clique a nova equipada, em vez do
+  // jogador precisar ir até o card certo no Inventário. Em Luta, a marca
+  // p.arsenalPendente (ligada acima) libera essa troca; fora de Luta a
+  // troca já é livre de qualquer forma.
+  if (sk.id === 'sk_geral_arsenal') {
+    abrirArsenalModal(pid);
+    return;
+  }
+
   // "Forjado a Luz" (origem racial Draenei): mostra as Bênçãos da Luz (mesmo
   // catálogo do Clérigo, ver DEUSES_CLERIGO['Luz'].bencaos) pra escolher qual
   // lançar. É só referência/narrativa — o custo de Ação e o uso já foram
