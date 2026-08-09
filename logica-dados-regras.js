@@ -6325,7 +6325,7 @@ const GENERAL_SKILLS = [
   { name: 'Arremesso',     color: 'red',  cost: 1, tipo: 'infinite', desc: 'Faça um teste de Arremesso para arremessar um objeto que você consiga carregar. Se acertar um Alvo que possa receber Dano e que não tenha sido atingido por uma arma, cause: Leve → 1d4; Médio → 1d6; Pesado → 1d8 e Mega Pesado → 1d10 de dano.' },
   { name: 'Acrobacia',     color: 'green', cost: 1, tipo: 'perturn', desc: 'Faça um teste de Acrobacia para fazer uma manobra. Caso queira se movimentar, consumirá a Ação de Movimento também e receberá um deslocamento extra para a maestria de Peso: Leve +6 casas; Médio +4 casas; Pesado +2 casas ou Mega Pesado +1 casa.' },
   { name: 'Arsenal',       color: 'gray', cost: 1, tipo: 'perturn', desc: 'Equipe uma Arma, troque de Arma OU pegue e equipe uma Arma do chão.' },
-  { name: 'Ataque com Arma', color: 'red', cost: 1, tipo: 'infinite', desc: 'Use sua Arma/Instrumento equipado (mão principal) para atacar. O Acerto usa 1d20 + Maestria da Arma equipada.' },
+  { name: 'Ataque com Arma', color: 'gray', cost: 1, tipo: 'infinite', desc: 'Use sua Arma/Instrumento equipado (mão principal) para atacar. O Acerto usa 1d20 + Maestria da Arma equipada.' },
   { name: 'Beber Poção',   color: 'gray', cost: 1, tipo: 'infinite', desc: 'Consuma uma Poção. Se for de Cura: Cure apenas 1d20 de Vida OU Cure apenas 10 de Vida (Requer uma Poção).' },
   { name: 'Empurrar',      color: 'red',  cost: 1, tipo: 'perturn', desc: 'Faça um Teste de Empurrar para deslocar um Objeto ou alguém que você aguenta em 1d2 Casa(s); para cada Maestria de Peso superior que você tiver em relação ao Alvo, empurrará +2 casas.' },
   { name: 'Correr',        color: 'gray', cost: 1, tipo: 'perturn', desc: 'Ganha mais uma ação de movimento neste turno.' },
@@ -6355,8 +6355,14 @@ function makeGeneralSkill(def) {
 function ensureGeneralSkills(p) {
   if (!Array.isArray(p.skills)) p.skills = [];
   GENERAL_SKILLS.forEach(def => {
-    const jaTem = p.skills.some(sk => sk.id === 'sk_geral_' + def.name.toLowerCase().replace(/\s+/g, '_'));
-    if (!jaTem) p.skills.push(makeGeneralSkill(def));
+    const id = 'sk_geral_' + def.name.toLowerCase().replace(/\s+/g, '_');
+    const existente = p.skills.find(sk => sk.id === id);
+    if (!existente) p.skills.push(makeGeneralSkill(def));
+    // Corrige a cor salva de fichas antigas se o catálogo mudou (ex: "Ataque
+    // com Arma" nasceu vermelha e virou cinza) — nome/desc/custo/tipo não
+    // são tocados aqui pra não sobrescrever nada que o Narrador tenha
+    // ajustado manualmente na ficha.
+    else if (existente.color !== def.color) existente.color = def.color;
   });
   // "Ataque com 2 Armas": só existe pra quem tem o Talento Inferior
   // "Ambidestro" — some se o jogador perder o talento (mesmo padrão de
