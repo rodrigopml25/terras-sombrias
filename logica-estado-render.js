@@ -879,6 +879,16 @@ function useSkill(pid, skid) {
     p.treinamentoMilitarPendente = true;
   }
 
+  // "Arsenal" (Habilidade Geral): fora de Luta, trocar de Arma/Instrumento
+  // equipado é sempre livre (badge direto no card do Inventário). Em Luta,
+  // essa troca só é permitida depois de usar Arsenal — liga a marca aqui;
+  // ela é consumida na hora da troca de verdade (ver toggleEquipArma/
+  // equiparSemArma), valendo pra 1 troca só, igual ao "1x/turno" da própria
+  // Habilidade.
+  if (sk.id === 'sk_geral_arsenal') {
+    p.arsenalPendente = true;
+  }
+
   saveState();
   renderAll();
 
@@ -1019,6 +1029,9 @@ function aplicarResetDeTurno() {
     // "Grito de Guerra" (Campeão): a Mega Vantagem concedida aos Aliados vale
     // só até o próximo turno — limpa a marca aqui.
     p.gritoDeGuerraAtivo = false;
+    // "Arsenal": a permissão pra trocar de Arma vale só dentro do turno em
+    // que foi usada — se não foi aproveitada, não carrega pro próximo.
+    p.arsenalPendente = false;
     // "Treinamento Militar" (Orc): +1 Ação garantida neste turno, escolhida
     // como recompensa do Crítico no Aparar — consome a marca ao aplicar.
     if (p.treinamentoMilitarAcaoExtra) {
@@ -1069,6 +1082,7 @@ function resetLuta() {
     }
     p.furiaOrcAtiva = false;
     p.dueloAtivo = false;
+    p.arsenalPendente = false;
   });
   saveState();
   renderAll();
@@ -3251,11 +3265,26 @@ function toggleEquipProt(pid, itemId) {
 // Instrumento. "Sem Arma" (ver criarSemArmaItem) não tem card próprio pra
 // isso — ela é sempre a opção quando nada mais está equipado, então não
 // precisa de estado salvo.
+// Em Luta, trocar de Arma/Instrumento equipado exige ter usado a Habilidade
+// Geral "Arsenal" antes (marca p.arsenalPendente, ligada em useSkill).
+// Fora de Luta a troca continua livre. Retorna true se a troca pode
+// prosseguir (e já consome a marca); false bloqueia com um aviso.
+function _podeTrocarArmaEquipada(p) {
+  if (!combatAtivo) return true;
+  if (!p.arsenalPendente) {
+    alert('Em Luta, é preciso usar a Habilidade "Arsenal" antes de trocar de Arma.');
+    return false;
+  }
+  p.arsenalPendente = false;
+  return true;
+}
+
 function toggleEquipArma(pid, itemId) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
   const item = (p.inventario || []).find(x => x.id === itemId);
   if (!item) return;
+  if (!_podeTrocarArmaEquipada(p)) return;
   const novoEstado = !item.equipado;
   if (novoEstado) {
     p.inventario.forEach(it => {
@@ -3274,6 +3303,7 @@ function toggleEquipArma(pid, itemId) {
 function equiparSemArma(pid) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
+  if (!_podeTrocarArmaEquipada(p)) return;
   (p.inventario || []).forEach(it => {
     if (it.tipo === 'arma' || it.tipo === 'instrumento') it.equipado = false;
   });
