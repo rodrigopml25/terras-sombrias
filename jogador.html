@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-    <link rel="stylesheet" href="style.css?v=20260809120036">
+    <link rel="stylesheet" href="style.css?v=20260809121424">
   </head>
   <body>
     <header class="header">
@@ -307,6 +307,11 @@
             <button class="inv-equip-arma-btn"        data-equip="0" onclick="invSelectEquipArma(false)">Guardado</button>
           </div>
           <div style="font-size:11px;color:var(--text3);margin-top:5px">Só 1 Arma ou Instrumento pode estar equipado por vez — o resto fica guardado</div>
+          <div class="inv-tipo-group" style="margin-top:8px">
+            <button class="inv-duasmaos-btn" data-duasmaos="1" onclick="invSelectDuasMaos(true)">🤲 Duas Mãos</button>
+            <button class="inv-duasmaos-btn active" data-duasmaos="0" onclick="invSelectDuasMaos(false)">Uma Mão</button>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:5px">Tag informativa por enquanto, sem efeito de regra</div>
         </div>
 
         <!-- Seção: PROTEÇÃO -->
@@ -701,11 +706,11 @@
       appId: "1:32314412947:web:758ee7ab153dd002482266"
     };
     </script>
-    <script src="logica-dados-regras.js?v=20260809120036"></script>
-    <script src="logica-estado-render.js?v=20260809120036"></script>
-    <script src="logica-banco-itens.js?v=20260809120036"></script>
-    <script src="logica-modais.js?v=20260809120036"></script>
-    <script src="logica-init.js?v=20260809120036"></script>
-    <script src="logica-rolagens.js?v=20260809120036"></script>
+    <script src="logica-dados-regras.js?v=20260809121424"></script>
+    <script src="logica-estado-render.js?v=20260809121424"></script>
+    <script src="logica-banco-itens.js?v=20260809121424"></script>
+    <script src="logica-modais.js?v=20260809121424"></script>
+    <script src="logica-init.js?v=20260809121424"></script>
+    <script src="logica-rolagens.js?v=20260809121424"></script>
   </body>
 </html>

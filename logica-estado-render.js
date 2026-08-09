@@ -3006,6 +3006,13 @@ function renderInventarioArea(p, readOnly) {
     return `<span class="inv-peso-tag" style="color:${isLongo?'var(--teal)':'var(--text3)'};background:${isLongo?'var(--teal-bg)':'var(--bg3)'};border-color:${isLongo?'var(--teal-bd)':'var(--border)'}">${INV_ALCANCE_LABEL[item.alcance]}</span>`;
   }
 
+  // Tag puramente informativa (sem efeito de regra por enquanto) pra marcar
+  // Armas/Instrumentos que se usam com as duas mãos.
+  function duasMaosTag(item) {
+    if (!item.duasMaos) return '';
+    return `<span class="inv-peso-tag" style="color:var(--text2);background:var(--bg3);border-color:var(--border)">🤲 Duas Mãos</span>`;
+  }
+
   function municaoRow(item) {
     // Usa cristais se: item exótico por peso, OU item com aprimoramento exótico (não-Dourado)
     const temAprimoExotico = Array.isArray(item.aprimoramentos) && item.aprimoramentos.length > 0
@@ -3198,6 +3205,7 @@ function renderInventarioArea(p, readOnly) {
           ${equipBadge}
           ${alcanceTag(item)}
           ${pesoTag(item)}
+          ${duasMaosTag(item)}
         </div>
         ${statsRow(item.peso)}
         ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}
@@ -3215,6 +3223,7 @@ function renderInventarioArea(p, readOnly) {
         ${equipBadge}
         ${alcanceTag(item)}
         ${pesoTag(item)}
+        ${duasMaosTag(item)}
       </div>
       ${statsRow(item.peso)}
       ${item.efeito ? `<div class="inv-desc">${item.efeito}</div>` : ''}

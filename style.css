@@ -1530,6 +1530,27 @@ select:focus { outline: none; border-color: var(--accent-bd); }
 .inv-equip-arma-btn:hover { border-color: var(--border2); }
 .inv-equip-arma-btn.active { background: var(--green-bg); border-color: var(--green-bd); color: var(--green); }
 
+/* Mesmo visual, classe própria pro toggle "Duas Mãos" (tag informativa) —
+   evita colisão de seletor .active com os outros blocos do mesmo modal. */
+.inv-duasmaos-btn {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.inv-duasmaos-btn:hover { border-color: var(--border2); }
+.inv-duasmaos-btn.active { background: var(--accent2-bg, rgba(139,92,246,0.12)); border-color: var(--accent2-bd, rgba(139,92,246,0.35)); color: var(--accent2, #a78bfa); }
+
 
 /* ── Modal inventário ── */
 .inv-tipo-group, .inv-peso-group {

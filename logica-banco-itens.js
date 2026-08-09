@@ -40,7 +40,7 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Invisibilidade da Runa', desc: 'Gaste 1 Runa: as adagas ficam invisíveis até acertarem um alvo — o alvo não consegue Desviar nem Aparar. 1 uso por Ação.', escopo: 'arma', usosMax: 2, custo: 1, custoRecarga: 10 }],
     },
     {
-      id: 'cat_arma_cajado', name: 'Cajado', peso: 'leve', dano: '1d4', preco: 25, alcance: 'ambos',
+      id: 'cat_arma_cajado', duasMaos: true, name: 'Cajado', peso: 'leve', dano: '1d4', preco: 25, alcance: 'ambos',
       efeito: 'Passiva: ataques corpo a corpo com o cajado têm +1 de Alcance. O cajado também dispara feixes mágicos, com +2 de Alcance.',
       usos: [{ name: 'Recarga Arcana', desc: 'Recarregue um turno de recarga de um Feitiço seu. Pode ser usado diversas vezes no mesmo turno. Ao usar a 10ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 10, reduzRecargaFeitico: true }],
     },
@@ -65,7 +65,7 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Bolsa de Adagas', desc: 'Ative 1 Bolsa de Adagas: ela serve para a Luta inteira, sem precisar gastar de novo a cada Arremesso. Recarregue pagando 5 de Dinheiro por Bolsa.', escopo: 'arma', usosMax: 2, custoRecarga: 5 }],
     },
     {
-      id: 'cat_arma_arco', name: 'Arco', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
+      id: 'cat_arma_arco', duasMaos: true, name: 'Arco', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
       efeito: 'Passiva: possui +6 de Alcance.',
       usos: [{ name: 'Aljava', desc: 'Ative 1 Aljava: ela serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 5 de Dinheiro por Aljava.', escopo: 'arma', usosMax: 2, custoRecarga: 5 }],
     },
@@ -75,11 +75,11 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Contra-Ataque', desc: 'Ao Desviar, faça um Contra-Ataque.', escopo: 'turno', usosMax: 1 }],
     },
     {
-      id: 'cat_arma_foice', name: 'Foice', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
+      id: 'cat_arma_foice', duasMaos: true, name: 'Foice', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
       efeito: 'Passiva: ataques corpo a corpo possuem +2 de Alcance.',
     },
     {
-      id: 'cat_arma_katana', name: 'Katana', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
+      id: 'cat_arma_katana', duasMaos: true, name: 'Katana', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
       efeito: 'Passiva: causa +1d6 de dano quando o alvo já está sem Armadura.',
     },
     {
@@ -88,7 +88,7 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Pente de Balas', desc: 'Ative 1 Pente de Balas: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 10 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 10 }],
     },
     {
-      id: 'cat_arma_conjunto_glaives', name: 'Conjunto de Glaives', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
+      id: 'cat_arma_conjunto_glaives', duasMaos: true, name: 'Conjunto de Glaives', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
       efeito: 'Passiva: as glaives são como bumerangues — ao arremessar uma delas, ela retorna para sua mão no final do turno.',
     },
     {
@@ -96,20 +96,20 @@ const CATALOGO_ITENS = {
       efeito: 'Passiva: fora do seu turno, o dado de dano é convertido em +1d6 de Vantagem em Aparar. No seu turno, o dado de dano é 1d4.',
     },
     {
-      id: 'cat_arma_espada_pesada', name: 'Espada Pesada', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
+      id: 'cat_arma_espada_pesada', duasMaos: true, name: 'Espada Pesada', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
       efeito: 'Passiva: ao atacar com uma mão, possui +2 de Vantagem; ao atacar com as duas mãos, causa +2 de dano.',
     },
     {
-      id: 'cat_arma_espingarda', name: 'Espingarda', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
+      id: 'cat_arma_espingarda', duasMaos: true, name: 'Espingarda', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
       efeito: 'Passiva: possui +2 de Alcance e causa +2 de dano perfurante (atravessa a Armadura).',
       usos: [{ name: 'Pente de Cartuchos', desc: 'Ative 1 Pente de Cartuchos: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 10 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 10 }],
     },
     {
-      id: 'cat_arma_machado_arremesso', name: 'Machado de Arremesso', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
+      id: 'cat_arma_machado_arremesso', duasMaos: true, name: 'Machado de Arremesso', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
       efeito: 'Passiva: no Arremesso, causa +2 de dano e possui +2 de Vantagem no Arremesso.',
     },
     {
-      id: 'cat_arma_marreta', name: 'Marreta', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
+      id: 'cat_arma_marreta', duasMaos: true, name: 'Marreta', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
       efeito: 'Passiva: causa o dobro de dano em objetos, e o alvo possui -1d4 de Desvantagem em Aparar contra a marreta.',
     },
     {
@@ -118,17 +118,17 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Explosão Mágica', desc: 'A aliança libera muita magia: seus Feitiços também possuem +3 de dano/cura nesse turno. Um uso por turno. Ao usar a 5ª vez, a aliança se quebra.', escopo: 'arma', usosMax: 5, umPorTurno: true }],
     },
     {
-      id: 'cat_arma_cajado_encantado', name: 'Cajado Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'ambos',
+      id: 'cat_arma_cajado_encantado', duasMaos: true, name: 'Cajado Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'ambos',
       efeito: 'Passiva: seus ataques corpo a corpo com o cajado possuem +1 de Alcance; o cajado também dispara feixes mágicos, com +2 de Alcance.',
       usos: [{ name: 'Duplicata Arcana', desc: 'O cajado encanta sua próxima invocação/evocação surgida de um Feitiço: ela cria uma duplicata dela pelo mesmo tempo de duração. Um uso por turno. Ao usar a 5ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 5, umPorTurno: true }],
     },
     {
-      id: 'cat_arma_garras_encantadas', name: 'Garras Encantadas', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'curto',
+      id: 'cat_arma_garras_encantadas', duasMaos: true, name: 'Garras Encantadas', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'curto',
       efeito: '',
       usos: [{ name: 'Absorção de Poder', desc: 'A magia das garras absorve poder: no seu próximo Feitiço que conceder um bônus para arma, esse bônus fica até o final da luta (só pode ter 3 bônus ao mesmo tempo nas garras). Um uso por turno. Ao usar a 5ª vez, as garras se quebram.', escopo: 'arma', usosMax: 5, umPorTurno: true }],
     },
     {
-      id: 'cat_arma_lanca_eletrica', name: 'Lança Elétrica', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'curto',
+      id: 'cat_arma_lanca_eletrica', duasMaos: true, name: 'Lança Elétrica', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'curto',
       efeito: 'Ativa: o Cristal Elétrico libera cargas fortes que causam +1d4 de dano no ataque, porém possui -1d4 de Desvantagem no lançamento.',
       usos: [{ name: 'Carga Elétrica', desc: 'Gaste 1 Cristal Elétrico: libera uma imensa carga que causa +(1d2+1)d4 de dano no próximo ataque. Um uso por turno.', escopo: 'luta', usosMax: 3, umPorTurno: true, custoCristal: 1 }],
     },
@@ -138,13 +138,13 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Feixe Perfurante', desc: 'Gaste 2 Cristais Elétricos: libera um feixe que atravessa Armadura e rola 1d2+1 que multiplica seu dano — caso o alvo esteja sem Armadura, perfura-o e o feixe continua o caminho. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1, custoCristal: 2, semMunicao: true }],
     },
     {
-      id: 'cat_arma_lanca_granada', name: 'Lança-Granada', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
+      id: 'cat_arma_lanca_granada', duasMaos: true, name: 'Lança-Granada', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
       efeito: 'Ativa: gaste uma Ação para alternar o modo dela. Modo "Lança-Granada": dispara granadas numa área 5x5 com o alvo no centro — elas explodem no início do seu turno seguinte e atravessam Armadura. Modo Focado: dispara balas num alvo até 5 casas.',
       usos: [{ name: 'Pente de Granadas', desc: 'Ative 1 Pente de Granadas: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 25 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 25 }],
       ativas: [{ name: 'Lança-Granada', desc: 'Sacrifique 1d10 de Vida: se estiver no modo "Lança-Granada", a bomba explode ao alcançar o alvo. Se estiver no modo Individual, o dano atravessa a Armadura. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
-      id: 'cat_arma_motosserra', name: 'Motosserra', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      id: 'cat_arma_motosserra', duasMaos: true, name: 'Motosserra', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Passiva: ao causar dano diretamente na Vida, causa +1d8 de dano.',
       ativas: [{ name: 'Motosserra', desc: 'Sacrifique 1d6 de Vida: sua motosserra acelera e converte o próximo 1d8 da passiva para 1d12. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
@@ -154,30 +154,30 @@ const CATALOGO_ITENS = {
       ativas: [{ name: 'Quebra-Queixo 3769', desc: 'Sacrifique 1d4 de Vida: restaure 1d2 de Armadura do seu braço. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
-      id: 'cat_arma_sniper', name: 'Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
+      id: 'cat_arma_sniper', duasMaos: true, name: 'Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
       efeito: 'Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
       usos: [{ name: 'Pente de Munição', desc: 'Ative 1 Pente de Munição: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 25 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 25 }],
       ativas: [{ name: 'Sniper', desc: 'Consuma 1d4 de Vida: para cada ponto, receba +10% de chance de Crítico no próximo tiro da sniper. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
-      id: 'cat_arma_ancora', name: 'Âncora', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      id: 'cat_arma_ancora', duasMaos: true, name: 'Âncora', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Passiva: possui +3 de Alcance para Arremessar, e a âncora volta para sua mão por meio das correntes.',
       ativas: [{ name: 'Âncora', desc: 'No próximo Arremesso, sacrifique 1 de Vida para cada casa que a âncora percorrerá: puxe o alvo para você garantidamente. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
-      id: 'cat_arma_destruidor_vapor', name: 'Destruidor a Vapor', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      id: 'cat_arma_destruidor_vapor', duasMaos: true, name: 'Destruidor a Vapor', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Passiva: ao causar dano na Armadura, causa +1d4 de dano nela. Em objetos, o dano dessa arma é Crítico.',
       ativas: [{ name: 'Destruidor a Vapor', desc: 'Sacrifique 1d12 de Vida: converta todo o dano da sua arma para atacar diretamente a Armadura do alvo. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
-      id: 'cat_arma_esmaga_mundo', name: 'Esmaga-Mundo', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      id: 'cat_arma_esmaga_mundo', duasMaos: true, name: 'Esmaga-Mundo', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Passiva: causa o dobro de dano em objetos; possui -1d8 de Desvantagem em Aparar contra o esmaga-mundo. 1º uso por turno: gaste uma Ação — o dano dobrado passa a valer contra alvos vivos também, que não podem Aparar contra o esmaga-mundo no próximo ataque. Demais usos no turno: gaste uma Ação — seu próximo ataque com o esmaga-mundo possui +1d6 de dano e Vantagem.',
       ativas: [{ name: 'Esmaga-Mundo', desc: 'Sacrifique 1d10 de Vida: não precisa gastar uma Ação a mais para dobrar o dano em alvos vivos. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
   ],
   instrumento: [
     {
-      id: 'cat_instrumento_violino_amuleto', name: 'Violino-Amuleto', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
+      id: 'cat_instrumento_violino_amuleto', duasMaos: true, name: 'Violino-Amuleto', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Aparenta ser apenas um bijuteria decorativa em forma de violino.',
       usos: [
         { name: 'Restauração do Violino-Amuleto', desc: 'Restaure 1d4 de Vida e receba qualquer Nota Musical. Pode ser usado diversas vezes no mesmo turno. Ao usar a 5ª vez, o violino-amuleto se quebra.', escopo: 'arma', usosMax: 5 },
@@ -185,7 +185,7 @@ const CATALOGO_ITENS = {
       ],
     },
     {
-      id: 'cat_instrumento_harpa_grimorio', name: 'Harpa-Grimório', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
+      id: 'cat_instrumento_harpa_grimorio', duasMaos: true, name: 'Harpa-Grimório', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: escolha um Feitiço — pode lançá-lo uma vez por luta, concedendo qualquer Nota Musical ao fazê-lo.',
       usos: [
         { name: 'Lançar Feitiço Escolhido', desc: 'Lance o Feitiço escolhido na Passiva. Não consome os usos/recarga do Feitiço original do personagem.', escopo: 'luta', usosMax: 1, grimorioFeitico: true, semMunicao: true },
@@ -201,22 +201,22 @@ const CATALOGO_ITENS = {
       ],
     },
     {
-      id: 'cat_instrumento_sousafone_foice', name: 'Sousafone-Foice', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
+      id: 'cat_instrumento_sousafone_foice', duasMaos: true, name: 'Sousafone-Foice', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: seu sopro é tão potente que seus ataques corpo a corpo possuem +2 de Alcance.',
       usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
     {
-      id: 'cat_instrumento_baixo_glaive', name: 'Baixo-Glaive', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
+      id: 'cat_instrumento_baixo_glaive', duasMaos: true, name: 'Baixo-Glaive', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: receba qualquer Nota Musical ao arremessar esse instrumento. No final do turno, ele retorna para sua mão.',
       usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
     {
-      id: 'cat_instrumento_guitarra_machado', name: 'Guitarra-Machado', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
+      id: 'cat_instrumento_guitarra_machado', duasMaos: true, name: 'Guitarra-Machado', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: no Arremesso, causa +2 de dano e possui +2 de Vantagem no Arremesso.',
       usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
     {
-      id: 'cat_instrumento_clarinete_encantado', name: 'Clarinete Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'longo', vidaMax: 15,
+      id: 'cat_instrumento_clarinete_encantado', duasMaos: true, name: 'Clarinete Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'longo', vidaMax: 15,
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva 1: ao usar um Feitiço e receber dano dele, pode transmiti-lo para a Vida do instrumento (ver Vida do Item). Passiva 2: o instrumento possui uma carga mágica, podendo lançar pequenos feixes mágicos até 5 casas que causam dano.',
       usos: [
         { name: 'Restauração do Clarinete', desc: 'Restaure 1d8 de Vida do instrumento musical. Diversos usos por turno. Se a Vida do instrumento chegar a 0, ele se quebra.', escopo: 'arma', usosMax: 5, semMunicao: true },
@@ -224,7 +224,7 @@ const CATALOGO_ITENS = {
       ],
     },
     {
-      id: 'cat_instrumento_teclado_constelacao', name: 'Teclado Constelação', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
+      id: 'cat_instrumento_teclado_constelacao', duasMaos: true, name: 'Teclado Constelação', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: produz mini-constelações que acertam a Longo Alcance e possuem +3 de Alcance.',
       usos: [
         { name: 'Campo Harmônico', desc: 'Gaste 2 Cristais Elétricos e lance um campo harmônico. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1, custoCristal: 2, semMunicao: true },
@@ -232,13 +232,13 @@ const CATALOGO_ITENS = {
       ],
     },
     {
-      id: 'cat_instrumento_sino_acorrentado', name: 'Sino Acorrentado', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
+      id: 'cat_instrumento_sino_acorrentado', duasMaos: true, name: 'Sino Acorrentado', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'curto',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: possui +3 de Alcance para Arremessar; recebe qualquer Nota Musical ao arremessar esse instrumento, e o sino volta para sua mão por meio das correntes.',
       usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
       ativas: [{ name: 'Sino Acorrentado', desc: 'Sacrifique 1d6 de Vida: o sino bate loucamente, concedendo 3 Notas Musicais quaisquer e ensurdecendo todos os outros no tabuleiro. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
-      id: 'cat_instrumento_guitarra_sniper', name: 'Guitarra-Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
+      id: 'cat_instrumento_guitarra_sniper', duasMaos: true, name: 'Guitarra-Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
       usos: [
         { name: 'Pente de Munição', desc: 'Ative 1 Pente de Munição: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 25 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 25 },
@@ -334,6 +334,11 @@ function _buildInvModal(data) {
   // equipado (arma/instrumento) — mesma ideia, bloco/classe própria
   document.querySelectorAll('.inv-equip-arma-btn').forEach(b => {
     b.classList.toggle('active', (b.dataset.equip === '1') === equipadoVal);
+  });
+  // Duas Mãos (tag informativa, arma/instrumento) — falso por padrão em item novo
+  const duasMaosVal = !!data.duasMaos;
+  document.querySelectorAll('.inv-duasmaos-btn').forEach(b => {
+    b.classList.toggle('active', (b.dataset.duasmaos === '1') === duasMaosVal);
   });
   // qtd
   document.getElementById('inv-m-qtd').value = data.qtd != null ? data.qtd : '';
@@ -552,6 +557,15 @@ function invSelectEquip(equipado) {
 function invSelectEquipArma(equipado) {
   document.querySelectorAll('.inv-equip-arma-btn').forEach(b => b.classList.toggle('active', (b.dataset.equip === '1') === equipado));
 }
+// Tag "Duas Mãos" — puramente informativa por enquanto (sem efeito de
+// regra), disponível pra Arma e Instrumento.
+function invSelectDuasMaos(duasMaos) {
+  document.querySelectorAll('.inv-duasmaos-btn').forEach(b => b.classList.toggle('active', (b.dataset.duasmaos === '1') === duasMaos));
+}
+function _invSelectedDuasMaos() {
+  const b = document.querySelector('.inv-duasmaos-btn.active');
+  return b ? b.dataset.duasmaos === '1' : false;
+}
 function invSelectAlcance(alcance) {
   document.querySelectorAll('.inv-alcance-btn').forEach(b => b.classList.toggle('active', b.dataset.alcance === alcance));
   _updateInvModalSections(_invSelectedTipo());
@@ -614,7 +628,7 @@ function renderInvCatalogo() {
   lista.innerHTML = filtrados.map(item => {
     const detalhe = tipo === 'protecao'
       ? `🛡 ${item.valor}   ·   💰 ${item.preco}   ·   ${INV_PESO_LABEL[item.peso] || item.peso}`
-      : `💰 ${item.preco}   ·   ${INV_PESO_LABEL[item.peso] || item.peso}${item.dano ? `   ·   ⚔ ${item.dano}` : ''}`;
+      : `💰 ${item.preco}   ·   ${INV_PESO_LABEL[item.peso] || item.peso}${item.dano ? `   ·   ⚔ ${item.dano}` : ''}${item.duasMaos ? `   ·   🤲 Duas Mãos` : ''}`;
     return `<div class="inv-catalogo-item" onclick="selecionarCatalogoItem('${item.id}')" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)">
       <div style="font-size:12px;font-weight:600;color:var(--text)">${item.name}</div>
       <div style="font-size:10.5px;color:var(--text3);margin-top:2px">${detalhe}</div>
@@ -656,6 +670,7 @@ function selecionarCatalogoItem(itemId) {
     _renderInvAtivas();
     const inputVidaMaxInst = document.getElementById('inv-m-vida-max');
     if (inputVidaMaxInst) inputVidaMaxInst.value = item.vidaMax != null ? item.vidaMax : '';
+    invSelectDuasMaos(!!item.duasMaos);
   } else {
     invSelectPeso(item.peso);
     if (item.alcance) invSelectAlcance(item.alcance);
@@ -668,6 +683,7 @@ function selecionarCatalogoItem(itemId) {
     _renderInvAtivas();
     const inputVidaMaxArma = document.getElementById('inv-m-vida-max');
     if (inputVidaMaxArma) inputVidaMaxArma.value = item.vidaMax != null ? item.vidaMax : '';
+    invSelectDuasMaos(!!item.duasMaos);
   }
 }
 
@@ -1322,12 +1338,13 @@ function saveInvItem(cobrarDinheiro) {
   const subtipo = _invSelectedSub();
   const equipado = _invSelectedEquip();
   const equipadoArma = _invSelectedEquipArma();
+  const duasMaos = _invSelectedDuasMaos();
   const qtdRaw  = document.getElementById('inv-m-qtd').value.trim();
   const qtd     = qtdRaw !== '' ? parseInt(qtdRaw) : null;
 
   const base = { name, efeito, tipo };
   if (tipo === 'arma') {
-    Object.assign(base, { peso, dano, alcance, equipado: equipadoArma });
+    Object.assign(base, { peso, dano, alcance, equipado: equipadoArma, duasMaos });
     if (alcance === 'longo') {
       if (peso === 'exotica') {
         // Exótica longo alcance: munição vem do campo extra
@@ -1348,7 +1365,7 @@ function saveInvItem(cobrarDinheiro) {
     base.vidaMax = vidaMaxRaw !== '' ? Math.max(0, parseInt(vidaMaxRaw)) : null;
   } else if (tipo === 'instrumento') {
     const danoInst = (document.getElementById('inv-m-dano-inst') || {}).value || '';
-    Object.assign(base, { peso, dano: danoInst.trim(), alcance, equipado: equipadoArma });
+    Object.assign(base, { peso, dano: danoInst.trim(), alcance, equipado: equipadoArma, duasMaos });
     if (alcance === 'longo') {
       if (peso === 'exotica') {
         // Instrumento exótico de longo alcance: munição vem do campo extra
