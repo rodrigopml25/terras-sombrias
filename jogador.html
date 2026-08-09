@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260809000845">
   </head>
   <body>
     <header class="header">
@@ -41,7 +41,7 @@
       </div>
 
       <!-- Anotações do personagem -->
-      <div id="jog-view-anotacoes" style="display:none">
+      <div id="jog-view-anotacoes" class="hidden">
         <div class="jog-notas-layout" id="jog-notas-content"></div>
       </div>
     </div>
@@ -92,11 +92,11 @@
               <option value="turno_N">Cooldown em N turnos</option>
             </select>
         </div>
-        <div class="form-row" id="m-usos-row" style="display:none">
+        <div class="form-row hidden" id="m-usos-row">
           <label class="form-label" id="m-usos-label">Quantidade de usos</label>
           <input type="number" id="m-usos" min="1" max="20" value="2" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;width:80px">
         </div>
-        <div class="form-row" id="m-turnos-row" style="display:none">
+        <div class="form-row hidden" id="m-turnos-row">
           <label class="form-label">Turnos de cooldown</label>
           <input type="number" id="m-turnos" min="1" max="20" value="2" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px;width:80px">
         </div>
@@ -112,62 +112,62 @@
     </div>
 
     <div class="modal-overlay" id="modal-banco-overlay">
-      <div class="modal" style="max-width:560px">
+      <div class="modal modal-w-560">
         <h3>Habilidades de <span id="banco-subclasse-nome"></span></h3>
-        <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Escolha quais Habilidades das subclasses da sua Classe você quer adicionar à ficha. ★ marca a sua própria subclasse.</p>
-        <div id="banco-progresso" style="font-size:11px;color:var(--text2);margin:-4px 0 12px;line-height:1.6;"></div>
+        <p class="field-hint field-hint--tight">Escolha quais Habilidades das subclasses da sua Classe você quer adicionar à ficha. ★ marca a sua própria subclasse.</p>
+        <div id="banco-progresso" class="field-desc field-desc--tight"></div>
         <div id="banco-classe-tabs" class="banco-tabs banco-classe-tabs"></div>
         <div id="banco-tabs" class="banco-tabs"></div>
-        <div id="banco-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
-        <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
+        <div id="banco-lista" class="scroll-list scroll-list--60"></div>
+        <div class="modal-btns actions-end">
           <button class="btn" onclick="closeBancoModal()">Fechar</button>
         </div>
       </div>
     </div>
 
     <div class="modal-overlay" id="modal-talentos-overlay">
-      <div class="modal" style="max-width:560px">
+      <div class="modal modal-w-560">
         <h3>Talentos Inferiores</h3>
-        <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Todo personagem recebe o direito de escolher 1 Talento Inferior ao chegar no Nível 2.</p>
-        <div id="talentos-progresso" style="font-size:11px;color:var(--text2);margin:-4px 0 12px;line-height:1.6;"></div>
-        <div id="talentos-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
-        <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
+        <p class="field-hint field-hint--tight">Todo personagem recebe o direito de escolher 1 Talento Inferior ao chegar no Nível 2.</p>
+        <div id="talentos-progresso" class="field-desc field-desc--tight"></div>
+        <div id="talentos-lista" class="scroll-list scroll-list--60"></div>
+        <div class="modal-btns actions-end">
           <button class="btn" onclick="closeTalentosModal()">Fechar</button>
         </div>
       </div>
     </div>
 
     <div class="modal-overlay" id="modal-talentos-superiores-overlay">
-      <div class="modal" style="max-width:560px">
+      <div class="modal modal-w-560">
         <h3>Talentos Superiores</h3>
-        <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Todo personagem recebe o direito de escolher 1 Talento Superior ao chegar no Nível 4.</p>
-        <div id="talentos-superiores-progresso" style="font-size:11px;color:var(--text2);margin:-4px 0 12px;line-height:1.6;"></div>
-        <div id="talentos-superiores-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
-        <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
+        <p class="field-hint field-hint--tight">Todo personagem recebe o direito de escolher 1 Talento Superior ao chegar no Nível 4.</p>
+        <div id="talentos-superiores-progresso" class="field-desc field-desc--tight"></div>
+        <div id="talentos-superiores-lista" class="scroll-list scroll-list--60"></div>
+        <div class="modal-btns actions-end">
           <button class="btn" onclick="closeTalentosSuperioresModal()">Fechar</button>
         </div>
       </div>
     </div>
 
     <div class="modal-overlay" id="modal-feiticos-lendarios-overlay">
-      <div class="modal" style="max-width:560px">
+      <div class="modal modal-w-560">
         <h3>Feitiços Lendários</h3>
-        <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Concedido pela Passiva "Transcendência Intelectual" (Conjurador, Nível 5) ou pelo Talento Superior "Transcendência Mental". Usam maestria de Intelecto/2 (arredonda para cima), em vez da maestria cheia.</p>
-        <div id="feiticos-lendarios-progresso" style="font-size:11px;color:var(--text2);margin:-4px 0 12px;line-height:1.6;"></div>
-        <div id="feiticos-lendarios-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
-        <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
+        <p class="field-hint field-hint--tight">Concedido pela Passiva "Transcendência Intelectual" (Conjurador, Nível 5) ou pelo Talento Superior "Transcendência Mental". Usam maestria de Intelecto/2 (arredonda para cima), em vez da maestria cheia.</p>
+        <div id="feiticos-lendarios-progresso" class="field-desc field-desc--tight"></div>
+        <div id="feiticos-lendarios-lista" class="scroll-list scroll-list--60"></div>
+        <div class="modal-btns actions-end">
           <button class="btn" onclick="closeFeiticosLendariosModal()">Fechar</button>
         </div>
       </div>
     </div>
 
     <div class="modal-overlay" id="modal-rituais-macabros-overlay">
-      <div class="modal" style="max-width:560px">
+      <div class="modal modal-w-560">
         <h3>Rituais Macabros</h3>
-        <p style="font-size:11px;color:var(--text3);margin:-8px 0 12px;line-height:1.5;">Concedido pelo Talento Superior "Vínculo Místico". Não possuem nenhuma maestria vinculada. Cada Ritual tem uma versão "Corromper": um efeito extra, mais poderoso, pago em dano direto na Sanidade.</p>
-        <div id="rituais-macabros-progresso" style="font-size:11px;color:var(--text2);margin:-4px 0 12px;line-height:1.6;"></div>
-        <div id="rituais-macabros-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
-        <div class="modal-btns" style="display:flex; justify-content:flex-end; margin-top:14px;">
+        <p class="field-hint field-hint--tight">Concedido pelo Talento Superior "Vínculo Místico". Não possuem nenhuma maestria vinculada. Cada Ritual tem uma versão "Corromper": um efeito extra, mais poderoso, pago em dano direto na Sanidade.</p>
+        <div id="rituais-macabros-progresso" class="field-desc field-desc--tight"></div>
+        <div id="rituais-macabros-lista" class="scroll-list scroll-list--60"></div>
+        <div class="modal-btns actions-end">
           <button class="btn" onclick="closeRituaisMacabrosModal()">Fechar</button>
         </div>
       </div>
@@ -210,7 +210,7 @@
         </div>
 
         <!-- Tipo de proteção (Armadura/Elmo) — decide o catálogo abaixo, por isso aparece antes dele -->
-        <div class="form-row" id="inv-sec-protecao-sub" style="display:none">
+        <div class="form-row hidden" id="inv-sec-protecao-sub">
           <label class="form-label">Tipo de proteção</label>
           <div class="inv-tipo-group">
             <button class="inv-subtipo-btn active" data-sub="armadura" onclick="invSelectSub('armadura')">🛡 Armadura</button>
@@ -220,7 +220,7 @@
 
         <!-- Catálogo de itens pré-definidos -->
         <div class="form-row" id="inv-sec-catalogo">
-          <label class="form-label">Catálogo <span style="font-size:10px;color:var(--text3)">(opcional — escolha um item pronto ou preencha manualmente abaixo)</span></label>
+          <label class="form-label">Catálogo <span class="text-xs-muted">(opcional — escolha um item pronto ou preencha manualmente abaixo)</span></label>
           <input type="text" id="inv-catalogo-search" placeholder="Buscar no catálogo..." oninput="renderInvCatalogo()" style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
           <div id="inv-catalogo-lista" style="max-height:180px;overflow-y:auto;margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
         </div>
@@ -233,7 +233,7 @@
 
         <!-- Preço (dinheiro) — armas, instrumentos e proteções -->
         <div class="form-row" id="inv-sec-preco">
-          <label class="form-label">Preço <span style="font-size:10px;color:var(--text3)">(em moedas)</span></label>
+          <label class="form-label">Preço <span class="text-xs-muted">(em moedas)</span></label>
           <input type="number" id="inv-m-preco" min="0" placeholder="Ex: 50" style="width:120px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
         </div>
 
@@ -257,7 +257,7 @@
         </div>
 
         <!-- Seção: INSTRUMENTO MUSICAL -->
-        <div id="inv-sec-instrumento" style="display:none">
+        <div id="inv-sec-instrumento" class="hidden">
           <div class="form-row">
             <label class="form-label">Peso / Categoria</label>
             <div class="inv-peso-group">
@@ -285,22 +285,22 @@
               <button class="inv-alcance-btn"        data-alcance="ambos" onclick="invSelectAlcance('ambos')">🎯🏹 Curto e Longo</button>
             </div>
           </div>
-          <div class="form-row" id="inv-sec-municao" style="display:none">
+          <div class="form-row hidden" id="inv-sec-municao">
             <label class="form-label" id="inv-municao-label">Munição</label>
-            <input type="number" id="inv-m-municao" min="0" placeholder="Ex: 12" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+            <input type="number" id="inv-m-municao" min="0" placeholder="Ex: 12" class="input-sm-100">
           </div>
-          <div class="form-row" id="inv-sec-municao-extra" style="display:none">
-            <label class="form-label">Munição <span style="font-size:10px;color:var(--text3)">(longo alcance)</span></label>
-            <input type="number" id="inv-m-municao-extra" min="0" placeholder="Ex: 12" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+          <div class="form-row hidden" id="inv-sec-municao-extra">
+            <label class="form-label">Munição <span class="text-xs-muted">(longo alcance)</span></label>
+            <input type="number" id="inv-m-municao-extra" min="0" placeholder="Ex: 12" class="input-sm-100">
           </div>
           <div class="form-row">
-            <label class="form-label">Vida do Item <span style="font-size:10px;color:var(--text3)">(opcional — pra itens frágeis, como alguns instrumentos encantados)</span></label>
-            <input type="number" id="inv-m-vida-max" min="0" placeholder="Ex: 15" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+            <label class="form-label">Vida do Item <span class="text-xs-muted">(opcional — pra itens frágeis, como alguns instrumentos encantados)</span></label>
+            <input type="number" id="inv-m-vida-max" min="0" placeholder="Ex: 15" class="input-sm-100">
           </div>
         </div>
 
         <!-- Seção: STATUS (Arma/Instrumento) -->
-        <div class="form-row" id="inv-sec-status-arma" style="display:none">
+        <div class="form-row hidden" id="inv-sec-status-arma">
           <label class="form-label">Status</label>
           <div class="inv-tipo-group">
             <button class="inv-equip-arma-btn active" data-equip="1" onclick="invSelectEquipArma(true)"><i class="ti ti-check"></i> Equipado</button>
@@ -310,7 +310,7 @@
         </div>
 
         <!-- Seção: PROTEÇÃO -->
-        <div id="inv-sec-protecao" style="display:none">
+        <div id="inv-sec-protecao" class="hidden">
           <div class="form-row">
             <label class="form-label">Peso / Categoria</label>
             <div class="inv-peso-group">
@@ -324,11 +324,11 @@
           </div>
           <div class="form-row">
             <label class="form-label">Valor de proteção</label>
-            <input type="number" id="inv-m-valor" placeholder="Ex: 5" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+            <input type="number" id="inv-m-valor" placeholder="Ex: 5" class="input-sm-100">
           </div>
           <div class="form-row">
-            <label class="form-label">Penalidade de Passos <span style="font-size:10px;color:var(--text3)">(ao equipar)</span></label>
-            <input type="number" id="inv-m-passos-penalidade" min="0" placeholder="Ex: 3" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+            <label class="form-label">Penalidade de Passos <span class="text-xs-muted">(ao equipar)</span></label>
+            <input type="number" id="inv-m-passos-penalidade" min="0" placeholder="Ex: 3" class="input-sm-100">
           </div>
           <div class="form-row">
             <label class="form-label">Status</label>
@@ -341,10 +341,10 @@
         </div>
 
         <!-- Seção: ITEM GENÉRICO -->
-        <div id="inv-sec-item" style="display:none">
+        <div id="inv-sec-item" class="hidden">
           <div class="form-row">
             <label class="form-label">Quantidade (opcional)</label>
-            <input type="number" id="inv-m-qtd" min="1" placeholder="Ex: 3" style="width:100px;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text)">
+            <input type="number" id="inv-m-qtd" min="1" placeholder="Ex: 3" class="input-sm-100">
           </div>
         </div>
 
@@ -355,7 +355,7 @@
         </div>
 
         <!-- Aprimoramentos (todas as armas) -->
-        <div id="inv-sec-exotica" style="display:none">
+        <div id="inv-sec-exotica" class="hidden">
           <div class="inv-sub-header" style="margin-bottom:6px">
             <span><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Aprimoramentos <span style="font-size:10px;color:var(--text3);font-weight:400">(opcional)</span></span>
           </div>
@@ -371,7 +371,7 @@
         </div>
 
         <!-- Liberar Vileza (Mega Pesada) -->
-        <div id="inv-sec-mega" style="display:none">
+        <div id="inv-sec-mega" class="hidden">
           <div class="inv-sub-header">
             <span><i class="ti ti-bolt" style="color:#8b1f1f"></i> Liberar Vileza</span>
             <button class="btn" style="padding:3px 9px;font-size:11px" onclick="addInvAtiva()"><i class="ti ti-plus"></i> Adicionar</button>
@@ -380,7 +380,7 @@
         </div>
 
         <!-- Usos da Arma ("Usar Nx") -->
-        <div id="inv-sec-usos" style="display:none">
+        <div id="inv-sec-usos" class="hidden">
           <div class="inv-sub-header">
             <span><i class="ti ti-target-arrow" style="color:var(--accent2)"></i> Usos ("Usar Nx")</span>
             <button class="btn" style="padding:3px 9px;font-size:11px" onclick="addInvUso()"><i class="ti ti-plus"></i> Adicionar</button>
@@ -389,12 +389,12 @@
         </div>
 
         <div class="modal-btns" style="display:flex;justify-content:space-between">
-          <button class="btn btn-danger" id="inv-m-del" style="display:none" onclick="deleteInvItem()"><i class="ti ti-trash"></i> Excluir</button>
+          <button class="btn btn-danger hidden" id="inv-m-del" onclick="deleteInvItem()"><i class="ti ti-trash"></i> Excluir</button>
           <div style="display:flex;gap:10px;margin-left:auto">
             <button class="btn" onclick="closeInvModal()">Cancelar</button>
             <button class="btn btn-primary" id="inv-m-salvar" onclick="saveInvItem()">Salvar</button>
             <button class="btn" id="inv-m-ganhar" style="display:none;border-color:var(--border2)" onclick="saveInvItem(false)"><i class="ti ti-gift"></i> Ganhar</button>
-            <button class="btn btn-primary" id="inv-m-comprar" style="display:none" onclick="saveInvItem(true)"><i class="ti ti-coin"></i> Comprar</button>
+            <button class="btn btn-primary hidden" id="inv-m-comprar" onclick="saveInvItem(true)"><i class="ti ti-coin"></i> Comprar</button>
           </div>
         </div>
       </div>
@@ -430,7 +430,7 @@
         <div class="modal-step" data-step="2">
           <div class="form-row">
             <label class="form-label">Raça</label>
-            <select id="c-race" onchange="onRaceSelectChange(this.value)" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+            <select id="c-race" onchange="onRaceSelectChange(this.value)" class="input-full">
               <option value="" disabled selected hidden>Selecione...</option>
               <option value="Anão">Anão</option>
               <option value="Draenei">Draenei</option>
@@ -446,7 +446,7 @@
             <div id="c-origem-container" style="display:none; margin-top:10px;"></div>
             <div id="c-troll-maestria-container" style="display:none; margin-top:10px;">
               <label class="form-label" style="font-size:12px;color:var(--text2)">🗿 Tatuagem Rúnica — +1 de Maestria em:</label>
-              <select id="c-troll-maestria" onchange="if(typeof updatePointBuy==='function') updatePointBuy()" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+              <select id="c-troll-maestria" onchange="if(typeof updatePointBuy==='function') updatePointBuy()" class="input-full">
                 <option value="agi">Agilidade</option>
                 <option value="forca">Força</option>
                 <option value="intel">Intelecto</option>
@@ -510,9 +510,9 @@
                 <span id="c-hp-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">+0 pts</span>
               </div>
               <div style="display:flex;align-items:center;gap:6px;min-width:0">
-                <button type="button" onclick="stepStat('hp',-1)" id="c-hp-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+                <button type="button" onclick="stepStat('hp',-1)" id="c-hp-dec" class="icon-btn-26">−</button>
                 <input type="number" id="c-hp" value="10" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
-                <button type="button" onclick="stepStat('hp',+1)" id="c-hp-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
+                <button type="button" onclick="stepStat('hp',+1)" id="c-hp-inc" class="icon-btn-26">+</button>
               </div>
             </div>
 
@@ -523,9 +523,9 @@
                 <span id="c-agi-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">+0 pts</span>
               </div>
               <div style="display:flex;align-items:center;gap:6px;min-width:0">
-                <button type="button" onclick="stepStat('agi',-1)" id="c-agi-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+                <button type="button" onclick="stepStat('agi',-1)" id="c-agi-dec" class="icon-btn-26">−</button>
                 <input type="number" id="c-agi" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
-                <button type="button" onclick="stepStat('agi',+1)" id="c-agi-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
+                <button type="button" onclick="stepStat('agi',+1)" id="c-agi-inc" class="icon-btn-26">+</button>
               </div>
             </div>
 
@@ -536,9 +536,9 @@
                 <span id="c-for-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">+0 pts</span>
               </div>
               <div style="display:flex;align-items:center;gap:6px;min-width:0">
-                <button type="button" onclick="stepStat('for',-1)" id="c-for-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+                <button type="button" onclick="stepStat('for',-1)" id="c-for-dec" class="icon-btn-26">−</button>
                 <input type="number" id="c-for" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
-                <button type="button" onclick="stepStat('for',+1)" id="c-for-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
+                <button type="button" onclick="stepStat('for',+1)" id="c-for-inc" class="icon-btn-26">+</button>
               </div>
             </div>
 
@@ -549,9 +549,9 @@
                 <span id="c-int-cost" style="font-size:10px;color:var(--text3);white-space:nowrap">+0 pts</span>
               </div>
               <div style="display:flex;align-items:center;gap:6px;min-width:0">
-                <button type="button" onclick="stepStat('int',-1)" id="c-int-dec" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">−</button>
+                <button type="button" onclick="stepStat('int',-1)" id="c-int-dec" class="icon-btn-26">−</button>
                 <input type="number" id="c-int" value="5" min="5" oninput="updatePointBuy()" style="width:0;flex:1 1 0;min-width:0;padding:4px 2px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);text-align:center;font-size:14px;font-weight:700;box-sizing:border-box">
-                <button type="button" onclick="stepStat('int',+1)" id="c-int-inc" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 26px;padding:0">+</button>
+                <button type="button" onclick="stepStat('int',+1)" id="c-int-inc" class="icon-btn-26">+</button>
               </div>
             </div>
 
@@ -561,15 +561,15 @@
           <div class="form-flex-row" id="c-extra-fields">
               <div class="form-row">
                 <label class="form-label">Insanidade</label>
-                <input type="number" id="c-ins" value="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+                <input type="number" id="c-ins" value="0" class="input-full">
               </div>
               <div class="form-row">
-                <label class="form-label">Passos <span style="font-size:10px;color:var(--text3)">(base, sem penalidade de armadura)</span></label>
-                <input type="number" id="c-passos" value="10" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+                <label class="form-label">Passos <span class="text-xs-muted">(base, sem penalidade de armadura)</span></label>
+                <input type="number" id="c-passos" value="10" class="input-full">
               </div>
               <div class="form-row">
                 <label class="form-label">Dinheiro</label>
-                <input type="number" id="c-dinheiro" value="100" min="0" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+                <input type="number" id="c-dinheiro" value="100" min="0" class="input-full">
               </div>
           </div>
 
@@ -584,10 +584,10 @@
             Escolha as Habilidades do Banco de Habilidades da sua Classe. ★ marca a sua própria subclasse.
             Habilidades de outras subclasses só ficam disponíveis a partir do Nível 2 (uma cota "livre" por Nível).
           </p>
-          <div id="c-skills-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
+          <div id="c-skills-progresso" class="field-desc"></div>
           <div id="c-skills-classe-tabs" class="banco-tabs banco-classe-tabs"></div>
           <div id="c-skills-tabs" class="banco-tabs"></div>
-          <div id="c-skills-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+          <div id="c-skills-lista" class="scroll-list scroll-list--50"></div>
 
           <div class="modal-btns step-nav">
             <button class="btn" onclick="wizardBack()"><i class="ti ti-arrow-left"></i> Voltar</button>
@@ -599,33 +599,33 @@
           <div id="c-talentos-section">
             <div class="group-title" style="margin-top:0">🎖 Talento Inferior</div>
             <p style="font-size:11px;color:var(--text3);margin:6px 0 12px;line-height:1.5;">Um personagem que já nasce no Nível 2 ou superior recebe o direito de escolher 1 Talento Inferior desde a criação.</p>
-            <div id="c-talentos-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas para personagens criados no Nível 2 ou superior. Escolha o Nível no passo anterior para liberar.</div>
-            <div id="c-talentos-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
-            <div id="c-talentos-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+            <div id="c-talentos-aviso" class="caption-muted">Disponível apenas para personagens criados no Nível 2 ou superior. Escolha o Nível no passo anterior para liberar.</div>
+            <div id="c-talentos-progresso" class="field-desc"></div>
+            <div id="c-talentos-lista" class="scroll-list scroll-list--50"></div>
           </div>
 
           <div id="c-talentos-superiores-section" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
             <div class="group-title" style="margin-top:0">👑 Talento Superior</div>
             <p style="font-size:11px;color:var(--text3);margin:6px 0 12px;line-height:1.5;">Um personagem que já nasce no Nível 4 ou superior recebe o direito de escolher 1 Talento Superior desde a criação.</p>
-            <div id="c-talentos-superiores-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas para personagens criados no Nível 4 ou superior. Escolha o Nível no passo anterior para liberar.</div>
-            <div id="c-talentos-superiores-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
-            <div id="c-talentos-superiores-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+            <div id="c-talentos-superiores-aviso" class="caption-muted">Disponível apenas para personagens criados no Nível 4 ou superior. Escolha o Nível no passo anterior para liberar.</div>
+            <div id="c-talentos-superiores-progresso" class="field-desc"></div>
+            <div id="c-talentos-superiores-lista" class="scroll-list scroll-list--50"></div>
           </div>
 
           <div id="c-feiticos-lendarios-section" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
             <div class="group-title" style="margin-top:0">✨ Feitiço Lendário</div>
             <p style="font-size:11px;color:var(--text3);margin:6px 0 12px;line-height:1.5;">Concedido a um Conjurador que já nasce no Nível 5 ou superior, ou a quem escolheu o Talento Superior "Transcendência Mental" acima (as fontes se somam).</p>
-            <div id="c-feiticos-lendarios-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas se o personagem for Conjurador criado no Nível 5+, ou tiver escolhido "Transcendência Mental" acima.</div>
-            <div id="c-feiticos-lendarios-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
-            <div id="c-feiticos-lendarios-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+            <div id="c-feiticos-lendarios-aviso" class="caption-muted">Disponível apenas se o personagem for Conjurador criado no Nível 5+, ou tiver escolhido "Transcendência Mental" acima.</div>
+            <div id="c-feiticos-lendarios-progresso" class="field-desc"></div>
+            <div id="c-feiticos-lendarios-lista" class="scroll-list scroll-list--50"></div>
           </div>
 
           <div id="c-rituais-macabros-section" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
             <div class="group-title" style="margin-top:0">🌀 Ritual Macabro</div>
             <p style="font-size:11px;color:var(--text3);margin:6px 0 12px;line-height:1.5;">Concedido a quem escolheu o Talento Superior "Vínculo Místico" acima. Não possui nenhuma maestria vinculada.</p>
-            <div id="c-rituais-macabros-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;">Disponível apenas se tiver escolhido o Talento Superior "Vínculo Místico" acima.</div>
-            <div id="c-rituais-macabros-progresso" style="font-size:11px;color:var(--text2);margin:0 0 12px;line-height:1.6;"></div>
-            <div id="c-rituais-macabros-lista" style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow-y:auto; padding-right:4px;"></div>
+            <div id="c-rituais-macabros-aviso" class="caption-muted">Disponível apenas se tiver escolhido o Talento Superior "Vínculo Místico" acima.</div>
+            <div id="c-rituais-macabros-progresso" class="field-desc"></div>
+            <div id="c-rituais-macabros-lista" class="scroll-list scroll-list--50"></div>
           </div>
 
           <div class="modal-btns step-nav">
@@ -637,8 +637,8 @@
         <div class="modal-step" data-step="7">
           <div id="c-armadura-section">
             <p style="font-size:11px;color:var(--text3);margin:0 0 10px;line-height:1.5;">As categorias de Armadura disponíveis dependem do atributo principal da sua Subclasse: Intelecto → Leve; Agilidade → Leve e Média; Força → Leve, Média e Pesada.</p>
-            <div id="c-armadura-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;"></div>
-            <div id="c-armadura-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
+            <div id="c-armadura-aviso" class="caption-muted"></div>
+            <div id="c-armadura-lista" class="scroll-list scroll-list--60"></div>
           </div>
 
           <div class="modal-btns step-nav">
@@ -650,8 +650,8 @@
         <div class="modal-step" data-step="8">
           <div id="c-elmo-section">
             <p style="font-size:11px;color:var(--text3);margin:0 0 10px;line-height:1.5;">As categorias de Elmo disponíveis dependem do atributo principal da sua Subclasse: Intelecto → Leve; Agilidade → Leve e Média; Força → Leve, Média e Pesada.</p>
-            <div id="c-elmo-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;"></div>
-            <div id="c-elmo-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
+            <div id="c-elmo-aviso" class="caption-muted"></div>
+            <div id="c-elmo-lista" class="scroll-list scroll-list--60"></div>
           </div>
 
           <div class="modal-btns step-nav">
@@ -663,8 +663,8 @@
         <div class="modal-step" data-step="9">
           <div id="c-arma-section">
             <p style="font-size:11px;color:var(--text3);margin:0 0 10px;line-height:1.5;">A categoria de Arma/Instrumento disponível depende do atributo principal da sua Subclasse: Intelecto → Leve; Agilidade → Média; Força → Pesada (acesso exclusivo, sem acumular categorias mais leves).</p>
-            <div id="c-arma-aviso" style="font-size:11px;color:var(--text3);padding:8px 0;"></div>
-            <div id="c-arma-lista" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:4px;"></div>
+            <div id="c-arma-aviso" class="caption-muted"></div>
+            <div id="c-arma-lista" class="scroll-list scroll-list--60"></div>
           </div>
 
           <div class="modal-btns step-nav">
@@ -700,6 +700,11 @@
       appId: "1:32314412947:web:758ee7ab153dd002482266"
     };
     </script>
-    <script src="logica.js?v=20260808j"></script>
+    <script src="logica-dados-regras.js?v=20260809000845"></script>
+    <script src="logica-estado-render.js?v=20260809000845"></script>
+    <script src="logica-banco-itens.js?v=20260809000845"></script>
+    <script src="logica-modais.js?v=20260809000845"></script>
+    <script src="logica-init.js?v=20260809000845"></script>
+    <script src="logica-rolagens.js?v=20260809000845"></script>
   </body>
 </html>

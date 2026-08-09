@@ -1,0 +1,7 @@
+#!/bin/sh
+# Roda automaticamente antes de cada commit: atualiza o ?v= dos arquivos
+# estáticos (style.css, logica-*.js) nos HTMLs, pra evitar cache antigo no
+# navegador dos jogadores após um deploy. Configurado via:
+#   git config core.hooksPath hooks
+./scripts/bump-version.sh
+git add index.html jogador.html narrador.html

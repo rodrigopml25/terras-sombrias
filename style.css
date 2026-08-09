@@ -3031,3 +3031,46 @@ select:focus { outline: none; border-color: var(--accent-bd); }
     animation: none !important;
   }
 }
+
+/* ═══════════════════════════════════════
+   UTILITÁRIOS — extraídos de estilos inline repetidos
+   ═══════════════════════════════════════ */
+.hidden { display: none; }
+
+.icon-btn-26 {
+  width: 26px; height: 26px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  cursor: pointer; font-size: 15px; display: flex; align-items: center;
+  justify-content: center; flex: 0 0 26px; padding: 0;
+}
+
+.scroll-list {
+  display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto; padding-right: 4px;
+}
+.scroll-list--60 { max-height: 60vh; }
+.scroll-list--50 { max-height: 50vh; }
+
+.caption-muted { font-size: 11px; color: var(--text3); padding: 8px 0; }
+
+.input-sm-100 {
+  width: 100px; padding: 6px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg3); color: var(--text);
+}
+
+.text-xs-muted { font-size: 10px; color: var(--text3); }
+
+.input-full {
+  width: 100%; padding: 6px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg3); color: var(--text);
+}
+
+.modal-w-560 { max-width: 560px; }
+
+.field-hint { font-size: 11px; color: var(--text3); margin: 6px 0 12px; line-height: 1.5; }
+.field-hint--tight { margin: -8px 0 12px; }
+
+.field-desc { font-size: 11px; color: var(--text2); margin: 0 0 12px; line-height: 1.6; }
+.field-desc--tight { margin: -4px 0 12px; }
+
+.actions-end { display: flex; justify-content: flex-end; margin-top: 14px; }
