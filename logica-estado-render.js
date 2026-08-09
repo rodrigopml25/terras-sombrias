@@ -2773,8 +2773,8 @@ function switchJogTab(tab) {
   // Troca visibilidade das views
   const ficha     = document.getElementById('jog-view-ficha');
   const anotacoes = document.getElementById('jog-view-anotacoes');
-  if (ficha)     ficha.style.display     = tab === 'ficha'      ? '' : 'none';
-  if (anotacoes) anotacoes.style.display = tab === 'anotacoes'  ? '' : 'none';
+  if (ficha)     ficha.classList.toggle('hidden', tab !== 'ficha');
+  if (anotacoes) anotacoes.classList.toggle('hidden', tab !== 'anotacoes');
   // Atualiza estilo dos botões de tab
   document.querySelectorAll('.jog-tab').forEach(el => el.classList.remove('active'));
   const btn = document.getElementById('tab-' + tab);
@@ -2910,13 +2910,13 @@ function switchNarTab(tab) {
   narActiveTab = tab;
   const jogView = document.getElementById('nar-view-jogadores');
   const npcView = document.getElementById('nar-view-npcs');
-  if (jogView) jogView.style.display = tab === 'jogadores' ? '' : 'none';
-  if (npcView) npcView.style.display = tab === 'npcs' ? '' : 'none';
+  if (jogView) jogView.classList.toggle('hidden', tab !== 'jogadores');
+  if (npcView) npcView.classList.toggle('hidden', tab !== 'npcs');
   document.querySelectorAll('.nar-tab').forEach(el => el.classList.remove('active'));
   const btn = document.getElementById('nar-tab-' + tab);
   if (btn) btn.classList.add('active');
   const btnNovoNpc = document.getElementById('nar-btn-novo-npc');
-  if (btnNovoNpc) btnNovoNpc.style.display = tab === 'npcs' ? '' : 'none';
+  if (btnNovoNpc) btnNovoNpc.classList.toggle('hidden', tab !== 'npcs');
 }
 
 // Cada personagem tem seu próprio objeto de notas: { geral:'', missão:'', ... }

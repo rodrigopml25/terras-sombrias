@@ -1501,7 +1501,7 @@ function openCharModal(isNPC) {
   const levelContainerNovo = document.getElementById('c-creation-level-container');
   if (levelContainerNovo) levelContainerNovo.style.display = wizardIsNPC ? 'none' : '';
   const npcTipoContainerNovo = document.getElementById('c-npc-tipo-container');
-  if (npcTipoContainerNovo) npcTipoContainerNovo.style.display = wizardIsNPC ? '' : 'none';
+  if (npcTipoContainerNovo) npcTipoContainerNovo.classList.toggle('hidden', !wizardIsNPC);
   selectNpcTipo('aliado');
   updatePointBuy(1);
   wizardSkillsEscolhidas = [];
@@ -1594,7 +1594,7 @@ function editCharacter(id) {
   const extraFields = document.getElementById('c-extra-fields');
   if (extraFields) extraFields.style.display = '';
   const npcTipoContainerEdit = document.getElementById('c-npc-tipo-container');
-  if (npcTipoContainerEdit) npcTipoContainerEdit.style.display = wizardIsNPC ? '' : 'none';
+  if (npcTipoContainerEdit) npcTipoContainerEdit.classList.toggle('hidden', !wizardIsNPC);
   selectNpcTipo(p.npcTipo || 'aliado');
   updatePointBuy(p.level || 1);
   setModalMode(true);

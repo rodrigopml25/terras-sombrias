@@ -396,17 +396,17 @@ function _updateInvModalSections(tipo) {
   const btnComprar = document.getElementById('inv-m-comprar');
   const btnGanhar  = document.getElementById('inv-m-ganhar');
   if (btnSalvar)  btnSalvar.style.display  = mostraComprarGanhar ? 'none' : '';
-  if (btnComprar) btnComprar.style.display = mostraComprarGanhar ? '' : 'none';
+  if (btnComprar) btnComprar.classList.toggle('hidden', !mostraComprarGanhar);
   if (btnGanhar)  btnGanhar.style.display  = mostraComprarGanhar ? '' : 'none';
   document.getElementById('inv-sec-arma').style.display         = tipo === 'arma'        ? '' : 'none';
-  document.getElementById('inv-sec-instrumento').style.display  = tipo === 'instrumento' ? '' : 'none';
+  document.getElementById('inv-sec-instrumento').classList.toggle('hidden', tipo !== 'instrumento');
   document.getElementById('inv-sec-alcance').style.display      = ehArmaOuInstrumento     ? '' : 'none';
-  document.getElementById('inv-sec-protecao').style.display     = tipo === 'protecao'    ? '' : 'none';
+  document.getElementById('inv-sec-protecao').classList.toggle('hidden', tipo !== 'protecao');
   const secProtecaoSub = document.getElementById('inv-sec-protecao-sub');
-  if (secProtecaoSub) secProtecaoSub.style.display = tipo === 'protecao' ? '' : 'none';
-  document.getElementById('inv-sec-item').style.display         = tipo === 'item'        ? '' : 'none';
+  if (secProtecaoSub) secProtecaoSub.classList.toggle('hidden', tipo !== 'protecao');
+  document.getElementById('inv-sec-item').classList.toggle('hidden', tipo !== 'item');
   const secStatusArma = document.getElementById('inv-sec-status-arma');
-  if (secStatusArma) secStatusArma.style.display = ehArmaOuInstrumento ? '' : 'none';
+  if (secStatusArma) secStatusArma.classList.toggle('hidden', !ehArmaOuInstrumento);
 
   // Preço (dinheiro): disponível para armas, instrumentos e proteções (não para item genérico)
   const secPreco = document.getElementById('inv-sec-preco');
@@ -419,14 +419,14 @@ function _updateInvModalSections(tipo) {
 
   const peso = _invSelectedPeso();
   // Aprimoramentos (inclui Encantamento Arcano/Místico): disponíveis para armas, instrumentos e proteções
-  document.getElementById('inv-sec-exotica').style.display = (ehArmaOuInstrumento || tipo === 'protecao') ? '' : 'none';
-  document.getElementById('inv-sec-mega').style.display    = (ehArmaOuInstrumento && peso === 'mega') ? '' : 'none';
+  document.getElementById('inv-sec-exotica').classList.toggle('hidden', !(ehArmaOuInstrumento || tipo === 'protecao'));
+  document.getElementById('inv-sec-mega').classList.toggle('hidden', !(ehArmaOuInstrumento && peso === 'mega'));
 
   // Usos ("Usar (Nx)"): disponível pra Armas, Instrumentos e Proteções (Armadura/Elmo), em qualquer peso
   const secUsos = document.getElementById('inv-sec-usos');
   if (secUsos) {
     const mostraUsos = ehArmaOuInstrumento || tipo === 'protecao';
-    secUsos.style.display = mostraUsos ? '' : 'none';
+    secUsos.classList.toggle('hidden', !mostraUsos);
     if (mostraUsos) _renderInvUsos();
   }
 
@@ -438,14 +438,14 @@ function _updateInvModalSections(tipo) {
   const protComAprimoExotico = tipo === 'protecao' && peso !== 'exotica' && temAprimoExoticoModal;
   const precisaMunicao = (ehArmaOuInstrumento && (alcance === 'longo' || peso === 'exotica'))
                       || (tipo === 'protecao' && (peso === 'exotica' || protComAprimoExotico));
-  document.getElementById('inv-sec-municao').style.display = precisaMunicao ? '' : 'none';
+  document.getElementById('inv-sec-municao').classList.toggle('hidden', !precisaMunicao);
   const municaoLabel = document.getElementById('inv-municao-label');
   // Exótica ou com aprimo exótico: campo principal mostra Cristais (informativo, read-only)
   // Comum longo alcance: campo principal = Munição editável
   if (municaoLabel) municaoLabel.textContent = (peso === 'exotica' || protComAprimoExotico) ? 'Cristais (compartilhados)' : 'Munição';
   // Campo extra de munição — só aparece quando exótica + longo alcance
   const secMunicaoExtra = document.getElementById('inv-sec-municao-extra');
-  if (secMunicaoExtra) secMunicaoExtra.style.display = isExoticaLongoAlcance ? '' : 'none';
+  if (secMunicaoExtra) secMunicaoExtra.classList.toggle('hidden', !isExoticaLongoAlcance);
   // Campo de cristais vira informativo quando exótica ou proteção com aprimo exótico (valor vem do personagem, não do item)
   const inputMunicao = document.getElementById('inv-m-municao');
   if (inputMunicao) {
