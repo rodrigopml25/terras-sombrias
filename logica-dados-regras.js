@@ -1057,7 +1057,7 @@ function ensureClasseSkills(p) {
 // mesma UI de exibição/edição/exclusão das Passivas, tanto no Jogador quanto
 // no Narrador, sem precisar de uma seção nova inteira.
 const TALENTOS_INFERIORES = [
-  { id: 'ambidestro', name: 'Ambidestro', desc: 'Você pode usar 1 arma na outra mão, desde que seja de apenas uma mão. Pode lançar uma habilidade usando as duas armas, assim terá +dano da segunda arma, porém, no lançamento, sua maestria é reduzida pela metade (arredonda para cima).' },
+  { id: 'ambidestro', name: 'Ambidestro', desc: 'Você pode segurar uma 2ª Arma/Instrumento de uma mão só na mão secundária. Ao atacar com uma Arma (ou usar uma Habilidade que use Armas), pode escolher somar o Dano da 2ª arma ao ataque — porém, ao fazer isso, a Maestria do Acerto é reduzida pela metade (arredonda para cima).' },
   { id: 'aperfeicoamento_especifico', name: 'Aperfeiçoamento Específico', desc: 'Conceda a um teste +3 de vantagem. Se for um teste de emoção, será +14 de vantagem.' },
   { id: 'aprofundamento_na_area', name: 'Aprofundamento na Área', desc: 'Conceda a um teste de Agilidade, Força ou Intelecto Mega Vantagem. Se ela já tiver, ao invés disso, conceda: não tem mais erro crítico e tem +15% de chance crítica (-3 para acertar crítico).' },
   { id: 'armamentista_mistico', name: 'Armamentista Místico', desc: 'O Vazio encantou algumas armas/instrumentos musicais, assim, poderá comprá-los e utilizá-los conforme sua maestria de peso. Caso tenha acesso a elas sem ter esse talento, o Corromper Arma é crítico.' },
@@ -1584,6 +1584,14 @@ function temAcessoEquipamentoEncantado(p) {
 function temAcessoEquipamentoExotico(p) {
   if (p.isNPC) return true; // NPC: Narrador libera Equipamento Exótico sem precisar do Talento
   return getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'equipamento_exotico');
+}
+
+// O personagem tem o Talento Inferior "Ambidestro"? Sem ele, não pode
+// equipar uma 2ª Arma/Instrumento de uma mão só na "mão secundária" (ver
+// toggleEquipArmaSecundaria/getArmaSecundariaEquipada em logica-estado-render.js).
+function temAmbidestro(p) {
+  if (p.isNPC) return true; // NPC: Narrador libera sem precisar do Talento
+  return getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'ambidestro');
 }
 
 // Retorna true se o personagem precisa escolher o Estilo de Encantamento
