@@ -1026,7 +1026,7 @@ function useSkill(pid, skid) {
   // Cura do texto da Habilidade (1d20 ou 10 de Vida) e consome 1 unidade
   // dela; sem esse item específico, fica só como consumo narrativo (outros
   // tipos de Poção não têm efeito automatizado no app).
-  if (sk.id === 'sk_geral_beber_pocao') {
+  if (sk.id === 'sk_geral_beber_poção') {
     const pocaoCura = (p.inventario || []).find(it =>
       normalizarNomeItem(it.name).includes('pocao de cura') && (it.qtd == null || it.qtd > 0));
     if (pocaoCura) {
