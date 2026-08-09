@@ -2627,6 +2627,94 @@ function escolherBeberPocao(pid, itemId, opcao) {
   renderAll();
 }
 
+// "Arremesso" (Habilidade Geral): pergunta O QUE foi arremessado. Objetos
+// (Leve/Médio/Pesado/Mega Pesado) causam um dado fixo de Dano, publicado
+// direto no feed — não passam pelo Aparo/Maestria de Arma, são só um objeto
+// qualquer. "Sua Arma equipada" reaproveita rolarDanoArma normal (Dano dela
+// + Maestria + bônus, igual a um ataque), e guarda a Arma em seguida (foi
+// jogada longe — não está mais na mão).
+const ARREMESSO_OBJETOS = {
+  leve:   { label: 'Leve',        sides: 4  },
+  medio:  { label: 'Médio',       sides: 6  },
+  pesado: { label: 'Pesado',      sides: 8  },
+  mega:   { label: 'Mega Pesado', sides: 10 },
+};
+
+function abrirArremessoModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  const armaEquipada = getArmaEquipadaPrincipal(p);
+  const temArmaReal = armaEquipada && armaEquipada.id !== 'sem_arma' && armaEquipada.dano;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-target-arrow"></i> Arremesso</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        O que ${escHtml(p.name)} está arremessando?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherArremesso(${p.id},'leve')">
+          <span class="tm-opcao-nome">📦 Objeto Leve — 1d4 de Dano</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherArremesso(${p.id},'medio')">
+          <span class="tm-opcao-nome">📦 Objeto Médio — 1d6 de Dano</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherArremesso(${p.id},'pesado')">
+          <span class="tm-opcao-nome">📦 Objeto Pesado — 1d8 de Dano</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherArremesso(${p.id},'mega')">
+          <span class="tm-opcao-nome">📦 Objeto Mega Pesado — 1d10 de Dano</span>
+        </button>
+        ${temArmaReal ? `<button class="tm-opcao tm-opcao-blue" onclick="escolherArremesso(${p.id},'arma')">
+          <span class="tm-opcao-nome">⚔ ${escHtml(armaEquipada.name)} (equipada) — ${escHtml(armaEquipada.dano)} + Maestria</span>
+        </button>` : ''}
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherArremesso(pid, tipo) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  fecharCriacaoAnaoModal();
+
+  if (tipo === 'arma') {
+    const item = getArmaEquipadaPrincipal(p);
+    if (!item || item.id === 'sem_arma' || !item.dano) return;
+    rolarDanoArma(pid, item.id, { labelPrefixo: 'Arremesso' });
+    // A Arma foi jogada longe — guarda ela em seguida.
+    item.equipado = false;
+    saveState();
+    renderAll();
+    return;
+  }
+
+  const info = ARREMESSO_OBJETOS[tipo];
+  if (!info) return;
+  const d = 1 + Math.floor(Math.random() * info.sides);
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Arremesso — Objeto ${info.label}`,
+    tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides: info.sides, count: 1, results: [d], sum: d, countNode: null } }] },
+    total: d,
+    sides: info.sides,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+    label: `🎯 Arremesso — Objeto ${info.label}`,
+  };
+  spinDiceFab(true, info.sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+}
+
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
 // como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
 // (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o

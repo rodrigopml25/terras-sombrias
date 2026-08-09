@@ -1113,6 +1113,16 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Arremesso" (Habilidade Geral): o Acerto já usa Maestria de Força (ver
+  // SKILL_TESTE_LINK/'arremessar') — o "Usar Efeito" abre a escolha de QUE
+  // objeto foi arremessado: Leve/Médio/Pesado/Mega Pesado (dano fixo por
+  // dado) ou a própria Arma equipada (dano dela + Maestria + bônus, igual a
+  // um ataque normal — e ela fica Guardada em seguida). Ver abrirArremessoModal.
+  if (sk.id === 'sk_geral_arremesso') {
+    abrirArremessoModal(pid);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
