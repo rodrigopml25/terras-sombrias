@@ -6355,6 +6355,14 @@ function applyData(data) {
       const algumDefinido = itensSub.some(i => typeof i.equipado === 'boolean');
       if (!algumDefinido && itensSub.length) itensSub[0].equipado = true;
     });
+    // Migração: mesma ideia acima, agora para Arma/Instrumento — Arma e
+    // Instrumento contam como o mesmo "slot de mão" (só 1 equipado por vez,
+    // ver toggleEquipArma), então checa os dois tipos juntos.
+    {
+      const itensArma = p.inventario.filter(i => i.tipo === 'arma' || i.tipo === 'instrumento');
+      const algumArmaDefinido = itensArma.some(i => typeof i.equipado === 'boolean');
+      if (!algumArmaDefinido && itensArma.length) itensArma[0].equipado = true;
+    }
     recomputeProtMax(p);
     // Migração: testes — fichas antigas que ainda não têm o campo
     getTestePersonagem(p);
@@ -9152,6 +9160,19 @@ function renderInventarioArea(p, readOnly) {
 
   function renderArmaCard(item) {
     const isInstrumento = item.tipo === 'instrumento';
+    // Badge de Equipado/Guardado — mesmo estilo do badge de Proteção
+    // (inv-equip-badge). "Sem Arma" é sempre a opção equipada quando
+    // nenhuma Arma/Instrumento real está com equipado:true; seu badge só é
+    // clicável quando NÃO é a opção ativa (clique guarda o resto — ver
+    // equiparSemArma). Itens reais funcionam igual a Armadura/Elmo.
+    const semArmaAtiva = !(p.inventario || []).some(i => (i.tipo === 'arma' || i.tipo === 'instrumento') && i.equipado);
+    const equipBadge = item.id === 'sem_arma'
+      ? (semArmaAtiva
+          ? `<span class="inv-equip-badge inv-equip-on" title="Lutando desarmado — nenhuma Arma/Instrumento equipado"><i class="ti ti-check"></i> Equipado</span>`
+          : `<span class="inv-equip-badge inv-equip-off" onclick="equiparSemArma(${p.id})" title="Guardado — clique para lutar desarmado">Guardado</span>`)
+      : (item.equipado
+          ? `<span class="inv-equip-badge inv-equip-on" onclick="toggleEquipArma(${p.id},'${item.id}')" title="Equipado — clique para guardar"><i class="ti ti-check"></i> Equipado</span>`
+          : `<span class="inv-equip-badge inv-equip-off" onclick="toggleEquipArma(${p.id},'${item.id}')" title="Guardado — clique para equipar">Guardado</span>`);
     const aprimoramentos = item.aprimoramentos && item.aprimoramentos.length
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles"></i> Aprimoramentos</div>${item.aprimoramentos.map(a=>{
           const isDourado = a.dourado || a.name === 'Dourado';
@@ -9257,6 +9278,7 @@ function renderInventarioArea(p, readOnly) {
         </div>
         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px">
           <span class="inv-peso-tag" style="color:#e8a838;background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.3)">🎵 Instrumento</span>
+          ${equipBadge}
           ${alcanceTag(item)}
           ${pesoTag(item)}
         </div>
@@ -9273,6 +9295,7 @@ function renderInventarioArea(p, readOnly) {
         ${(readOnly || item.id === 'sem_arma') ? '' : `<button onclick="editInvItem(${p.id},'${item.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;flex-shrink:0"><i class="ti ti-edit" style="font-size:15px"></i></button>`}
       </div>
       <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px">
+        ${equipBadge}
         ${alcanceTag(item)}
         ${pesoTag(item)}
       </div>
@@ -9390,6 +9413,43 @@ function toggleEquipProt(pid, itemId) {
   }
   item.equipado = novoEstado;
   recomputeProtMax(p);
+  saveState();
+  renderAll();
+}
+
+// Equipa/desequipa uma Arma/Instrumento direto pelo card (sem abrir o
+// modal) — mesmo mecanismo do toggleEquipProt acima. Arma e Instrumento
+// contam como o mesmo "slot de mão": só pode haver 1 equipado por vez entre
+// os dois tipos: equipar um guarda automaticamente qualquer outro Arma/
+// Instrumento. "Sem Arma" (ver criarSemArmaItem) não tem card próprio pra
+// isso — ela é sempre a opção quando nada mais está equipado, então não
+// precisa de estado salvo.
+function toggleEquipArma(pid, itemId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = (p.inventario || []).find(x => x.id === itemId);
+  if (!item) return;
+  const novoEstado = !item.equipado;
+  if (novoEstado) {
+    p.inventario.forEach(it => {
+      if ((it.tipo === 'arma' || it.tipo === 'instrumento') && it.id !== item.id) it.equipado = false;
+    });
+  }
+  item.equipado = novoEstado;
+  saveState();
+  renderAll();
+}
+
+// Equipa a pseudo-arma "Sem Arma": guarda todas as Armas/Instrumentos reais
+// do personagem, representando lutar desarmado. Chamada pelo badge do card
+// de "Sem Arma" (ver renderArmaCard) quando ele NÃO é a opção equipada no
+// momento (ou seja, existe alguma Arma/Instrumento real ainda equipada).
+function equiparSemArma(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  (p.inventario || []).forEach(it => {
+    if (it.tipo === 'arma' || it.tipo === 'instrumento') it.equipado = false;
+  });
   saveState();
   renderAll();
 }
@@ -9728,6 +9788,10 @@ function _buildInvModal(data) {
   document.querySelectorAll('.inv-equip-btn').forEach(b => {
     b.classList.toggle('active', (b.dataset.equip === '1') === equipadoVal);
   });
+  // equipado (arma/instrumento) — mesma ideia, bloco/classe própria
+  document.querySelectorAll('.inv-equip-arma-btn').forEach(b => {
+    b.classList.toggle('active', (b.dataset.equip === '1') === equipadoVal);
+  });
   // qtd
   document.getElementById('inv-m-qtd').value = data.qtd != null ? data.qtd : '';
 
@@ -9793,6 +9857,8 @@ function _updateInvModalSections(tipo) {
   const secProtecaoSub = document.getElementById('inv-sec-protecao-sub');
   if (secProtecaoSub) secProtecaoSub.style.display = tipo === 'protecao' ? '' : 'none';
   document.getElementById('inv-sec-item').style.display         = tipo === 'item'        ? '' : 'none';
+  const secStatusArma = document.getElementById('inv-sec-status-arma');
+  if (secStatusArma) secStatusArma.style.display = ehArmaOuInstrumento ? '' : 'none';
 
   // Preço (dinheiro): disponível para armas, instrumentos e proteções (não para item genérico)
   const secPreco = document.getElementById('inv-sec-preco');
@@ -9869,6 +9935,14 @@ function _invSelectedEquip() {
   const b = document.querySelector('.inv-equip-btn.active');
   return b ? b.dataset.equip === '1' : true;
 }
+// Mesma ideia de _invSelectedEquip, mas pro bloco de Status de Arma/
+// Instrumento (classe própria — inv-equip-arma-btn — pra não colidir com o
+// bloco de Proteção, que compartilha a tela mas fica escondido conforme o
+// tipo selecionado).
+function _invSelectedEquipArma() {
+  const b = document.querySelector('.inv-equip-arma-btn.active');
+  return b ? b.dataset.equip === '1' : true;
+}
 function _invSelectedAlcance() {
   const b = document.querySelector('.inv-alcance-btn.active');
   return b ? b.dataset.alcance : 'curto';
@@ -9931,6 +10005,9 @@ function invSelectSub(sub) {
 }
 function invSelectEquip(equipado) {
   document.querySelectorAll('.inv-equip-btn').forEach(b => b.classList.toggle('active', (b.dataset.equip === '1') === equipado));
+}
+function invSelectEquipArma(equipado) {
+  document.querySelectorAll('.inv-equip-arma-btn').forEach(b => b.classList.toggle('active', (b.dataset.equip === '1') === equipado));
 }
 function invSelectAlcance(alcance) {
   document.querySelectorAll('.inv-alcance-btn').forEach(b => b.classList.toggle('active', b.dataset.alcance === alcance));
@@ -10701,12 +10778,13 @@ function saveInvItem(cobrarDinheiro) {
   const preco   = precoRaw.trim() !== '' ? Number(precoRaw.trim()) : null;
   const subtipo = _invSelectedSub();
   const equipado = _invSelectedEquip();
+  const equipadoArma = _invSelectedEquipArma();
   const qtdRaw  = document.getElementById('inv-m-qtd').value.trim();
   const qtd     = qtdRaw !== '' ? parseInt(qtdRaw) : null;
 
   const base = { name, efeito, tipo };
   if (tipo === 'arma') {
-    Object.assign(base, { peso, dano, alcance });
+    Object.assign(base, { peso, dano, alcance, equipado: equipadoArma });
     if (alcance === 'longo') {
       if (peso === 'exotica') {
         // Exótica longo alcance: munição vem do campo extra
@@ -10727,7 +10805,7 @@ function saveInvItem(cobrarDinheiro) {
     base.vidaMax = vidaMaxRaw !== '' ? Math.max(0, parseInt(vidaMaxRaw)) : null;
   } else if (tipo === 'instrumento') {
     const danoInst = (document.getElementById('inv-m-dano-inst') || {}).value || '';
-    Object.assign(base, { peso, dano: danoInst.trim(), alcance });
+    Object.assign(base, { peso, dano: danoInst.trim(), alcance, equipado: equipadoArma });
     if (alcance === 'longo') {
       if (peso === 'exotica') {
         // Instrumento exótico de longo alcance: munição vem do campo extra
@@ -10813,6 +10891,14 @@ function saveInvItem(cobrarDinheiro) {
   if (tipo === 'protecao' && equipado) {
     p.inventario.forEach(it => {
       if (it.tipo === 'protecao' && it.subtipo === subtipo && it.id !== savedId) it.equipado = false;
+    });
+  }
+
+  // Só pode haver 1 Arma ou Instrumento equipado por vez por personagem
+  // (mesmo "slot de mão" — ver toggleEquipArma)
+  if ((tipo === 'arma' || tipo === 'instrumento') && equipadoArma) {
+    p.inventario.forEach(it => {
+      if ((it.tipo === 'arma' || it.tipo === 'instrumento') && it.id !== savedId) it.equipado = false;
     });
   }
 
@@ -12766,7 +12852,7 @@ function saveCharacter() {
           tipo: wizardArmaEscolhidaTipo, peso: catItemArma.peso, name: catItemArma.name,
           dano: catItemArma.dano || '', alcance: catItemArma.alcance || null,
           efeito: catItemArma.efeito || '', preco: catItemArma.preco != null ? catItemArma.preco : null,
-          aprimoramentos: [],
+          equipado: true, aprimoramentos: [],
           usos: (catItemArma.usos || []).map(u => ({ ...u, usosAtuais: u.usosMax })),
           ativas: (catItemArma.ativas || []).map(a => ({ ...a, usosAtuais: a.usosMax || 2 })),
           vidaMax: catItemArma.vidaMax != null ? catItemArma.vidaMax : null,
