@@ -1187,6 +1187,16 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Arremesso Imprudente" (Subclasse Combatente): o Acerto (Teste de
+  // Arremessar) e a escolha da Arma já aconteceram antes de chegar aqui
+  // (ver abrirArremessoImprudenteModal/escolherArmaArremessoImprudente) —
+  // "Usar Efeito" só rola o Dano da Arma escolhida + Maestria de Força +
+  // bônus. Ver rolarDanoArremessoImprudente.
+  if (sk.id === 'combatente_arremesso_imprudente' || sk.bancoId === 'combatente_arremesso_imprudente') {
+    rolarDanoArremessoImprudente(pid, sk);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de

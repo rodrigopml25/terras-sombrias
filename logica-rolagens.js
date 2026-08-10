@@ -771,6 +771,13 @@ function rolarAcertoHabilidadeClick(pid, skid) {
     rolarAcertoAparoAgressivo(pid, sk);
     return;
   }
+  // "Arremesso Imprudente" (Subclasse Combatente): antes de rolar o Acerto
+  // (Teste de Arremessar), pergunta qual Arma será arremessada — ver
+  // abrirArremessoImprudenteModal/escolherArmaArremessoImprudente.
+  if (sk.id === 'combatente_arremesso_imprudente' || sk.bancoId === 'combatente_arremesso_imprudente') {
+    abrirArremessoImprudenteModal(pid, skid);
+    return;
+  }
   // "Encantamento Troll": os dados de lançamento (Acerto) são trocados por
   // um Teste de Arcano OU Místico completo — pergunta qual dos dois antes
   // de rolar (ver abrirAcertoEncantadoModal/rolarAcertoHabilidadeEncantada).
@@ -1188,6 +1195,16 @@ function construirRolagemTeste(p, testeId) {
     const bonusAltaMontanha = p._altaMontanhaBonusTemp === 4 ? 4 : 2;
     terms.push({ sign: '+', node: { type: 'labeled_const', value: bonusAltaMontanha, label: 'Alta Montanha' } });
     total += bonusAltaMontanha;
+  }
+
+  // "Arremesso Imprudente" (Subclasse Combatente): +1d6 de Vantagem rolado
+  // de verdade no Teste de Arremessar quando a Arma escolhida pra arremessar
+  // é a que está equipada na mão principal — marca temporária deixada por
+  // escolherArmaArremessoImprudente, nunca persiste no personagem.
+  if (testeId === 'arremessar' && p._arremessoImprudenteVantagemTemp) {
+    const aiRoll = 1 + Math.floor(Math.random() * 6);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [aiRoll], sum: aiRoll, countNode: null, label: 'Arremesso Imprudente' } });
+    total += aiRoll;
   }
 
   // "Comum" (Origem, Troll): se NÃO houver troca configurada, o Teste de

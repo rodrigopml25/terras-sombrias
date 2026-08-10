@@ -2784,6 +2784,129 @@ function escolherAparoAgressivo(pid, atacanteFalhou) {
   });
 }
 
+// "Arremesso Imprudente" (Subclasse Combatente): antes de rolar o Acerto
+// (Teste de Arremessar), pergunta QUAL arma será arremessada — a que está
+// equipada na mão principal (dá +1d6 de Vantagem no Teste) ou uma do
+// Inventário (dá +3 de Dano no "Usar Efeito" em vez da Vantagem). A escolha
+// fica guardada em sk._arremessoImprudenteItemId/BonusDano até o "Usar
+// Efeito" (ver rolarDanoArremessoImprudente), que rola o Dano da arma
+// escolhida + Maestria de Força + esse bônus.
+function abrirArremessoImprudenteModal(pid, skid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  const armaEquipada = getArmaEquipadaPrincipal(p);
+  const temArmaEquipada = armaEquipada && armaEquipada.id !== 'sem_arma' && armaEquipada.dano;
+  const armasInventario = (p.inventario || []).filter(it =>
+    it.tipo === 'arma' && it.dano && (!temArmaEquipada || it.id !== armaEquipada.id));
+
+  const opcoesHtml = [
+    temArmaEquipada ? `<button class="tm-opcao tm-opcao-blue" onclick="escolherArmaArremessoImprudente(${p.id},'${skid}','${armaEquipada.id}','equipada')">
+      <span class="tm-opcao-nome">🖐 ${escHtml(armaEquipada.name)} (equipada)</span>
+      <span class="tm-opcao-info">+1d6 de Vantagem no Arremesso</span>
+    </button>` : '',
+    ...armasInventario.map(item => `<button class="tm-opcao tm-opcao-blue" onclick="escolherArmaArremessoImprudente(${p.id},'${skid}','${item.id}','inventario')">
+      <span class="tm-opcao-nome">🎒 ${escHtml(item.name)}</span>
+      <span class="tm-opcao-info">+3 de Dano</span>
+    </button>`),
+  ].filter(Boolean).join('');
+
+  if (!opcoesHtml) {
+    alert('Nenhuma Arma disponível pra arremessar (equipe uma Arma ou tenha alguma no Inventário).');
+    return;
+  }
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-target-arrow"></i> Arremesso Imprudente</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        Qual Arma ${escHtml(p.name)} vai arremessar?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherArmaArremessoImprudente(pid, skid, itemId, tipo) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skid);
+  fecharCriacaoAnaoModal();
+  if (!p || !sk) return;
+
+  sk._arremessoImprudenteItemId = itemId;
+  sk._arremessoImprudenteBonusDano = tipo === 'inventario' ? 3 : 0;
+
+  // Marca temporária lida só pelo Teste de Arremessar desta rolagem (ver
+  // construirRolagemTeste) — nunca persiste no personagem.
+  if (tipo === 'equipada') p._arremessoImprudenteVantagemTemp = true;
+  rolarTeste(pid, 'arremessar');
+  delete p._arremessoImprudenteVantagemTemp;
+
+  sk.aguardandoResultado = true;
+  saveState();
+  renderAll();
+}
+
+// "Arremesso Imprudente" (Subclasse Combatente): o "Usar Efeito" — chamado
+// depois do Acerto (Teste de Arremessar) já ter sido rolado e a Arma já
+// escolhida (ver escolherArmaArremessoImprudente) — rola o Dano da Arma
+// escolhida + Maestria de FORÇA (sempre, independente do peso da Arma —
+// diferente de um ataque normal) + o bônus de +3 de Dano, se a Arma
+// arremessada veio do Inventário em vez da mão equipada.
+function rolarDanoArremessoImprudente(pid, sk) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = sk._arremessoImprudenteItemId && resolverArmaOuInstrumento(p, sk._arremessoImprudenteItemId);
+  if (!item || !item.dano) {
+    delete sk._arremessoImprudenteItemId;
+    delete sk._arremessoImprudenteBonusDano;
+    return;
+  }
+
+  let parsed;
+  try { parsed = parseFormula(item.dano); } catch (e) { parsed = null; }
+  const baseNode = parsed ? parsed.node : null;
+  const terms = baseNode ? (baseNode.type === 'sum' ? baseNode.terms.slice() : [{ sign: '+', node: baseNode }]) : [];
+  let total = parsed ? parsed.value : 0;
+
+  const mstForca = maestriaDe(p, 'forca');
+  if (mstForca) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: mstForca, label: 'Maestria FOR' } });
+    total += mstForca;
+  }
+
+  const bonusInventario = sk._arremessoImprudenteBonusDano || 0;
+  if (bonusInventario) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: bonusInventario, label: 'Arremesso Imprudente' } });
+    total += bonusInventario;
+  }
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Arremesso Imprudente — ${item.name}`,
+    tree: { type: 'sum', terms },
+    total,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+  };
+
+  spinDiceFab(true, 6);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  delete sk._arremessoImprudenteItemId;
+  delete sk._arremessoImprudenteBonusDano;
+  saveState();
+  renderAll();
+}
+
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
 // como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
 // (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o
