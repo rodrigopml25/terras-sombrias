@@ -2715,18 +2715,16 @@ function escolherArremesso(pid, tipo) {
   });
 }
 
-// "Aparo Agressivo" (Subclasse Combatente): ao usar, realiza automaticamente
-// o Teste de Aparar (Força — mesma Maestria/MV/MD/Bônus configurados na aba
-// Testes) e publica no feed. Como o app não sabe o resultado do ataque do
-// Alvo (não é um personagem rastreado), pergunta em seguida se ele falhou
-// contra esse Aparo: sempre causa 4 de Dano fixo (avançou no Alvo); se o
-// ataque tiver falhado contra o Aparo, soma +1d4 de Dano extra — igual ao
-// texto da Habilidade.
+// "Aparo Agressivo" (Subclasse Combatente): o Acerto (ver
+// rolarAcertoAparoAgressivo) já rola o Teste de Aparar (Força — mesma
+// Maestria/MV/MD/Bônus configurados na aba Testes) antes de chegar aqui.
+// Como o app não sabe o resultado do ataque do Alvo (não é um personagem
+// rastreado), "Usar Efeito" só pergunta se ele falhou contra esse Aparo:
+// sempre causa 4 de Dano fixo (avançou no Alvo); se o ataque tiver falhado
+// contra o Aparo, soma +1d4 de Dano extra — igual ao texto da Habilidade.
 function abrirAparoAgressivoModal(pid) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
-
-  rolarTeste(pid, 'aparar');
 
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   if (!overlay) return;

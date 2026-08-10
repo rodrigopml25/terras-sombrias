@@ -1176,10 +1176,10 @@ function useSkill(pid, skid) {
     return;
   }
 
-  // "Aparo Agressivo" (Subclasse Combatente): ao usar, o personagem realiza
-  // um Aparar (Teste de Força) automaticamente, e como o app não sabe se o
-  // ataque recebido acertou ou falhou contra esse Aparo (o Alvo/atacante não
-  // é rastreado), pergunta em seguida — sempre soma 4 de Dano fixo; se o
+  // "Aparo Agressivo" (Subclasse Combatente): o Acerto já é o próprio Teste
+  // de Aparar (ver rolarAcertoAparoAgressivo), rolado antes de chegar aqui —
+  // "Usar Efeito" só pergunta se o ataque recebido falhou contra esse Aparo
+  // (o Alvo/atacante não é rastreado): sempre soma 4 de Dano fixo; se o
   // ataque tiver falhado contra o Aparo, soma +1d4 extra. Ver
   // abrirAparoAgressivoModal.
   if (sk.id === 'combatente_aparo_agressivo' || sk.bancoId === 'combatente_aparo_agressivo') {

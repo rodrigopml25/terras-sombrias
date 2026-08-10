@@ -764,6 +764,13 @@ function rolarAcertoHabilidadeClick(pid, skid) {
     rolarAcertoArremesso(pid, sk);
     return;
   }
+  // "Aparo Agressivo" (Subclasse Combatente): o Acerto é o Teste de Aparar
+  // de verdade (mesma Maestria/MV/MD/Bônus configurados na aba Testes) —
+  // rota própria, ver rolarAcertoAparoAgressivo.
+  if (sk.id === 'combatente_aparo_agressivo' || sk.bancoId === 'combatente_aparo_agressivo') {
+    rolarAcertoAparoAgressivo(pid, sk);
+    return;
+  }
   // "Encantamento Troll": os dados de lançamento (Acerto) são trocados por
   // um Teste de Arcano OU Místico completo — pergunta qual dos dois antes
   // de rolar (ver abrirAcertoEncantadoModal/rolarAcertoHabilidadeEncantada).
@@ -783,6 +790,19 @@ function rolarAcertoArremesso(pid, sk) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
   rolarTeste(pid, 'arremessar');
+  sk.aguardandoResultado = true;
+  saveState();
+  renderAll();
+}
+
+// Rola o Acerto da Habilidade "Aparo Agressivo" — mesma ideia de
+// rolarAcertoArremesso, mas sobre o Teste "aparar" (mesma Maestria de
+// Força e qualquer Mega Vantagem/Mega Desvantagem/Bônus já configurados
+// nesse Teste na ficha do personagem).
+function rolarAcertoAparoAgressivo(pid, sk) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  rolarTeste(pid, 'aparar');
   sk.aguardandoResultado = true;
   saveState();
   renderAll();
