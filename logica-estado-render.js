@@ -492,6 +492,28 @@ function getArmaMaestriaBonus(p, peso) {
   return null;
 }
 
+// Bônus de Dano que dependem só do item (não da fórmula base dele) — hoje:
+// Aprimoramento Dourado "Afiação Aprimorada" (+1d6 real) e "Origem das
+// Profundezas" (Draenei, bônus fixo acumulado por nome de arma). Extraído de
+// construirRolagemDanoArma pra ser reutilizado por Habilidades que causam
+// Dano fixo mas ainda "herdam" os bônus da Arma equipada (ex: Ataque
+// Giratório — ver rolarDanoAtaqueGiratorio).
+function getBonusesDanoArma(p, item) {
+  const terms = [];
+  let total = 0;
+  if (typeof temAfiacaoAprimorada === 'function' && temAfiacaoAprimorada(item)) {
+    const roll = 1 + Math.floor(Math.random() * 6);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [roll], sum: roll, countNode: null, label: 'Afiação Aprimorada ✨' } });
+    total += roll;
+  }
+  const profundezasVal = (p.origemProfundezasBonus && p.origemProfundezasBonus[item.name]) || 0;
+  if (profundezasVal > 0) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: profundezasVal, label: 'Profundezas' } });
+    total += profundezasVal;
+  }
+  return { terms, total };
+}
+
 // Monta a árvore de rolagem de Dano de uma Arma/Instrumento: rola a fórmula
 // de dano do item (item.dano, ex: "1d10", "1d4+3", "1d8+1d6") e soma, como
 // termos à parte (nunca mexendo na fórmula base do item):
@@ -568,17 +590,9 @@ function construirRolagemDanoArma(p, item, opts) {
     }
   }
 
-  if (typeof temAfiacaoAprimorada === 'function' && temAfiacaoAprimorada(item)) {
-    const roll = 1 + Math.floor(Math.random() * 6);
-    terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [roll], sum: roll, countNode: null, label: 'Afiação Aprimorada ✨' } });
-    total += roll;
-  }
-
-  const profundezasVal = (p.origemProfundezasBonus && p.origemProfundezasBonus[item.name]) || 0;
-  if (profundezasVal > 0) {
-    terms.push({ sign: '+', node: { type: 'labeled_const', value: profundezasVal, label: 'Profundezas' } });
-    total += profundezasVal;
-  }
+  const bonusesItem = getBonusesDanoArma(p, item);
+  terms.push(...bonusesItem.terms);
+  total += bonusesItem.total;
 
   // "Ambidestro" (Talento Inferior): usado pela Habilidade Geral "Ataque
   // com 2 Armas" (ver rolarAcertoAtaqueGeral/opts.forcarAmbidestro) — soma o
@@ -1197,6 +1211,15 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Ataque Giratório" (Subclasse Combatente): "Usar Efeito" rola o Dano
+  // fixo (5 + Maestria FOR + bônus da Arma equipada, +5 e o Dano da 2ª Arma
+  // se houver uma na mão secundária) e, em seguida, o Teste de Resistência
+  // do próprio personagem — ver rolarDanoAtaqueGiratorio.
+  if (sk.id === 'combatente_ataque_giratorio' || sk.bancoId === 'combatente_ataque_giratorio') {
+    rolarDanoAtaqueGiratorio(pid, sk);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
@@ -1257,6 +1280,15 @@ function aplicarResetDeTurno() {
       p.acoesAtuais += 1;
       p.treinamentoMilitarAcaoExtra = false;
     }
+    // "Ataque Giratório" (Combatente): a Mega Desvantagem em Desviar/Aparar
+    // por ter falhado o Teste de Resistência vale só até o próximo turno.
+    if (p.ataqueGiratorioDesequilibrado) {
+      if (p.testes) {
+        if (p.testes.desviar) p.testes.desviar.md = false;
+        if (p.testes.aparar) p.testes.aparar.md = false;
+      }
+      p.ataqueGiratorioDesequilibrado = false;
+    }
     p.skills.forEach(sk => {
       if (sk.tipo === 'perturn') { sk.usosAtuais = sk.usosMax; sk.aguardandoResultado = false; }
       if (sk.tipo === 'turno_N' && sk.cdRestante > 0) {
@@ -1303,6 +1335,13 @@ function resetLuta() {
     p.furiaOrcAtiva = false;
     p.dueloAtivo = false;
     p.arsenalPendente = false;
+    if (p.ataqueGiratorioDesequilibrado) {
+      if (p.testes) {
+        if (p.testes.desviar) p.testes.desviar.md = false;
+        if (p.testes.aparar) p.testes.aparar.md = false;
+      }
+      p.ataqueGiratorioDesequilibrado = false;
+    }
   });
   saveState();
   renderAll();

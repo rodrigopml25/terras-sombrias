@@ -2923,6 +2923,120 @@ function rolarDanoArremessoImprudente(pid, sk) {
   renderAll();
 }
 
+// "Ataque Giratório" (Subclasse Combatente): causa 5 de Dano fixo + Maestria
+// de FORÇA (sempre, igual ao Arremesso Imprudente) + os mesmos bônus de Dano
+// da Arma equipada na mão PRINCIPAL, se ela tiver (Afiação Aprimorada,
+// Profundezas — ver getBonusesDanoArma). Com uma 2ª Arma na mão secundária
+// (Ambidestro/Guerreiro Perfeito), soma mais +5 fixo + o Dano da fórmula
+// bruta dela (sem os bônus de item da 2ª arma, mesmo padrão já usado no
+// "Ataque com 2 Armas" — ver construirRolagemDanoArma/forcarAmbidestro).
+// Independente de ter 1 ou 2 Armas, sempre rola o Teste de Resistência do
+// próprio personagem em seguida — como o app não decide sozinho se um Teste
+// "passou" (sem sistema de CD), abre um modal perguntando o resultado (ver
+// abrirAtaqueGiratorioResistenciaModal); se falhar, aplica Mega Desvantagem
+// real em Desviar e Aparar até o próximo turno (limpa em aplicarResetDeTurno/
+// resetLuta, ver marca p.ataqueGiratorioDesequilibrado).
+function rolarDanoAtaqueGiratorio(pid, sk) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  const terms = [{ sign: '+', node: { type: 'const', value: 5 } }];
+  let total = 5;
+
+  const mstForca = maestriaDe(p, 'forca');
+  if (mstForca) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: mstForca, label: 'Maestria FOR' } });
+    total += mstForca;
+  }
+
+  const itemPrincipal = getArmaEquipadaPrincipal(p);
+  if (itemPrincipal && itemPrincipal.id !== 'sem_arma') {
+    const bonusesItem = getBonusesDanoArma(p, itemPrincipal);
+    terms.push(...bonusesItem.terms);
+    total += bonusesItem.total;
+  }
+
+  const armaSec = getArmaSecundariaEquipada(p);
+  const com2Armas = !!(armaSec && (armaSec.dano || '').trim());
+  if (com2Armas) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: 5, label: '2 Armas' } });
+    total += 5;
+    try {
+      const parsedSec = parseFormula(armaSec.dano);
+      const secNode = parsedSec.node;
+      const secTerms = secNode.type === 'sum' ? secNode.terms.slice() : [{ sign: '+', node: secNode }];
+      secTerms.forEach(t => {
+        if (t.node.type === 'dice') t.node.label = `🌀 ${armaSec.name}`;
+        else if (t.node.type === 'const') t.node = { type: 'labeled_const', value: t.node.value, label: `🌀 ${armaSec.name}` };
+        else if (t.node.type === 'labeled_const') t.node.label = `🌀 ${armaSec.name} — ${t.node.label}`;
+        terms.push(t);
+      });
+      total += parsedSec.value;
+    } catch (e) { /* fórmula inválida na 2ª arma — ignora o bônus */ }
+  }
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Ataque Giratório${com2Armas ? ' (2 Armas)' : ''}`,
+    tree: { type: 'sum', terms },
+    total,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+  };
+
+  spinDiceFab(true, 6);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  // Independente de ter 1 ou 2 Armas, o giro deixa o personagem instável:
+  // rola o Teste de Resistência dele mesmo em seguida.
+  rolarTeste(pid, 'resistir');
+  setTimeout(() => abrirAtaqueGiratorioResistenciaModal(pid), ROLL_ANIM_MS + 250);
+}
+
+function abrirAtaqueGiratorioResistenciaModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  if (!overlay || !p) return;
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-alert-triangle"></i> Ataque Giratório</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        O Teste de Resistência de ${escHtml(p.name)} falhou?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherAtaqueGiratorioResistencia(${p.id},true)">
+          <span class="tm-opcao-nome">❌ Sim, falhou</span>
+          <span class="tm-opcao-info">Mega Desvantagem em Desviar/Aparar até o próximo turno</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherAtaqueGiratorioResistencia(${p.id},false)">
+          <span class="tm-opcao-nome">✅ Não, resistiu</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherAtaqueGiratorioResistencia(pid, falhou) {
+  const p = PLAYERS.find(x => x.id === pid);
+  fecharCriacaoAnaoModal();
+  if (!p) return;
+  if (falhou) {
+    getTestePersonagem(p);
+    p.testes.desviar.md = true;
+    p.testes.aparar.md = true;
+    p.ataqueGiratorioDesequilibrado = true;
+  }
+  saveState();
+  renderAll();
+}
+
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
 // como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
 // (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o
