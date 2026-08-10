@@ -1123,6 +1123,17 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Aparo Agressivo" (Subclasse Combatente): ao usar, o personagem realiza
+  // um Aparar (Teste de Força) automaticamente, e como o app não sabe se o
+  // ataque recebido acertou ou falhou contra esse Aparo (o Alvo/atacante não
+  // é rastreado), pergunta em seguida — sempre soma 4 de Dano fixo; se o
+  // ataque tiver falhado contra o Aparo, soma +1d4 extra. Ver
+  // abrirAparoAgressivoModal.
+  if (sk.id === 'combatente_aparo_agressivo') {
+    abrirAparoAgressivoModal(pid);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de

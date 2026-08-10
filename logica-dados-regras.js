@@ -2715,6 +2715,77 @@ function escolherArremesso(pid, tipo) {
   });
 }
 
+// "Aparo Agressivo" (Subclasse Combatente): ao usar, realiza automaticamente
+// o Teste de Aparar (Força — mesma Maestria/MV/MD/Bônus configurados na aba
+// Testes) e publica no feed. Como o app não sabe o resultado do ataque do
+// Alvo (não é um personagem rastreado), pergunta em seguida se ele falhou
+// contra esse Aparo: sempre causa 4 de Dano fixo (avançou no Alvo); se o
+// ataque tiver falhado contra o Aparo, soma +1d4 de Dano extra — igual ao
+// texto da Habilidade.
+function abrirAparoAgressivoModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  rolarTeste(pid, 'aparar');
+
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  if (!overlay) return;
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-shield-check"></i> Aparo Agressivo</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        O ataque recebido por ${escHtml(p.name)} falhou contra esse Aparo?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherAparoAgressivo(${p.id},true)">
+          <span class="tm-opcao-nome">✅ Sim, falhou — 4 + 1d4 de Dano</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherAparoAgressivo(${p.id},false)">
+          <span class="tm-opcao-nome">❌ Não, acertou — 4 de Dano</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherAparoAgressivo(pid, atacanteFalhou) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  fecharCriacaoAnaoModal();
+
+  const base = 4;
+  const terms = [{ sign: '+', node: { type: 'const', value: base } }];
+  let d = 0, sides = null;
+  if (atacanteFalhou) {
+    sides = 4;
+    d = 1 + Math.floor(Math.random() * sides);
+    terms.push({ sign: '+', node: { type: 'dice', sides, count: 1, results: [d], sum: d, countNode: null } });
+  }
+  const total = base + d;
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: atacanteFalhou ? 'Aparo Agressivo — Dano (4 + 1d4)' : 'Aparo Agressivo — Dano (4)',
+    tree: { type: 'sum', terms },
+    total,
+    sides: sides || undefined,
+    hidden: hiddenPadrao(p),
+    rolling: !!atacanteFalhou,
+    ts: Date.now(),
+    label: `🛡️ Aparo Agressivo — ${total} de Dano${atacanteFalhou ? ' (ataque falhou contra o Aparo)' : ''}`,
+  };
+  if (atacanteFalhou) spinDiceFab(true, sides);
+  pushRollEntry(entry, key => {
+    if (atacanteFalhou) {
+      setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+      setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+    }
+  });
+}
+
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
 // como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
 // (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o
