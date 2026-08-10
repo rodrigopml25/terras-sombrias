@@ -2923,13 +2923,15 @@ function rolarDanoArremessoImprudente(pid, sk) {
   renderAll();
 }
 
-// "Ataque Giratório" (Subclasse Combatente): causa 5 de Dano fixo + Maestria
-// de FORÇA (sempre, igual ao Arremesso Imprudente) + os mesmos bônus de Dano
-// da Arma equipada na mão PRINCIPAL, se ela tiver (Afiação Aprimorada,
-// Profundezas — ver getBonusesDanoArma). Com uma 2ª Arma na mão secundária
-// (Ambidestro/Guerreiro Perfeito), soma mais +5 fixo + o Dano da fórmula
-// bruta dela (sem os bônus de item da 2ª arma, mesmo padrão já usado no
-// "Ataque com 2 Armas" — ver construirRolagemDanoArma/forcarAmbidestro).
+// "Ataque Giratório" (Subclasse Combatente): causa 5 de Dano fixo + Dano da
+// Arma equipada na mão PRINCIPAL (fórmula bruta dela, igual a um ataque
+// normal — mesmo "Sem Arma", que tem Dano base "1") + Maestria de FORÇA
+// (sempre, igual ao Arremesso Imprudente) + os mesmos bônus de item da Arma
+// principal, se ela tiver (Afiação Aprimorada, Profundezas — ver
+// getBonusesDanoArma). Com uma 2ª Arma na mão secundária (Ambidestro/
+// Guerreiro Perfeito), soma mais +5 fixo + o Dano da fórmula bruta dela
+// (sem os bônus de item da 2ª arma, mesmo padrão já usado no "Ataque com 2
+// Armas" — ver construirRolagemDanoArma/forcarAmbidestro).
 // Independente de ter 1 ou 2 Armas, sempre rola o Teste de Resistência do
 // próprio personagem em seguida — como o app não decide sozinho se um Teste
 // "passou" (sem sistema de CD), abre um modal perguntando o resultado (ver
@@ -2943,13 +2945,28 @@ function rolarDanoAtaqueGiratorio(pid, sk) {
   const terms = [{ sign: '+', node: { type: 'const', value: 5 } }];
   let total = 5;
 
+  const itemPrincipal = getArmaEquipadaPrincipal(p);
+  if (itemPrincipal && (itemPrincipal.dano || '').trim()) {
+    try {
+      const parsedPrinc = parseFormula(itemPrincipal.dano);
+      const princNode = parsedPrinc.node;
+      const princTerms = princNode.type === 'sum' ? princNode.terms.slice() : [{ sign: '+', node: princNode }];
+      princTerms.forEach(t => {
+        if (t.node.type === 'dice') t.node.label = `⚔ ${itemPrincipal.name}`;
+        else if (t.node.type === 'const') t.node = { type: 'labeled_const', value: t.node.value, label: `⚔ ${itemPrincipal.name}` };
+        else if (t.node.type === 'labeled_const') t.node.label = `⚔ ${itemPrincipal.name} — ${t.node.label}`;
+        terms.push(t);
+      });
+      total += parsedPrinc.value;
+    } catch (e) { /* fórmula inválida na Arma principal — ignora */ }
+  }
+
   const mstForca = maestriaDe(p, 'forca');
   if (mstForca) {
     terms.push({ sign: '+', node: { type: 'labeled_const', value: mstForca, label: 'Maestria FOR' } });
     total += mstForca;
   }
 
-  const itemPrincipal = getArmaEquipadaPrincipal(p);
   if (itemPrincipal && itemPrincipal.id !== 'sem_arma') {
     const bonusesItem = getBonusesDanoArma(p, itemPrincipal);
     terms.push(...bonusesItem.terms);
@@ -2979,7 +2996,7 @@ function rolarDanoAtaqueGiratorio(pid, sk) {
     playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
     charName: p.name,
     isNarrator: !!IS_NARRADOR,
-    formula: `Ataque Giratório${com2Armas ? ' (2 Armas)' : ''}`,
+    formula: `Ataque Giratório — ${itemPrincipal ? itemPrincipal.name : 'Sem Arma'}${com2Armas ? ` + ${armaSec.name}` : ''}`,
     tree: { type: 'sum', terms },
     total,
     hidden: hiddenPadrao(p),
