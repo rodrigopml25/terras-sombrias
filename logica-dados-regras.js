@@ -2837,6 +2837,10 @@ function escolherArmaArremessoImprudente(pid, skid, itemId, tipo) {
 
   sk._arremessoImprudenteItemId = itemId;
   sk._arremessoImprudenteBonusDano = tipo === 'inventario' ? 3 : 0;
+  // Guardado pra, no "Usar Efeito" (rolarDanoArremessoImprudente), desequipar
+  // a arma jogada — mesmo comportamento da Habilidade Geral "Arremesso"
+  // (escolherArremesso) quando a arma arremessada é a equipada.
+  sk._arremessoImprudenteEraEquipada = tipo === 'equipada';
 
   // Marca temporária lida só pelo Teste de Arremessar desta rolagem (ver
   // construirRolagemTeste) — nunca persiste no personagem.
@@ -2862,6 +2866,7 @@ function rolarDanoArremessoImprudente(pid, sk) {
   if (!item || !item.dano) {
     delete sk._arremessoImprudenteItemId;
     delete sk._arremessoImprudenteBonusDano;
+    delete sk._arremessoImprudenteEraEquipada;
     return;
   }
 
@@ -2901,8 +2906,13 @@ function rolarDanoArremessoImprudente(pid, sk) {
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
 
+  // A Arma foi jogada longe — guarda ela em seguida, igual à Habilidade
+  // Geral "Arremesso" (ver escolherArremesso).
+  if (sk._arremessoImprudenteEraEquipada) item.equipado = false;
+
   delete sk._arremessoImprudenteItemId;
   delete sk._arremessoImprudenteBonusDano;
+  delete sk._arremessoImprudenteEraEquipada;
   saveState();
   renderAll();
 }
