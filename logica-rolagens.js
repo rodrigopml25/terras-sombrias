@@ -821,6 +821,10 @@ function rolarAcertoHabilidadeEncantada(pid, skid, testeId) {
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
 
+  // Marca a Habilidade como aguardando resultado — troca o botão "Acerto"
+  // por "Usar Efeito"/"Falhou" no card (ver renderBotoesHabilidade).
+  sk.aguardandoResultado = true;
+
   // Mesma correção de rolarTeste/rolarAcertoHabilidade: essa rolagem também
   // passa por construirRolagemTeste e pode consumir Motivar/Análise Rápida.
   saveState();
@@ -947,6 +951,10 @@ function rolarAcertoHabilidade(pid, sk) {
     setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
+
+  // Marca a Habilidade como aguardando resultado — troca o botão "Acerto"
+  // por "Usar Efeito"/"Falhou" no card (ver renderBotoesHabilidade).
+  sk.aguardandoResultado = true;
 
   // Marca de 1 uso consumida em construirRolagemAcertoHabilidade (Motivar) —
   // precisa salvar e re-renderizar, senão o badge fica errado pros outros e

@@ -806,6 +806,26 @@ function isReady(sk, p) {
   return false;
 }
 
+// Monta os botões do rodapé de um card de Habilidade. Habilidades que
+// exigem Acerto (ver precisaAcertoHabilidade) começam mostrando só o botão
+// "🎯 Acerto"; depois de rolado (ver sk.aguardandoResultado, ligado em
+// rolarAcertoHabilidade/rolarAcertoHabilidadeEncantada/
+// rolarAcertoAtaqueGeral), ele é substituído por "Usar Efeito" (aplica o
+// efeito normalmente) e "Falhou" (só gasta a Ação e coloca a Habilidade em
+// recarga, sem efeito — ver falharHabilidadeClick). Habilidades sem Acerto
+// (HABILIDADES_SEM_ACERTO, Testes vinculados etc.) mostram só "Usar Efeito",
+// igual sempre foi.
+function renderBotoesHabilidade(p, sk, ready) {
+  if (!precisaAcertoHabilidade(p, sk)) {
+    return `<button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>`;
+  }
+  if (sk.aguardandoResultado) {
+    return `<button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>
+      <button class="sk-btn sk-btn-falhou" onclick="event.stopPropagation();falharHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Gasta a Ação e coloca a Habilidade em recarga, sem aplicar o efeito">Falhou</button>`;
+  }
+  return `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>`;
+}
+
 // ═══════════════════════════════════════
 // AÇÕES GLOBAIS
 // ═══════════════════════════════════════
@@ -841,21 +861,31 @@ function recarregarHabilidadeNarrador(pid, skid) {
   } else {
     return;
   }
+  sk.aguardandoResultado = false;
   saveState();
   renderAll();
 }
 
-function useSkill(pid, skid) {
+// Consome os recursos genéricos de uma Habilidade (Ação, uso/carga) e
+// resolve os fluxos "sempre livres" (voltar de Forma). Compartilhada entre
+// useSkill (que, depois disso, aplica o efeito específico da Habilidade) e
+// falharHabilidadeClick (que só consome os recursos, sem aplicar efeito —
+// botão "Falhou", usado quando o Acerto errou o Alvo). Retorna {p, sk}
+// quando os recursos foram consumidos com sucesso e o chamador deve seguir
+// em frente, ou null quando o fluxo já foi totalmente resolvido aqui
+// (formas sempre-livres) ou bloqueado (sem Ações, Forma Sombria etc.) — o
+// chamador não deve fazer mais nada nesses casos.
+function consumirRecursosHabilidade(pid, skid) {
   const p = PLAYERS.find(x => x.id === pid);
   const sk = p && p.skills.find(s => s.id === skid);
-  if (!sk) return;
+  if (!sk) return null;
 
   // Voltar da forma de Dragão pra forma humanóide é sempre livre: não gasta
   // ação, carga nem espera pronto.
   if (sk.id === 'sk_racial_dragao_metamorfose' && p.formaDragao) {
     setFormaDragao(p, false);
     saveState(); renderAll();
-    return;
+    return null;
   }
 
   // Desfazer a Forma Sombria (Pandaren) também é sempre livre — mesma ideia
@@ -877,17 +907,17 @@ function useSkill(pid, skid) {
     p.hp = Math.max(0, Math.min(p.hp || 0, p.hpMax));
     p.formaSombriaAtiva = false;
     saveState(); renderAll();
-    return;
+    return null;
   }
 
-  if (!isReady(sk, p)) return;
+  if (!isReady(sk, p)) return null;
 
   // Forma Sombria ativa (Pandaren): Habilidades de outra cor ficam
   // bloqueadas enquanto transformado.
   if (formaSombriaBloqueiaHabilidade(p, sk)) {
     const forma = PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId];
     alert(`Na Forma Sombria de ${forma.name}, só é possível usar Habilidades do tipo ${FORMA_SOMBRIA_COR_LABEL[forma.corPermitida]}.`);
-    return;
+    return null;
   }
 
   // "Fúria de Orc": o bônus (+1d6 em Golpe, sem poder ser Aparada) vale só
@@ -900,7 +930,7 @@ function useSkill(pid, skid) {
   // "Adaptação do Espaço" (Draenei): não pode ser usada durante uma Luta.
   if (sk.id === 'sk_racial_draenei_adaptacao' && combatAtivo) {
     alert('Adaptação do Espaço não pode ser usada durante uma Luta.');
-    return;
+    return null;
   }
 
   // Ações do turno: habilidades com custo (0/1/2 ações) descontam do saldo
@@ -910,7 +940,7 @@ function useSkill(pid, skid) {
     const atuais = p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
     if (atuais < custo) {
       alert(`Ações insuficientes! "${sk.name}" custa ${custo} ${custo === 1 ? 'ação' : 'ações'}, e ${p.name} só tem ${atuais} neste turno.`);
-      return;
+      return null;
     }
   }
 
@@ -976,6 +1006,29 @@ function useSkill(pid, skid) {
 
   saveState();
   renderAll();
+
+  return { p, sk };
+}
+
+// Handler do botão "Falhou" — some junto com "Usar Efeito" depois que o
+// Acerto foi rolado (ver sk.aguardandoResultado, ligado em
+// rolarAcertoHabilidade/rolarAcertoHabilidadeEncantada/
+// rolarAcertoAtaqueGeral). Só consome os recursos genéricos da Habilidade
+// (Ação, uso/carga) via consumirRecursosHabilidade — sem aplicar nenhum
+// efeito específico, já que o ataque errou o Alvo.
+function falharHabilidadeClick(pid, skid) {
+  const r = consumirRecursosHabilidade(pid, skid);
+  if (!r) return;
+  r.sk.aguardandoResultado = false;
+  saveState();
+  renderAll();
+}
+
+function useSkill(pid, skid) {
+  const r = consumirRecursosHabilidade(pid, skid);
+  if (!r) return;
+  const { p, sk } = r;
+  sk.aguardandoResultado = false;
 
   // "Colosso" (Origem, Troll): usar uma Habilidade encantada (Encantamento
   // Troll) é amaldiçoado — abre a escolha de 1d6 Dano ou 1d6 Insanidade.
@@ -1195,10 +1248,10 @@ function aplicarResetDeTurno() {
       p.treinamentoMilitarAcaoExtra = false;
     }
     p.skills.forEach(sk => {
-      if (sk.tipo === 'perturn') { sk.usosAtuais = sk.usosMax; }
+      if (sk.tipo === 'perturn') { sk.usosAtuais = sk.usosMax; sk.aguardandoResultado = false; }
       if (sk.tipo === 'turno_N' && sk.cdRestante > 0) {
         sk.cdRestante--;
-        if (sk.cdRestante === 0) sk.usosAtuais = sk.usosMax;
+        if (sk.cdRestante === 0) { sk.usosAtuais = sk.usosMax; sk.aguardandoResultado = false; }
       }
     });
     // Usos de Arma ("Usar Nx") com escopo "Por Turno"
@@ -1228,6 +1281,7 @@ function resetLuta() {
       if (['perturn','luta','turno_N'].includes(sk.tipo)) {
         sk.usosAtuais = sk.usosMax;
         sk.cdRestante = 0;
+        sk.aguardandoResultado = false;
       }
     });
     // Usos de Arma ("Usar Nx") com escopo "Por Luta" ou "Por Turno"
@@ -1253,6 +1307,7 @@ function resetSessao() {
       // não recarrega automaticamente num Reset de Sessão.
       if (sk.resetSessao === false) return;
       sk.usosAtuais = sk.usosMax;
+      sk.aguardandoResultado = false;
     });
     // Usos de Arma ("Usar Nx") com escopo "Por Sessão"
     resetUsosArmaPorEscopo(p, ['sessao']);
@@ -1974,8 +2029,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
             <div class="sk-tags"><span class="sk-tag">2 ações</span><span class="sk-tag">${tipoLabel(sk)}</span></div>
             <div style="font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap; max-height: 110px; overflow-y: auto; padding-right: 4px;">${sk.desc}</div>
             <div class="sk-bottom">
-              ${precisaAcertoHabilidade(p, sk) ? `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>` : ''}
-              <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>
+              ${renderBotoesHabilidade(p, sk, ready)}
               <span class="sk-cd">${notasStatus}</span>
             </div>
           </div>`;
@@ -2391,10 +2445,9 @@ function renderJogador() {
         ${renderEfeitoSecundarioHtml(p, sk)}
         ${renderCorromperHtml(p.id + '-' + sk.id, sk)}
         <div class="sk-bottom">
-          ${precisaAcertoHabilidade(p, sk) ? `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>` : ''}
-          <button class="sk-btn ${formaSombriaAtivaCard ? 'sk-btn-desativar' : ''}" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${(!ready && !formaSombriaAtivaCard)?'disabled':''}>
-            ${formaSombriaAtivaCard ? 'Desativar' : 'Usar Efeito'}
-          </button>
+          ${formaSombriaAtivaCard
+            ? `<button class="sk-btn sk-btn-desativar" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')">Desativar</button>`
+            : renderBotoesHabilidade(p, sk, ready)}
           ${dotsHtml}${cdHtml}
         </div>
       </div>`;
@@ -2477,8 +2530,7 @@ function renderJogador() {
           ${sk.desc || '<em>Nenhum efeito descrito.</em>'}
       </div>
       <div class="sk-bottom">
-        ${precisaAcertoHabilidade(p, sk) ? `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>` : ''}
-        <button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>
+        ${renderBotoesHabilidade(p, sk, ready)}
         <span class="sk-cd">${notasStatus}</span>
       </div>
     </div>`;
@@ -3539,6 +3591,11 @@ function rolarAcertoAtaqueGeral(pid, skid) {
     alert('Equipe uma 2ª Arma/Instrumento na mão secundária antes (badge "🤝 Mão Secundária" no Inventário).');
     return;
   }
+  // Marca a Habilidade como aguardando resultado — troca o botão "Acerto"
+  // por "Usar Efeito"/"Falhou" no card (ver renderBotoesHabilidade). O
+  // saveState()/renderAll() de rolarAcertoArma logo abaixo já cobre essa
+  // marca também.
+  sk.aguardandoResultado = true;
   rolarAcertoArma(pid, item.id, { forcarAmbidestro: usa2Armas, labelPrefixo: sk.name });
 }
 

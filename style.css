@@ -759,6 +759,12 @@ select:focus { outline: none; border-color: var(--accent-bd); }
   color: var(--accent2) !important;
 }
 .sk-btn-acerto:hover:not(:disabled) { background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }
+.sk-btn-falhou {
+  background: transparent !important;
+  border: 1px solid var(--red) !important;
+  color: var(--red) !important;
+}
+.sk-btn-falhou:hover:not(:disabled) { background: var(--red) !important; color: #fff !important; }
 
 .sk-dots { display: flex; gap: 4px; margin-left: auto; }
 .sdot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid; }
