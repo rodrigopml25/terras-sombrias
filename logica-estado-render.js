@@ -1129,7 +1129,7 @@ function useSkill(pid, skid) {
   // é rastreado), pergunta em seguida — sempre soma 4 de Dano fixo; se o
   // ataque tiver falhado contra o Aparo, soma +1d4 extra. Ver
   // abrirAparoAgressivoModal.
-  if (sk.id === 'combatente_aparo_agressivo') {
+  if (sk.id === 'combatente_aparo_agressivo' || sk.bancoId === 'combatente_aparo_agressivo') {
     abrirAparoAgressivoModal(pid);
     return;
   }
