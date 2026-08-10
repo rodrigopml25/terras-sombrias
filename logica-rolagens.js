@@ -717,16 +717,6 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_geral_recurso',
 ]);
 
-// Habilidades cujo Acerto é um Teste próprio (Aparar, Aparo Agressivo etc.)
-// que o app não sabe declarar "falha" sozinho — o efeito sempre acontece de
-// algum jeito quando usada (ex: Aparo Agressivo sempre causa ao menos 4 de
-// Dano ao avançar no Alvo, o Teste só decide se soma o +1d4 extra). Pra
-// essas, depois do Acerto rolado só aparece "Usar Efeito" — sem o botão
-// "Falhou" (ver renderBotoesHabilidade).
-const HABILIDADES_SEM_FALHOU = new Set([
-  'combatente_aparo_agressivo',
-]);
-
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
 // Efeito"). Não mostra quando: já tem acerto garantido; está vinculada a um
 // Teste próprio (SKILL_TESTE_LINK — o próprio Teste já cumpre esse papel);
@@ -748,12 +738,6 @@ function precisaAcertoHabilidade(p, sk) {
       && PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId]
       && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id) return false;
   return true;
-}
-
-// Decide se, depois do Acerto rolado, o card mostra o botão "Falhou" junto
-// com "Usar Efeito" — ver HABILIDADES_SEM_FALHOU e renderBotoesHabilidade.
-function precisaBotaoFalhou(sk) {
-  return !HABILIDADES_SEM_FALHOU.has(sk.id) && !HABILIDADES_SEM_FALHOU.has(sk.bancoId);
 }
 
 // Handler do botão "Acerto" do card de Habilidade — só rola e publica no

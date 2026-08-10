@@ -820,9 +820,7 @@ function renderBotoesHabilidade(p, sk, ready) {
     return `<button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>`;
   }
   if (sk.aguardandoResultado) {
-    const usarEfeitoBtn = `<button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>`;
-    if (!precisaBotaoFalhou(sk)) return usarEfeitoBtn;
-    return `${usarEfeitoBtn}
+    return `<button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>
       <button class="sk-btn sk-btn-falhou" onclick="event.stopPropagation();falharHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Gasta a Ação e coloca a Habilidade em recarga, sem aplicar o efeito">Falhou</button>`;
   }
   return `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>`;
