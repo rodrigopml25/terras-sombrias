@@ -725,7 +725,14 @@ const HABILIDADES_SEM_ACERTO = new Set([
 // vira "Desativar" (sempre livre, não é uma ação que "acerta" nada).
 function precisaAcertoHabilidade(p, sk) {
   if (!sk || sk.acertoGarantido) return false;
-  if (SKILL_TESTE_LINK[sk.id]) return false;
+  // "Arremesso" é a única exceção dentro do SKILL_TESTE_LINK: seu Acerto é
+  // o próprio Teste de Arremessar (com Maestria/MV/MD/Bônus configurados na
+  // aba Testes), rolado separado do "Usar Efeito" (que abre a escolha de
+  // QUE objeto foi arremessado) — ver rolarAcertoHabilidadeClick/
+  // abrirArremessoModal. As demais Habilidades ligadas a um Teste (ex:
+  // Acrobacia) rolam o Teste automaticamente dentro do próprio "Usar
+  // Efeito", sem passo de Acerto separado.
+  if (SKILL_TESTE_LINK[sk.id] && sk.id !== 'sk_geral_arremesso') return false;
   if (HABILIDADES_SEM_ACERTO.has(sk.id)) return false;
   if (p && p.race === 'Pandaren' && p.formaSombriaId
       && PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId]
@@ -750,6 +757,13 @@ function rolarAcertoHabilidadeClick(pid, skid) {
     rolarAcertoAtaqueGeral(pid, sk.id);
     return;
   }
+  // "Arremesso": o Acerto é o Teste de Arremessar de verdade (mesma
+  // Maestria/MV/MD/Bônus configurados na aba Testes) — rota própria, ver
+  // rolarAcertoArremesso.
+  if (sk.id === 'sk_geral_arremesso') {
+    rolarAcertoArremesso(pid, sk);
+    return;
+  }
   // "Encantamento Troll": os dados de lançamento (Acerto) são trocados por
   // um Teste de Arcano OU Místico completo — pergunta qual dos dois antes
   // de rolar (ver abrirAcertoEncantadoModal/rolarAcertoHabilidadeEncantada).
@@ -759,6 +773,21 @@ function rolarAcertoHabilidadeClick(pid, skid) {
   }
   rolarAcertoHabilidade(pid, sk);
 }
+
+// Rola o Acerto da Habilidade "Arremesso" — reaproveita rolarTeste de
+// verdade sobre o Teste "arremessar" (mesma Maestria de Força e qualquer
+// Mega Vantagem/Mega Desvantagem/Bônus já configurados nesse Teste na
+// ficha do personagem), só marcando a Habilidade como aguardando resultado
+// em seguida (ver renderBotoesHabilidade).
+function rolarAcertoArremesso(pid, sk) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  rolarTeste(pid, 'arremessar');
+  sk.aguardandoResultado = true;
+  saveState();
+  renderAll();
+}
+
 
 // Pergunta qual Teste (Arcano ou Místico) vai substituir a rolagem de
 // Acerto de uma Habilidade encantada pelo Encantamento Troll — o texto da
