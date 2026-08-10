@@ -3027,9 +3027,9 @@ function abrirAtaqueGiratorioResistenciaModal(pid) {
         O Teste de Resistência de ${escHtml(p.name)} falhou?
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        <button class="tm-opcao tm-opcao-blue" onclick="escolherAtaqueGiratorioResistencia(${p.id},true)">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherAtaqueGiratorioResistencia(${p.id},true)" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
           <span class="tm-opcao-nome">❌ Sim, falhou</span>
-          <span class="tm-opcao-info">Mega Desvantagem em Desviar/Aparar até o próximo turno</span>
+          <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">Mega Desvantagem em Desviar/Aparar até o próximo turno</span>
         </button>
         <button class="tm-opcao tm-opcao-blue" onclick="escolherAtaqueGiratorioResistencia(${p.id},false)">
           <span class="tm-opcao-nome">✅ Não, resistiu</span>
