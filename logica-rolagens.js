@@ -645,6 +645,10 @@ function hiddenPadrao(p) {
 }
 
 function pushRollEntry(entry, afterKeyKnown) {
+  // Toda rolagem passa por aqui — abre o painel de dados automaticamente
+  // se estiver fechado, em vez de depender de cada função de rolagem
+  // lembrar de chamar toggleDicePanel() individualmente.
+  if (!dicePanelOpen) toggleDicePanel();
   if (firebaseConfigured && diceBaseRef) {
     const newRef = diceBaseRef.push();
     newRef.set(entry).then(() => {
