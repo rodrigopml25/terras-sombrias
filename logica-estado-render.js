@@ -3584,6 +3584,20 @@ function getArmaEquipadaPrincipal(p) {
   return eq || criarSemArmaItem(p);
 }
 
+// Quando a Arma/Instrumento da mão PRINCIPAL é arremessada (Habilidade Geral
+// "Arremesso" ou "Arremesso Imprudente" — ver escolherArremesso/
+// rolarDanoArremessoImprudente) e o personagem tem uma Arma/Instrumento na
+// mão SECUNDÁRIA (Ambidestro/Guerreiro Perfeito — ver
+// getArmaSecundariaEquipada), essa 2ª arma passa a ser a nova equipada da
+// mão principal — a mão que ficou livre foi preenchida por ela na hora,
+// não fica "Sem Arma" enquanto houver uma 2ª arma disponível.
+function promoverArmaSecundariaAoArremessar(p) {
+  const secundaria = getArmaSecundariaEquipada(p);
+  if (!secundaria) return;
+  secundaria.equipadoSecundaria = false;
+  secundaria.equipado = true;
+}
+
 // Rola o Acerto das Habilidades Gerais "Ataque com Arma"/"Ataque com 2
 // Armas" — sempre sobre a Arma/Instrumento equipado na mão principal (ver
 // getArmaEquipadaPrincipal), publicado com o nome da própria Habilidade em

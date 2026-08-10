@@ -2684,8 +2684,10 @@ function escolherArremesso(pid, tipo) {
     const item = getArmaEquipadaPrincipal(p);
     if (!item || item.id === 'sem_arma' || !item.dano) return;
     rolarDanoArma(pid, item.id, { labelPrefixo: 'Arremesso' });
-    // A Arma foi jogada longe — guarda ela em seguida.
+    // A Arma foi jogada longe — guarda ela em seguida. Se houver uma 2ª
+    // arma na mão secundária, ela assume a mão principal na hora.
     item.equipado = false;
+    promoverArmaSecundariaAoArremessar(p);
     saveState();
     renderAll();
     return;
@@ -2907,8 +2909,12 @@ function rolarDanoArremessoImprudente(pid, sk) {
   });
 
   // A Arma foi jogada longe — guarda ela em seguida, igual à Habilidade
-  // Geral "Arremesso" (ver escolherArremesso).
-  if (sk._arremessoImprudenteEraEquipada) item.equipado = false;
+  // Geral "Arremesso" (ver escolherArremesso). Se houver uma 2ª arma na mão
+  // secundária, ela assume a mão principal na hora (promoverArmaSecundariaAoArremessar).
+  if (sk._arremessoImprudenteEraEquipada) {
+    item.equipado = false;
+    promoverArmaSecundariaAoArremessar(p);
+  }
 
   delete sk._arremessoImprudenteItemId;
   delete sk._arremessoImprudenteBonusDano;
