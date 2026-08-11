@@ -710,6 +710,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_campeao_adaptacao',
   'sk_banco_campeao_conclamar',
   'sk_banco_campeao_dose_dupla',
+  'sk_banco_combatente_forca_colossal',
   'sk_banco_campeao_folego_extra',
   'sk_banco_campeao_gambiarra_de_alto_nivel',
   'sk_banco_campeao_grito_de_guerra',
@@ -905,8 +906,14 @@ function construirRolagemAcertoHabilidade(p, sk) {
   const honraAplica = !!p.honraMegaVantagemPendente && (sk.color === 'green' || sk.color === 'red');
   if (honraAplica) p.honraMegaVantagemPendente = false;
 
+  // "Força Colossal" (Combatente): Mega Vantagem no Acerto do próximo Golpe
+  // (vermelho), só dentro do mesmo turno em que foi ativada (marca limpa em
+  // aplicarResetDeTurno se não for usada) — 1 uso só, consumido aqui.
+  const forcaColossalMvAplica = !!p.forcaColossalMegaVantagemGolpePendente && sk.color === 'red';
+  if (forcaColossalMvAplica) p.forcaColossalMegaVantagemGolpePendente = false;
+
   let d1, dadoNode;
-  if (honraAplica) {
+  if (honraAplica || forcaColossalMvAplica) {
     const dA = 1 + Math.floor(Math.random() * sides);
     const dB = 1 + Math.floor(Math.random() * sides);
     d1 = Math.max(dA, dB);
@@ -974,7 +981,7 @@ function construirRolagemAcertoHabilidade(p, sk) {
   }
 
   const tree = { type: 'sum', terms };
-  const formula = `Rolagem de Acerto — ${sk.name}${honraAplica ? ' (Mega Vantagem — Honra)' : ''}`;
+  const formula = `Rolagem de Acerto — ${sk.name}${honraAplica ? ' (Mega Vantagem — Honra)' : ''}${forcaColossalMvAplica ? ' (Mega Vantagem — Força Colossal)' : ''}`;
   const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, null, sides);
 
   return { sides, total, tree, formula, critMin, fumbleMax, fumbleImune };
@@ -1271,6 +1278,18 @@ function construirRolagemTeste(p, testeId) {
     terms.push({ sign: '+', node: { type: 'dice', sides: 4, count: 1, results: [arRoll], sum: arRoll, countNode: null, label: 'Análise Rápida' } });
     total += arRoll;
     p.analiseRapidaPendente = false;
+  }
+
+  // "Força Colossal" (Combatente): +1d10 de Vantagem rolado de verdade no
+  // próximo Teste de Força — não existe um Teste chamado "Força" em si, então
+  // vale pro próximo Teste cujo atributo seja Força (Aparar, Arremessar,
+  // Empurrar ou Resistir — ver TESTES_LISTA). 1 uso só, consumido nesta
+  // rolagem (marca deixada por escolherForcaColossal).
+  if (def.attr === 'forca' && p.forcaColossalTesteForcaPendente) {
+    const fcRoll = 1 + Math.floor(Math.random() * 10);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 10, count: 1, results: [fcRoll], sum: fcRoll, countNode: null, label: 'Força Colossal' } });
+    total += fcRoll;
+    p.forcaColossalTesteForcaPendente = false;
   }
 
   // "Motivar" (Campeão): +1d12 de Vantagem no próximo Teste do Aliado —

@@ -3054,6 +3054,96 @@ function escolherAtaqueGiratorioResistencia(pid, falhou) {
   renderAll();
 }
 
+// "Força Colossal" (Subclasse Combatente): não tem Acerto (ver
+// HABILIDADES_SEM_ACERTO) — "Usar Efeito" rola de cara 1d10 de Dano na
+// própria Vida (publicado no feed, aplicado com adjHP) e, ao terminar a
+// animação, abre a escolha entre os 4 efeitos do texto (ver
+// abrirForcaColossalModal/escolherForcaColossal). O Dano é sempre aplicado,
+// mesmo que o jogador feche o modal sem escolher nada.
+function rolarForcaColossal(pid, sk) {
+  if (!currentUser) return;
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  const sides = 10;
+  const d1 = 1 + Math.floor(Math.random() * sides);
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: 'Força Colossal (Dano na própria Vida)',
+    tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null } }] },
+    total: d1,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+  };
+
+  spinDiceFab(true, sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  adjHP(pid, -d1);
+  setTimeout(() => abrirForcaColossalModal(pid), ROLL_ANIM_MS + 250);
+}
+
+function abrirForcaColossalModal(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  if (!overlay || !p) return;
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-bolt"></i> Força Colossal</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        Escolha um efeito para ${escHtml(p.name)}:
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherForcaColossal(${p.id},'forca')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+          <span class="tm-opcao-nome">💪 Vantagem em Força</span>
+          <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">+1d10 de Vantagem no próximo Teste de Força</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherForcaColossal(${p.id},'golpe_dano')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+          <span class="tm-opcao-nome">🩸 Dano no próximo Golpe</span>
+          <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">+1d8 de Dano no próximo Golpe</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherForcaColossal(${p.id},'armadura')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+          <span class="tm-opcao-nome">🛡 Armadura temporária</span>
+          <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">+5 de Armadura até o final da luta</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherForcaColossal(${p.id},'mega_vantagem_golpe')" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+          <span class="tm-opcao-nome">⚡ Mega Vantagem no Golpe</span>
+          <span style="font-size:11px;color:var(--text2);font-weight:400;line-height:1.4;text-align:left">Seu próximo Golpe, neste turno, tem Mega Vantagem no Acerto</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Fechar sem escolher</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherForcaColossal(pid, opcao) {
+  const p = PLAYERS.find(x => x.id === pid);
+  fecharCriacaoAnaoModal();
+  if (!p) return;
+  if (opcao === 'forca') {
+    p.forcaColossalTesteForcaPendente = true;
+  } else if (opcao === 'golpe_dano') {
+    p.forcaColossalDanoGolpePendente = true;
+  } else if (opcao === 'armadura') {
+    p.armaduraMax = (p.armaduraMax || 0) + 5;
+    p.armadura = (p.armadura || 0) + 5;
+    p.forcaColossalArmaduraBonus = (p.forcaColossalArmaduraBonus || 0) + 5;
+  } else if (opcao === 'mega_vantagem_golpe') {
+    p.forcaColossalMegaVantagemGolpePendente = true;
+  }
+  saveState();
+  renderAll();
+}
+
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
 // como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
 // (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o

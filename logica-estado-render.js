@@ -511,6 +511,17 @@ function getBonusesDanoArma(p, item) {
     terms.push({ sign: '+', node: { type: 'labeled_const', value: profundezasVal, label: 'Profundezas' } });
     total += profundezasVal;
   }
+  // "Força Colossal" (Combatente): +1d8 de Dano rolado de verdade no próximo
+  // Golpe — como todo Dano de Golpe automatizado no app passa por essa
+  // função (Ataque com Arma, Ataque com 2 Armas, Ataque Giratório etc.), é
+  // aqui que o bônus entra. 1 uso só, consumido nesta rolagem (marca
+  // deixada por escolherForcaColossal).
+  if (p.forcaColossalDanoGolpePendente) {
+    const fcRoll = 1 + Math.floor(Math.random() * 8);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 8, count: 1, results: [fcRoll], sum: fcRoll, countNode: null, label: 'Força Colossal' } });
+    total += fcRoll;
+    p.forcaColossalDanoGolpePendente = false;
+  }
   return { terms, total };
 }
 
@@ -1220,6 +1231,15 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Força Colossal" (Subclasse Combatente): não "acerta" nada (ver
+  // HABILIDADES_SEM_ACERTO) — "Usar Efeito" já rola de cara 1d10 de Dano na
+  // própria Vida e, em seguida, abre a escolha entre os 4 efeitos do texto.
+  // Ver rolarForcaColossal.
+  if (sk.id === 'combatente_forca_colossal' || sk.bancoId === 'combatente_forca_colossal') {
+    rolarForcaColossal(pid, sk);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
@@ -1274,6 +1294,10 @@ function aplicarResetDeTurno() {
     // "Arsenal": a permissão pra trocar de Arma vale só dentro do turno em
     // que foi usada — se não foi aproveitada, não carrega pro próximo.
     p.arsenalPendente = false;
+    // "Força Colossal" (Combatente): a Mega Vantagem no próximo Golpe vale
+    // só dentro do turno em que foi escolhida — se não foi aproveitada, não
+    // carrega pro próximo.
+    p.forcaColossalMegaVantagemGolpePendente = false;
     // "Treinamento Militar" (Orc): +1 Ação garantida neste turno, escolhida
     // como recompensa do Crítico no Aparar — consome a marca ao aplicar.
     if (p.treinamentoMilitarAcaoExtra) {
@@ -1335,6 +1359,16 @@ function resetLuta() {
     p.furiaOrcAtiva = false;
     p.dueloAtivo = false;
     p.arsenalPendente = false;
+    // "Força Colossal" (Combatente): a Armadura temporária concedida por ela
+    // vale só até o final da luta — remove o bônus (do máximo e do atual) ao
+    // resetar. Bônus pendentes de Teste de Força/Dano de Golpe não são
+    // afetados aqui: continuam valendo até serem de fato consumidos numa
+    // rolagem, mesmo que a luta termine antes.
+    if (p.forcaColossalArmaduraBonus) {
+      p.armaduraMax = Math.max(0, (p.armaduraMax || 0) - p.forcaColossalArmaduraBonus);
+      p.armadura = Math.max(0, Math.min(p.armaduraMax, p.armadura || 0));
+      p.forcaColossalArmaduraBonus = 0;
+    }
     if (p.ataqueGiratorioDesequilibrado) {
       if (p.testes) {
         if (p.testes.desviar) p.testes.desviar.md = false;
@@ -1909,7 +1943,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${dueloBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${p.forcaColossalTesteForcaPendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d10 de Vantagem no próximo Teste de Força (Aparar/Arremessar/Empurrar/Resistir)">💪 F. Colossal</span>` : ''}${p.forcaColossalDanoGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d8 de Dano no próximo Golpe">🩸 F. Colossal</span>` : ''}${p.forcaColossalMegaVantagemGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: Mega Vantagem no Acerto do próximo Golpe, só neste turno">⚡ F. Colossal</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
