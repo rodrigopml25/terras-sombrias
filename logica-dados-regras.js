@@ -827,6 +827,17 @@ function formaSombriaBloqueiaHabilidade(p, sk) {
   return sk.color !== forma.corPermitida;
 }
 
+// "Fúria" (Combatente): bloqueia o uso de qualquer Habilidade que não seja
+// vermelha (Golpe), neutra (cinza) ou uma das 3 exceções nomeadas no texto
+// (Acrobacia, Furtividade, Teste Mental) — mesmo padrão de
+// formaSombriaBloqueiaHabilidade, um pouco acima.
+function furiaBloqueiaHabilidade(p, sk) {
+  if (!p.furiaAtiva) return false;
+  if (sk.color === 'red' || sk.color === 'gray') return false;
+  if (sk.id === 'sk_geral_acrobacia' || sk.id === 'sk_geral_furtividade' || sk.id === 'sk_geral_teste_mental') return false;
+  return true;
+}
+
 // Garante que as passivas raciais da raça do personagem estejam presentes em
 // p.passivas (como qualquer outra passiva — editável e excluível). Não
 // duplica as que já existem e não recoloca uma que o jogador excluiu de
@@ -3163,6 +3174,21 @@ function desativarDuelo(pid) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
   p.dueloAtivo = false;
+  saveState();
+  renderAll();
+}
+
+// Encerra o status de "Fúria" por completo (ex: não acertou 2 Golpes no
+// mesmo turno, ou foi curado — condições do texto que o jogador decide na
+// mesa, sem detecção automática) — desfaz o +1 Ação/turno e some o badge.
+// A Vida não é alterada aqui: se estava travada em 1 pela Fúria, continua
+// em 1 até algo (dano ou cura) mudar de verdade.
+function desativarFuria(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || !p.furiaAtiva) return;
+  p.furiaAtiva = false;
+  p.acoesMax = Math.max(0, (p.acoesMax || ACOES_POR_TURNO_PADRAO) - 1);
+  p.acoesAtuais = Math.max(0, Math.min(p.acoesMax, (p.acoesAtuais ?? p.acoesMax) - 1));
   saveState();
   renderAll();
 }

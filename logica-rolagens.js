@@ -711,6 +711,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_campeao_conclamar',
   'sk_banco_campeao_dose_dupla',
   'sk_banco_combatente_forca_colossal',
+  'sk_banco_combatente_furia',
   'sk_banco_campeao_folego_extra',
   'sk_banco_campeao_gambiarra_de_alto_nivel',
   'sk_banco_campeao_grito_de_guerra',
@@ -1386,6 +1387,11 @@ function construirRolagemTeste(p, testeId) {
 // pra quem tem essa Origem — os demais Testes rolam direto, sem popup).
 function rolarTesteClick(pid, testeId) {
   const p = PLAYERS.find(x => x.id === pid);
+  // "Fúria" (Combatente): enquanto ativa, não pode Desviar nem Aparar.
+  if (p && p.furiaAtiva && (testeId === 'desviar' || testeId === 'aparar')) {
+    alert(`${p.name} está em Fúria e não pode ${testeId === 'desviar' ? 'Desviar' : 'Aparar'}.`);
+    return;
+  }
   if (testeId === 'geografia' && p && p.origemId === 'tauren_origem_alta_montanha') {
     abrirAltaMontanhaGeografiaModal(pid);
     return;

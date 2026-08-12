@@ -945,6 +945,13 @@ function consumirRecursosHabilidade(pid, skid) {
     return null;
   }
 
+  // "Fúria" (Combatente): enquanto ativa, só pode usar Habilidades
+  // vermelhas, neutras, ou Acrobacia/Furtividade/Teste Mental.
+  if (furiaBloqueiaHabilidade(p, sk)) {
+    alert(`${p.name} está em Fúria e só pode usar Golpes, Habilidades neutras, Acrobacia, Furtividade ou Teste Mental.`);
+    return null;
+  }
+
   // "Fúria de Orc": o bônus (+1d6 em Golpe, sem poder ser Aparada) vale só
   // pra PRÓXIMA Habilidade usada. Então, ao usar qualquer outra Habilidade
   // enquanto o badge estiver ativo, ele é consumido e some.
@@ -1111,6 +1118,24 @@ function useSkill(pid, skid) {
   if (sk.id === 'sk_banco_campeao_conclamar' && combatAtivo) {
     abrirConclamarModal(pid);
     return;
+  }
+
+  // "Fúria" (Combatente): ativa o status persistente — +1 Ação por turno
+  // enquanto durar (soma direto em acoesMax/acoesAtuais; revertido por
+  // desativarFuria), Imune a efeitos negativos, Vida não abaixa de 1 (ver
+  // adjHP) e só pode usar Habilidades vermelhas/neutras + Acrobacia,
+  // Furtividade e Teste Mental (ver furiaBloqueiaHabilidade, checado em
+  // consumirRolagemHabilidade). Não Desviar/Aparar checado em
+  // rolarTesteClick. Diferente de Força Colossal (1 escolha e acabou), aqui
+  // não tem escolha nenhuma — é só ligar o status, então nem abre modal.
+  if (sk.id === 'sk_banco_combatente_furia') {
+    p.furiaAtiva = true;
+    p.acoesMax = (p.acoesMax ?? ACOES_POR_TURNO_PADRAO) + 1;
+    p.acoesAtuais = (p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO) + 1;
+    // Mesmo motivo do Duelo logo abaixo: o badge precisa aparecer já nesta
+    // renderização, sem esperar a próxima ação disparar um render.
+    saveState();
+    renderAll();
   }
 
   // "Duelo" (Campeão): ativa o status persistente — o jogador alterna
@@ -1359,6 +1384,14 @@ function resetLuta() {
     p.furiaOrcAtiva = false;
     p.dueloAtivo = false;
     p.arsenalPendente = false;
+    // "Fúria" (Combatente): mesmo raciocínio do Duelo logo acima — se a
+    // Luta terminou, a Fúria não faz mais sentido continuar ativa, mesmo
+    // que o jogador tenha esquecido de encerrar manualmente pelo badge.
+    if (p.furiaAtiva) {
+      p.furiaAtiva = false;
+      p.acoesMax = Math.max(0, (p.acoesMax || ACOES_POR_TURNO_PADRAO) - 1);
+      p.acoesAtuais = Math.max(0, Math.min(p.acoesMax, (p.acoesAtuais ?? p.acoesMax) - 1));
+    }
     // "Força Colossal" (Combatente): a Armadura temporária concedida por ela
     // vale só até o final da luta — remove o bônus (do máximo e do atual) ao
     // resetar. Bônus pendentes de Teste de Força/Dano de Golpe não são
@@ -1412,9 +1445,15 @@ function resetSessao() {
   renderAll();
 }
 
+// "Fúria" (Combatente): enquanto ativa, a Vida nunca abaixa de 1 (só chega
+// a 0 se a Fúria já tiver acabado). Consultado por adjHP/setHP.
+function pisoVidaFuria(p) {
+  return p.furiaAtiva ? 1 : 0;
+}
+
 function adjHP(id, d) {
   const p = PLAYERS.find(x => x.id === id);
-  if (!p) return; p.hp = Math.max(0, Math.min(p.hpMax, p.hp + d));
+  if (!p) return; p.hp = Math.max(pisoVidaFuria(p), Math.min(p.hpMax, p.hp + d));
   saveState(); renderAll();
 }
 
@@ -1423,7 +1462,7 @@ function setHP(id, val) {
   if (!p) return;
   const v = parseInt(val);
   if (isNaN(v)) { renderAll(); return; }
-  p.hp = Math.max(0, Math.min(p.hpMax, v));
+  p.hp = Math.max(pisoVidaFuria(p), Math.min(p.hpMax, v));
   saveState(); renderAll();
 }
 
@@ -1932,6 +1971,11 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
     const dueloBadge = p.dueloAtivo
       ? ` <span onclick="event.stopPropagation();toggleDueloAlvo(${p.id})" title="Duelo — clique para alternar: rolagem atual contra o Alvo (+1d6) ou contra outro Alvo (−1d6)" style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;background:${p.dueloContraAlvo ? 'var(--green-bg)' : 'var(--red-bg)'};border:1px solid ${p.dueloContraAlvo ? 'var(--green-bd)' : 'var(--red-bd)'};color:${p.dueloContraAlvo ? 'var(--green)' : '#f08080'};font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">⚔️ Duelo: ${p.dueloContraAlvo ? '+1d6 vs Alvo' : '−1d6 vs outro'}</span><span onclick="event.stopPropagation();desativarDuelo(${p.id})" title="Encerrar o Duelo" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:9px;font-weight:700;border-radius:50%;margin-left:3px;vertical-align:middle">✕</span>`
       : '';
+    // "Fúria" (Combatente): mesma ideia do dueloBadge acima, mas sem opção
+    // de alternar nada — só mostra que está ativa e permite encerrar.
+    const furiaBadge = p.furiaAtiva
+      ? ` <span title="Fúria: Imune a efeitos negativos, +1 Ação/turno, Vida não abaixa de 1, não pode Desviar/Aparar, só Golpes/Neutras/Acrobacia/Furtividade/Teste Mental" style="display:inline-flex;align-items:center;gap:3px;background:var(--red-bg);border:1px solid var(--red-bd);color:#f08080;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle">😡 Fúria</span><span onclick="event.stopPropagation();desativarFuria(${p.id})" title="Encerrar a Fúria" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:9px;font-weight:700;border-radius:50%;margin-left:3px;vertical-align:middle">✕</span>`
+      : '';
     const npcTipoClasse = p.isNPC ? (p.npcTipo === 'inimigo' ? 'npc-inimigo' : 'npc-aliado') : '';
     const npcTipoBadge = p.isNPC
       ? (p.npcTipo === 'inimigo'
@@ -1941,7 +1985,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
     return `<div class="prow ${bm ? 'beira-morte' : ''} ${npcTipoClasse}">
       <div class="prow-header">
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${dueloBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
+        <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${dueloBadge}${furiaBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${p.forcaColossalTesteForcaPendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d10 de Vantagem no próximo Teste de Força (Aparar/Arremessar/Empurrar/Resistir)">💪 F. Colossal</span>` : ''}${p.forcaColossalDanoGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d8 de Dano no próximo Golpe">🩸 F. Colossal</span>` : ''}${p.forcaColossalMegaVantagemGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: Mega Vantagem no Acerto do próximo Golpe, só neste turno">⚡ F. Colossal</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
@@ -2662,6 +2706,15 @@ function renderJogador() {
             <div style="font-size:11px;color:var(--text2)">Toque para trocar antes de rolar</div>
           </div>
           <button onclick="event.stopPropagation();desativarDuelo(${p.id})" title="Encerrar o Duelo" style="background:none;border:1px solid var(--border2);color:var(--text2);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:11px;flex-shrink:0">✕</button>
+        </div>` : ''}
+        ${p.furiaAtiva ? `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--red-bg);border:1px solid var(--red-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">😡</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:#f08080">Fúria ativa</div>
+            <div style="font-size:11px;color:var(--text2)">Imune a efeitos negativos · +1 Ação/turno · Vida não abaixa de 1 · não pode Desviar/Aparar · só Golpes, Neutras, Acrobacia, Furtividade ou Teste Mental</div>
+          </div>
+          <button onclick="event.stopPropagation();desativarFuria(${p.id})" title="Encerrar a Fúria" style="background:none;border:1px solid var(--border2);color:var(--text2);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:11px;flex-shrink:0">✕</button>
         </div>` : ''}
         ${p.gritoDeGuerraAtivo ? `
         <div style="display:flex;align-items:center;gap:8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
