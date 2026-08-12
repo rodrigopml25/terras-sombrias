@@ -3183,12 +3183,20 @@ function desativarDuelo(pid) {
 // mesa, sem detecção automática) — desfaz o +1 Ação/turno e some o badge.
 // A Vida não é alterada aqui: se estava travada em 1 pela Fúria, continua
 // em 1 até algo (dano ou cura) mudar de verdade.
-function desativarFuria(pid) {
-  const p = PLAYERS.find(x => x.id === pid);
+// "Fúria" (Combatente): reverte o +1 Ação/turno e desliga o status — usado
+// tanto pelo botão ✕ manual (desativarFuria) quanto pelo fim automático da
+// Luta (resetLuta) e por ser curado (ver adjHP). Não mexe na Vida.
+function encerrarFuria(p) {
   if (!p || !p.furiaAtiva) return;
   p.furiaAtiva = false;
   p.acoesMax = Math.max(0, (p.acoesMax || ACOES_POR_TURNO_PADRAO) - 1);
   p.acoesAtuais = Math.max(0, Math.min(p.acoesMax, (p.acoesAtuais ?? p.acoesMax) - 1));
+}
+
+function desativarFuria(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || !p.furiaAtiva) return;
+  encerrarFuria(p);
   saveState();
   renderAll();
 }

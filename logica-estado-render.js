@@ -1387,11 +1387,7 @@ function resetLuta() {
     // "Fúria" (Combatente): mesmo raciocínio do Duelo logo acima — se a
     // Luta terminou, a Fúria não faz mais sentido continuar ativa, mesmo
     // que o jogador tenha esquecido de encerrar manualmente pelo badge.
-    if (p.furiaAtiva) {
-      p.furiaAtiva = false;
-      p.acoesMax = Math.max(0, (p.acoesMax || ACOES_POR_TURNO_PADRAO) - 1);
-      p.acoesAtuais = Math.max(0, Math.min(p.acoesMax, (p.acoesAtuais ?? p.acoesMax) - 1));
-    }
+    encerrarFuria(p);
     // "Força Colossal" (Combatente): a Armadura temporária concedida por ela
     // vale só até o final da luta — remove o bônus (do máximo e do atual) ao
     // resetar. Bônus pendentes de Teste de Força/Dano de Golpe não são
@@ -1453,7 +1449,11 @@ function pisoVidaFuria(p) {
 
 function adjHP(id, d) {
   const p = PLAYERS.find(x => x.id === id);
-  if (!p) return; p.hp = Math.max(pisoVidaFuria(p), Math.min(p.hpMax, p.hp + d));
+  if (!p) return;
+  p.hp = Math.max(pisoVidaFuria(p), Math.min(p.hpMax, p.hp + d));
+  // "Fúria" (Combatente): "o efeito de Fúria acaba... ao ser curado" —
+  // qualquer ganho de Vida (d > 0) enquanto ativa encerra o status na hora.
+  if (d > 0 && p.furiaAtiva) encerrarFuria(p);
   saveState(); renderAll();
 }
 
@@ -1462,7 +1462,11 @@ function setHP(id, val) {
   if (!p) return;
   const v = parseInt(val);
   if (isNaN(v)) { renderAll(); return; }
+  const antes = p.hp;
   p.hp = Math.max(pisoVidaFuria(p), Math.min(p.hpMax, v));
+  // "Fúria" (Combatente): mesmo gatilho de adjHP — digitar um valor maior
+  // que o atual também conta como "ser curado".
+  if (p.hp > antes && p.furiaAtiva) encerrarFuria(p);
   saveState(); renderAll();
 }
 
