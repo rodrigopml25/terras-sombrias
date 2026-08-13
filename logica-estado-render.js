@@ -1265,6 +1265,13 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Investida Bruta" (Subclasse Combatente): "Usar Efeito" rola o 1d4 de
+  // Casas de empurrão contra o Alvo — ver rolarInvestidaBruta.
+  if (sk.id === 'combatente_investida_bruta' || sk.bancoId === 'combatente_investida_bruta') {
+    rolarInvestidaBruta(pid, sk);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de

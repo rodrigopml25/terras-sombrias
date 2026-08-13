@@ -3155,6 +3155,40 @@ function escolherForcaColossal(pid, opcao) {
   renderAll();
 }
 
+// "Investida Bruta" (Subclasse Combatente): mantém o Acerto normal (não
+// entra em HABILIDADES_SEM_ACERTO) — "Usar Efeito" só rola de cara o 1d4 de
+// quantas Casas o Alvo é empurrado, publicado no feed de dados. O restante
+// do texto (Alvo precisa estar entre 4 e 8 Casas, -1d8 de Desvantagem no
+// Teste de Resistência dele ao empurrão, perder uma Ação se tirar 8) não é
+// automatizado — o app não rastreia distância/posição nem tem um Alvo
+// específico selecionável entre personagens, então fica por conta da mesa.
+function rolarInvestidaBruta(pid, sk) {
+  if (!currentUser) return;
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  const sides = 4;
+  const d1 = 1 + Math.floor(Math.random() * sides);
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: 'Investida Bruta (Casas de Empurrão)',
+    tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null } }] },
+    total: d1,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+  };
+
+  spinDiceFab(true, sides);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+}
+
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
 // como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
 // (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o
