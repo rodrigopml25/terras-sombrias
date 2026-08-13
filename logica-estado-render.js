@@ -865,6 +865,10 @@ const SKILL_TESTE_LINK = {
   'sk_geral_furtividade': 'furtividade',
   'sk_classe_clerigo_teste_devocao': 'devocao',
   'sk_banco_campeao_analise_rapida': 'percepcao',
+  // "P.A.R.R.Y" (Subclasse Combatente): não tem Acerto — "Usar Efeito" já É
+  // o Teste de Aparar em si (com a Arma secundária, conforme o texto), igual
+  // ao mecanismo de Acrobacia/Arremesso acima.
+  'sk_banco_combatente_parry': 'aparar',
 };
 
 // Narrador recarrega manualmente uma Habilidade de um Jogador, a qualquer
