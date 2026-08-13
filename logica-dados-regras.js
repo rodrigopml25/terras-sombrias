@@ -3189,6 +3189,131 @@ function rolarInvestidaBruta(pid, sk) {
   });
 }
 
+// "Troca de Mestre" (Subclasse Combatente): mantém o Acerto normal (não
+// entra em HABILIDADES_SEM_ACERTO) — "Usar Efeito" rola de cara o 1º ataque
+// (7 de Dano fixo + Dano da Arma atualmente equipada + Maestria de Força +
+// bônus de item dela, mesmo padrão de rolarDanoAtaqueGiratorio, mas sem
+// "2 Armas") e, ao terminar a animação, abre a escolha de outra Arma do
+// Inventário pra trocar (ver abrirTrocaDeMestreModal). Se possível (existir
+// outra Arma com fórmula de Dano), o 2º ataque sai automaticamente ao
+// escolher, causando só o Dano dela (igual a "Ataque com Arma" normal — ver
+// escolherTrocaDeMestreArma/rolarDanoArma).
+function rolarDanoTrocaDeMestre(pid, sk) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  const terms = [{ sign: '+', node: { type: 'const', value: 7 } }];
+  let total = 7;
+
+  const itemPrincipal = getArmaEquipadaPrincipal(p);
+  if (itemPrincipal && (itemPrincipal.dano || '').trim()) {
+    try {
+      const parsedPrinc = parseFormula(itemPrincipal.dano);
+      const princNode = parsedPrinc.node;
+      const princTerms = princNode.type === 'sum' ? princNode.terms.slice() : [{ sign: '+', node: princNode }];
+      princTerms.forEach(t => {
+        if (t.node.type === 'dice') t.node.label = `⚔ ${itemPrincipal.name}`;
+        else if (t.node.type === 'const') t.node = { type: 'labeled_const', value: t.node.value, label: `⚔ ${itemPrincipal.name}` };
+        else if (t.node.type === 'labeled_const') t.node.label = `⚔ ${itemPrincipal.name} — ${t.node.label}`;
+        terms.push(t);
+      });
+      total += parsedPrinc.value;
+    } catch (e) { /* fórmula inválida na Arma principal — ignora */ }
+  }
+
+  const mstForca = maestriaDe(p, 'forca');
+  if (mstForca) {
+    terms.push({ sign: '+', node: { type: 'labeled_const', value: mstForca, label: 'Maestria FOR' } });
+    total += mstForca;
+  }
+
+  if (itemPrincipal && itemPrincipal.id !== 'sem_arma') {
+    const bonusesItem = getBonusesDanoArma(p, itemPrincipal);
+    terms.push(...bonusesItem.terms);
+    total += bonusesItem.total;
+  }
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Troca de Mestre — ${itemPrincipal ? itemPrincipal.name : 'Sem Arma'} (1º ataque)`,
+    tree: { type: 'sum', terms },
+    total,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+  };
+
+  spinDiceFab(true, 6);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  setTimeout(() => abrirTrocaDeMestreModal(pid, itemPrincipal ? itemPrincipal.id : null, sk), ROLL_ANIM_MS + 250);
+}
+
+function abrirTrocaDeMestreModal(pid, itemUsadoId, sk) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  if (!overlay || !p) return;
+
+  const outras = (p.inventario || []).filter(it =>
+    (it.tipo === 'arma' || it.tipo === 'instrumento') && it.id !== itemUsadoId);
+
+  if (outras.length === 0) {
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+        <h3><i class="ti ti-sword"></i> Troca de Mestre</h3>
+        <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+          Não há outra Arma/Instrumento no Inventário de ${escHtml(p.name)} para trocar — não é possível fazer o 2º ataque.
+        </div>
+        <button class="tm-cancelar" onclick="fecharCriacaoAnaoModal()">Fechar</button>
+      </div>`;
+    overlay.classList.add('open');
+    return;
+  }
+
+  const opcoesHtml = outras.map(item => {
+    const icone = item.tipo === 'instrumento' ? 'ti-music' : 'ti-sword';
+    return `<button class="tm-opcao ${item.tipo === 'instrumento' ? 'tm-opcao-blue' : 'tm-opcao-red'}" onclick="escolherTrocaDeMestreArma(${p.id},'${item.id}')">
+      <span class="tm-opcao-nome"><i class="ti ${icone}"></i> ${escHtml(item.name)}</span>
+    </button>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-sword"></i> Troca de Mestre</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+        Troque para qual Arma/Instrumento? O 2º ataque (só o Dano dela) sai na hora, se ela tiver fórmula de Dano.
+      </div>
+      <div class="tm-opcoes">${opcoesHtml}</div>
+      <button class="tm-cancelar" onclick="fecharCriacaoAnaoModal()">Fechar sem trocar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherTrocaDeMestreArma(pid, novoItemId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  fecharCriacaoAnaoModal();
+  if (!p) return;
+  const novoItem = (p.inventario || []).find(it => it.id === novoItemId);
+  if (!novoItem) return;
+
+  p.inventario.forEach(it => {
+    if ((it.tipo === 'arma' || it.tipo === 'instrumento') && it.id !== novoItem.id) it.equipado = false;
+  });
+  novoItem.equipadoSecundaria = false;
+  novoItem.equipado = true;
+  saveState();
+  renderAll();
+
+  if ((novoItem.dano || '').trim()) {
+    rolarDanoArma(pid, novoItem.id, { labelPrefixo: 'Troca de Mestre (2º ataque)' });
+  }
+}
+
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
 // como "contra o Alvo do Duelo" (+1d6 de Vantagem) ou "contra outro Alvo"
 // (-1d6 de Desvantagem) — clicável quantas vezes forem necessárias, o

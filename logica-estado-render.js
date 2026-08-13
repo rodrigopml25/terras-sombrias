@@ -1276,6 +1276,15 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Troca de Mestre" (Subclasse Combatente): "Usar Efeito" rola o 1º
+  // ataque (7 fixo + Dano da Arma equipada + Maestria FOR + bônus) e depois
+  // abre a escolha de outra Arma pra trocar, disparando o 2º ataque (só o
+  // Dano dela) se possível — ver rolarDanoTrocaDeMestre.
+  if (sk.id === 'combatente_troca_de_mestre' || sk.bancoId === 'combatente_troca_de_mestre') {
+    rolarDanoTrocaDeMestre(pid, sk);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
