@@ -1278,8 +1278,9 @@ function useSkill(pid, skid) {
 
   // "Troca de Mestre" (Subclasse Combatente): "Usar Efeito" rola o 1º
   // ataque (7 fixo + Dano da Arma equipada + Maestria FOR + bônus) e depois
-  // abre a escolha de outra Arma pra trocar, disparando o 2º ataque (só o
-  // Dano dela) se possível — ver rolarDanoTrocaDeMestre.
+  // abre a escolha de outra Arma pra trocar, disparando o 2º ataque (só a
+  // fórmula bruta de Dano dela, SEM Maestria nem outros bônus de item) se
+  // possível — ver rolarDanoTrocaDeMestre/rolarDanoBrutoTrocaDeMestre.
   if (sk.id === 'combatente_troca_de_mestre' || sk.bancoId === 'combatente_troca_de_mestre') {
     rolarDanoTrocaDeMestre(pid, sk);
     return;

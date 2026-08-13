@@ -3286,7 +3286,7 @@ function abrirTrocaDeMestreModal(pid, itemUsadoId, sk) {
     <div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
       <h3><i class="ti ti-sword"></i> Troca de Mestre</h3>
       <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.5">
-        Troque para qual Arma/Instrumento? O 2º ataque (só o Dano dela) sai na hora, se ela tiver fórmula de Dano.
+        Troque para qual Arma/Instrumento? O 2º ataque (só a fórmula bruta de Dano dela, sem Maestria nem outros bônus) sai na hora, se ela tiver fórmula de Dano.
       </div>
       <div class="tm-opcoes">${opcoesHtml}</div>
       <button class="tm-cancelar" onclick="fecharCriacaoAnaoModal()">Fechar sem trocar</button>
@@ -3310,8 +3310,44 @@ function escolherTrocaDeMestreArma(pid, novoItemId) {
   renderAll();
 
   if ((novoItem.dano || '').trim()) {
-    rolarDanoArma(pid, novoItem.id, { labelPrefixo: 'Troca de Mestre (2º ataque)' });
+    rolarDanoBrutoTrocaDeMestre(pid, novoItem);
   }
+}
+
+// 2º ataque de "Troca de Mestre": só a fórmula BRUTA de Dano da nova Arma
+// (item.dano, ex: "1d8+1d6"), sem nenhuma Maestria e sem os outros bônus de
+// item (Afiação Aprimorada, Profundezas etc.) — diferente de rolarDanoArma/
+// construirRolagemDanoArma, que sempre somam a Maestria por peso da Arma.
+function rolarDanoBrutoTrocaDeMestre(pid, item) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  let parsed;
+  try {
+    parsed = parseFormula((item.dano || '').trim());
+  } catch (e) {
+    return;
+  }
+  const baseNode = parsed.node;
+  const terms = baseNode.type === 'sum' ? baseNode.terms.slice() : [{ sign: '+', node: baseNode }];
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Troca de Mestre — ${item.name} (2º ataque, só Dano da Arma)`,
+    tree: { type: 'sum', terms },
+    total: parsed.value,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+  };
+
+  spinDiceFab(true, 6);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
 }
 
 // "Duelo" (Campeão): alterna se a PRÓXIMA rolagem (Acerto ou Teste) conta
