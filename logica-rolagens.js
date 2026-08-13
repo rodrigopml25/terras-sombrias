@@ -713,6 +713,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_combatente_forca_colossal',
   'sk_banco_combatente_furia',
   'sk_banco_combatente_trovoada',
+  'sk_banco_campeao_duelo',
   'sk_banco_campeao_folego_extra',
   'sk_banco_campeao_gambiarra_de_alto_nivel',
   'sk_banco_campeao_grito_de_guerra',
