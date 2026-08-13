@@ -712,6 +712,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_campeao_dose_dupla',
   'sk_banco_combatente_forca_colossal',
   'sk_banco_combatente_furia',
+  'sk_banco_combatente_trovoada',
   'sk_banco_campeao_folego_extra',
   'sk_banco_campeao_gambiarra_de_alto_nivel',
   'sk_banco_campeao_grito_de_guerra',
@@ -1157,7 +1158,10 @@ function construirRolagemTeste(p, testeId) {
   // "Grito de Guerra" (Campeão): Mega Vantagem em TODOS os Testes do Aliado
   // até o próximo turno, marcada em p.gritoDeGuerraAtivo (ver useSkill) — vale
   // como uma segunda fonte de Mega Vantagem, ao lado do toggle MV manual.
-  const temMV = (t.mv || p.gritoDeGuerraAtivo) && !mvBloqueadaPorOrigem;
+  // "Trovoada" (Combatente): mesma ideia, mas só no Teste de Aparar —
+  // marcada em p.trovoadaMegaVantagemAtiva (ver useSkill).
+  const temTrovoadaAparar = testeId === 'aparar' && !!p.trovoadaMegaVantagemAtiva;
+  const temMV = (t.mv || p.gritoDeGuerraAtivo || temTrovoadaAparar) && !mvBloqueadaPorOrigem;
   const temMD = t.md;
   const isMega = !!(temMV || temMD);
   const d1 = 1 + Math.floor(Math.random() * sides);

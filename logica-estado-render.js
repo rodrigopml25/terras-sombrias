@@ -1286,6 +1286,19 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Trovoada" (Subclasse Combatente): não "acerta" nada (ver
+  // HABILIDADES_SEM_ACERTO) — "Usar Efeito" liga p.trovoadaMegaVantagemAtiva
+  // direto, sem modal (mesmo padrão simples de Fúria/Grito de Guerra),
+  // concedendo Mega Vantagem real em Aparar (ver construirRolagemTeste) até
+  // o próximo turno (limpa em aplicarResetDeTurno/resetLuta). Precisa de
+  // saveState()/renderAll() próprio aqui, igual ao Duelo — não há outra
+  // rolagem automática logo em seguida que já cobrisse isso.
+  if (sk.id === 'combatente_trovoada' || sk.bancoId === 'combatente_trovoada') {
+    p.trovoadaMegaVantagemAtiva = true;
+    saveState();
+    renderAll();
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
@@ -1337,6 +1350,9 @@ function aplicarResetDeTurno() {
     // "Grito de Guerra" (Campeão): a Mega Vantagem concedida aos Aliados vale
     // só até o próximo turno — limpa a marca aqui.
     p.gritoDeGuerraAtivo = false;
+    // "Trovoada" (Combatente): mesma ideia, só que a Mega Vantagem é em
+    // Aparar e vale só pro próprio personagem.
+    p.trovoadaMegaVantagemAtiva = false;
     // "Arsenal": a permissão pra trocar de Arma vale só dentro do turno em
     // que foi usada — se não foi aproveitada, não carrega pro próximo.
     p.arsenalPendente = false;
@@ -1389,6 +1405,7 @@ function resetLuta() {
   PLAYERS.forEach(p => {
     p.acoesAtuais = p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
     p.gritoDeGuerraAtivo = false;
+    p.trovoadaMegaVantagemAtiva = false;
     p.skills.forEach(sk => {
       if (['perturn','luta','turno_N'].includes(sk.tipo)) {
         sk.usosAtuais = sk.usosMax;
@@ -2012,7 +2029,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${dueloBadge}${furiaBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${p.forcaColossalTesteForcaPendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d10 de Vantagem no próximo Teste de Força (Aparar/Arremessar/Empurrar/Resistir)">💪 F. Colossal</span>` : ''}${p.forcaColossalDanoGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d8 de Dano no próximo Golpe">🩸 F. Colossal</span>` : ''}${p.forcaColossalMegaVantagemGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: Mega Vantagem no Acerto do próximo Golpe, só neste turno">⚡ F. Colossal</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.trovoadaMegaVantagemAtiva ? `<span class="mstat mstat-grito" title="Trovoada: Mega Vantagem em Aparar até o próximo turno">⚡ Trovoada</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${p.forcaColossalTesteForcaPendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d10 de Vantagem no próximo Teste de Força (Aparar/Arremessar/Empurrar/Resistir)">💪 F. Colossal</span>` : ''}${p.forcaColossalDanoGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d8 de Dano no próximo Golpe">🩸 F. Colossal</span>` : ''}${p.forcaColossalMegaVantagemGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: Mega Vantagem no Acerto do próximo Golpe, só neste turno">⚡ F. Colossal</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
