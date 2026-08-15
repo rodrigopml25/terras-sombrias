@@ -2454,6 +2454,64 @@ function escolherHonra(pid, opcao) {
   renderAll();
 }
 
+// "Auxílio Elementar" (Soldado Elementar): escolhe 1 dos 4 elementos, todos
+// durando até o início do próximo turno (ver aplicarResetDeTurno, que limpa
+// as cargas de Fogo não usadas). Só o Fogo tem automação real (+1d6 de Dano
+// nos 2 próximos ataques com Arma) — os outros 3 são efeitos narrativos sem
+// gatilho automático no app (dano de queda, empurrão e redução de Armadura
+// não são rastreados), então só avisam o Narrador/jogador pra aplicar na mesa.
+function abrirAuxilioElementarModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-wind"></i> Auxílio Elementar</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        Escolha o auxílio para ${escHtml(p.name)} — dura até o início do próximo turno.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherAuxilioElementar(${p.id},'ar')">
+          <span class="tm-opcao-nome">💨 Ar — não recebe dano de queda</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherAuxilioElementar(${p.id},'fogo')">
+          <span class="tm-opcao-nome">🔥 Fogo — os 2 próximos ataques têm +1d6 de Dano</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherAuxilioElementar(${p.id},'gelo')">
+          <span class="tm-opcao-nome">❄️ Gelo — não pode ser empurrado</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherAuxilioElementar(${p.id},'terra')">
+          <span class="tm-opcao-nome">🪨 Terra — sua Armadura não é reduzida</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherAuxilioElementar(pid, opcao) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  fecharCriacaoAnaoModal();
+
+  if (opcao === 'fogo') {
+    // 2 cargas — consumidas 1 por 1 na próxima rolagem de Dano de Arma (ver
+    // construirRolagemDanoArma), e zeradas no início do próximo turno se
+    // sobrar alguma sem usar (ver aplicarResetDeTurno).
+    p.auxilioElementarFogoCargas = 2;
+  } else if (opcao === 'ar') {
+    alert(`${p.name} recebe Auxílio de Ar: não recebe dano de queda até o início do próximo turno (efeito narrativo — sem dano de queda automatizado no app).`);
+  } else if (opcao === 'gelo') {
+    alert(`${p.name} recebe Auxílio de Gelo: não pode ser empurrado até o início do próximo turno (efeito narrativo — empurrões não são automatizados no app).`);
+  } else if (opcao === 'terra') {
+    alert(`${p.name} recebe Auxílio de Terra: a Armadura não é reduzida até o início do próximo turno (efeito narrativo — reduções de Armadura são resolvidas manualmente no app).`);
+  }
+
+  saveState();
+  renderAll();
+}
+
 // "Recurso" (Habilidade Geral): pergunta qual tipo de item pegar. Pequeno,
 // Médio e Grande têm o custo em Dinheiro decidido por dado (1 do dado = 25 de
 // Dinheiro: Pequeno 1d2, Médio 1d4, Grande 1d6) e abrem a tela normal de

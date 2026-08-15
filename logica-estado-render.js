@@ -634,6 +634,17 @@ function construirRolagemDanoArma(p, item, opts) {
   terms.push(...bonusesItem.terms);
   total += bonusesItem.total;
 
+  // "Auxílio Elementar — Fogo" (Soldado Elementar): +1d6 de Dano nos 2
+  // próximos ataques com Arma — consome 1 carga por rolagem de Dano (ver
+  // escolherAuxilioElementar/aplicarResetDeTurno, que zera cargas não
+  // usadas no início do turno seguinte).
+  if (p.auxilioElementarFogoCargas > 0) {
+    const afRoll = 1 + Math.floor(Math.random() * 6);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [afRoll], sum: afRoll, countNode: null, label: 'Auxílio Elementar (Fogo)' } });
+    total += afRoll;
+    p.auxilioElementarFogoCargas--;
+  }
+
   // "Ambidestro" (Talento Inferior): usado pela Habilidade Geral "Ataque
   // com 2 Armas" (ver rolarAcertoAtaqueGeral/opts.forcarAmbidestro) — soma o
   // Dano da 2ª arma (mão secundária) como termos extras, rolado agora na
@@ -1373,6 +1384,17 @@ function useSkill(pid, skid) {
     renderAll();
   }
 
+  // "Auxílio Elementar" (Soldado Elementar): não "acerta" nada (ver
+  // HABILIDADES_SEM_ACERTO) — abre a escolha entre os 4 elementos (ver
+  // abrirAuxilioElementarModal/escolherAuxilioElementar). Só o Fogo é
+  // automatizado (+1d6 de Dano nos 2 próximos ataques com Arma — ver
+  // construirRolagemDanoArma); Ar/Gelo/Terra ficam narrativos, resolvidos
+  // na mesa, igual à opção "limpar" de Honra.
+  if (sk.id === 'sk_banco_soldado_elementar_auxilio_elementar' || sk.bancoId === 'soldado_elementar_auxilio_elementar') {
+    abrirAuxilioElementarModal(pid);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
@@ -1427,6 +1449,9 @@ function aplicarResetDeTurno() {
     // "Trovoada" (Combatente): mesma ideia, só que a Mega Vantagem é em
     // Aparar e vale só pro próprio personagem.
     p.trovoadaMegaVantagemAtiva = false;
+    // "Auxílio Elementar — Fogo" (Soldado Elementar): as cargas de +1d6 de
+    // Dano valem só até o início do próximo turno — zera o que sobrou.
+    p.auxilioElementarFogoCargas = 0;
     // "Arsenal": a permissão pra trocar de Arma vale só dentro do turno em
     // que foi usada — se não foi aproveitada, não carrega pro próximo.
     p.arsenalPendente = false;
@@ -2112,7 +2137,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${dueloBadge}${furiaBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.trovoadaMegaVantagemAtiva ? `<span class="mstat mstat-grito" title="Trovoada: Mega Vantagem em Aparar até o próximo turno">⚡ Trovoada</span>` : ''}${p.auraDeFenixAtiva ? `<span class="mstat mstat-grito" title="Aura de Fênix: Asas de Fogo até o final da Luta/Cena — +10 de Passos e +1d6 de Vantagem em ataques de longo alcance enquanto voando">🔥 Aura de Fênix</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${p.forcaColossalTesteForcaPendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d10 de Vantagem no próximo Teste de Força (Aparar/Arremessar/Empurrar/Resistir)">💪 F. Colossal</span>` : ''}${p.forcaColossalDanoGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d8 de Dano no próximo Golpe">🩸 F. Colossal</span>` : ''}${p.forcaColossalMegaVantagemGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: Mega Vantagem no Acerto do próximo Golpe, só neste turno">⚡ F. Colossal</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.trovoadaMegaVantagemAtiva ? `<span class="mstat mstat-grito" title="Trovoada: Mega Vantagem em Aparar até o próximo turno">⚡ Trovoada</span>` : ''}${p.auraDeFenixAtiva ? `<span class="mstat mstat-grito" title="Aura de Fênix: Asas de Fogo até o final da Luta/Cena — +10 de Passos e +1d6 de Vantagem em ataques de longo alcance enquanto voando">🔥 Aura de Fênix</span>` : ''}${p.auxilioElementarFogoCargas > 0 ? `<span class="mstat mstat-grito" title="Auxílio Elementar (Fogo): +1d6 de Dano nos próximos ataques com Arma">🔥 Aux. Elem. (${p.auxilioElementarFogoCargas})</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${p.forcaColossalTesteForcaPendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d10 de Vantagem no próximo Teste de Força (Aparar/Arremessar/Empurrar/Resistir)">💪 F. Colossal</span>` : ''}${p.forcaColossalDanoGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d8 de Dano no próximo Golpe">🩸 F. Colossal</span>` : ''}${p.forcaColossalMegaVantagemGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: Mega Vantagem no Acerto do próximo Golpe, só neste turno">⚡ F. Colossal</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
@@ -2850,6 +2875,14 @@ function renderJogador() {
             <div style="font-size:11px;color:var(--text2)">Asas de Fogo até o final da Luta/Cena · +10 de Passos e +1d6 de Vantagem em ataques de longo alcance enquanto voando</div>
           </div>
           <button onclick="event.stopPropagation();desativarAuraDeFenix(${p.id})" title="Encerrar a Aura de Fênix (ex: pousou)" style="background:none;border:1px solid var(--border2);color:var(--text2);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:11px;flex-shrink:0">✕</button>
+        </div>` : ''}
+        ${p.auxilioElementarFogoCargas > 0 ? `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--red-bg);border:1px solid var(--red-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">🔥</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:#f08080">Auxílio Elementar (Fogo): ${p.auxilioElementarFogoCargas} ataque${p.auxilioElementarFogoCargas > 1 ? 's' : ''} restante${p.auxilioElementarFogoCargas > 1 ? 's' : ''}</div>
+            <div style="font-size:11px;color:var(--text2)">+1d6 de Dano no próximo ataque com Arma — consumido automaticamente</div>
+          </div>
         </div>` : ''}
         ${p.gritoDeGuerraAtivo ? `
         <div style="display:flex;align-items:center;gap:8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
