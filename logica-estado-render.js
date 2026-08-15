@@ -780,6 +780,15 @@ function construirRolagemAcertoArma(p, item, opts) {
     p.motivarPendente = false;
   }
 
+  // "Aura de Fênix" (Soldado Elementar): +1d6 de Vantagem em ataques de
+  // longo alcance enquanto o badge estiver ativo (voando) — só vale se a
+  // Arma usada nesta rolagem for de longo alcance (ver armaEhLongoAlcance).
+  if (p.auraDeFenixAtiva && armaEhLongoAlcance(item)) {
+    const afRoll = 1 + Math.floor(Math.random() * 6);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [afRoll], sum: afRoll, countNode: null, label: 'Aura de Fênix' } });
+    total += afRoll;
+  }
+
   const tree = { type: 'sum', terms };
   const formula = `Rolagem de Acerto — ${item.name}`;
   const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, null, sides);

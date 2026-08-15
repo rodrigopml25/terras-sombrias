@@ -1073,6 +1073,15 @@ function construirRolagemAcertoHabilidade(p, sk) {
     p.motivarPendente = false;
   }
 
+  // "Aura de Fênix" (Soldado Elementar): +1d6 de Vantagem em ataques de
+  // longo alcance enquanto o badge estiver ativo (voando) — só vale se
+  // esta Habilidade for de longo alcance (ver habilidadeEhLongoAlcance).
+  if (p.auraDeFenixAtiva && habilidadeEhLongoAlcance(p, sk)) {
+    const afRoll = 1 + Math.floor(Math.random() * 6);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [afRoll], sum: afRoll, countNode: null, label: 'Aura de Fênix' } });
+    total += afRoll;
+  }
+
   const tree = { type: 'sum', terms };
   const formula = `Rolagem de Acerto — ${sk.name}${honraAplica ? ' (Mega Vantagem — Honra)' : ''}${forcaColossalMvAplica ? ' (Mega Vantagem — Força Colossal)' : ''}`;
   const { critMin, fumbleMax, fumbleImune } = getCritThresholds(p, null, sides);
@@ -1421,6 +1430,16 @@ function construirRolagemTeste(p, testeId) {
       terms.push({ sign: '-', node: { type: 'dice', sides: 6, count: 1, results: [duRoll], sum: duRoll, countNode: null, label: 'Duelo' } });
       total -= duRoll;
     }
+  }
+
+  // "Aura de Fênix" (Soldado Elementar): +1d6 de Vantagem em ataques de
+  // longo alcance enquanto o badge estiver ativo (voando) — o Teste de
+  // Arremessar é o Acerto de "Arremesso"/"Arremesso Imprudente", ambas
+  // sempre de longo alcance (ver HABILIDADES_LONGO_ALCANCE).
+  if (p.auraDeFenixAtiva && testeId === 'arremessar') {
+    const afRoll = 1 + Math.floor(Math.random() * 6);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [afRoll], sum: afRoll, countNode: null, label: 'Aura de Fênix' } });
+    total += afRoll;
   }
 
   // Teste de Emoção: subtrai a Insanidade atual do personagem (0-100)
