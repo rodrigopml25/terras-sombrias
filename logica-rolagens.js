@@ -795,6 +795,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_geral_correr',
   'sk_geral_engajar',
   'sk_geral_recurso',
+  'sk_banco_soldado_elementar_aura_de_fenix',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
