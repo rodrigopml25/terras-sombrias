@@ -3423,6 +3423,19 @@ function desativarFuria(pid) {
   renderAll();
 }
 
+// Encerra o status de "Aura de Fênix" (Soldado Elementar) manualmente — ex:
+// o jogador pousou antes do fim da Luta/Cena. Some o badge; o efeito em si
+// (Passos/Vantagem em ataques de longo alcance) não é automatizado, então
+// não há nada pra reverter além da marca. Também limpo automaticamente no
+// fim da Luta (ver resetLuta), já que o texto diz "até o final da Luta/Cena".
+function desativarAuraDeFenix(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || !p.auraDeFenixAtiva) return;
+  p.auraDeFenixAtiva = false;
+  saveState();
+  renderAll();
+}
+
 // "Decréptico" (Elfo): escolhe 2 Testes de Intelecto — um recebe +1 de
 // Vantagem, o outro +3 (termos à parte na rolagem, iguais à Adaptação do
 // Espaço). A -2 de Desvantagem em Resistir é fixa e automática (ver
