@@ -2512,6 +2512,64 @@ function escolherAuxilioElementar(pid, opcao) {
   renderAll();
 }
 
+// "Carapaça Rochosa" (Soldado Elementar): restaura 1d6 de Armadura — a
+// menos que a Armadura já esteja completa (armadura >= armaduraMax), aí
+// restaura 2d6 de Vida em vez disso. Sem Armadura equipada (armaduraMax=0)
+// conta como "já completa" (0/0), então cai direto na restauração de Vida.
+function rolarCarapacaRochosa(pid, sk) {
+  if (!currentUser) return;
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+
+  const armaduraCompleta = (p.armadura || 0) >= (p.armaduraMax || 0);
+  const sides = 6;
+
+  if (armaduraCompleta) {
+    const d1 = 1 + Math.floor(Math.random() * sides);
+    const d2 = 1 + Math.floor(Math.random() * sides);
+    const cura = d1 + d2;
+    p.hp = Math.min(p.hpMax, (p.hp || 0) + cura);
+    const entry = {
+      playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+      charName: p.name,
+      isNarrator: !!IS_NARRADOR,
+      formula: 'Carapaça Rochosa (Armadura completa — Vida)',
+      tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides, count: 2, results: [d1, d2], sum: cura, countNode: null } }] },
+      total: cura,
+      sides,
+      hidden: hiddenPadrao(p),
+      rolling: true,
+      ts: Date.now(),
+      label: '❤️ Carapaça Rochosa — Cura',
+    };
+    pushRollEntry(entry, key => setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS));
+  } else {
+    const d1 = 1 + Math.floor(Math.random() * sides);
+    p.armadura = Math.min(p.armaduraMax, (p.armadura || 0) + d1);
+    const entry = {
+      playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+      charName: p.name,
+      isNarrator: !!IS_NARRADOR,
+      formula: 'Carapaça Rochosa (Armadura)',
+      tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides, count: 1, results: [d1], sum: d1, countNode: null } }] },
+      total: d1,
+      sides,
+      hidden: hiddenPadrao(p),
+      rolling: true,
+      ts: Date.now(),
+      label: '🛡 Carapaça Rochosa — Armadura',
+    };
+    pushRollEntry(entry, key => setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS));
+  }
+
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+
+  saveState();
+  renderAll();
+}
+
+
 // "Recurso" (Habilidade Geral): pergunta qual tipo de item pegar. Pequeno,
 // Médio e Grande têm o custo em Dinheiro decidido por dado (1 do dado = 25 de
 // Dinheiro: Pequeno 1d2, Médio 1d4, Grande 1d6) e abrem a tela normal de

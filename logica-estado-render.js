@@ -1395,6 +1395,15 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Carapaça Rochosa" (Soldado Elementar): não "acerta" nada (ver
+  // HABILIDADES_SEM_ACERTO) — rola 1d6 de restauração de Armadura, a menos
+  // que a Armadura já esteja completa (armadura >= armaduraMax), aí rola
+  // 2d6 de Vida. Ver rolarCarapacaRochosa.
+  if (sk.id === 'sk_banco_soldado_elementar_carapaca_rochosa' || sk.bancoId === 'soldado_elementar_carapaca_rochosa') {
+    rolarCarapacaRochosa(pid, sk);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
