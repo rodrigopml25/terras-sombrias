@@ -3432,6 +3432,7 @@ function desativarAuraDeFenix(pid) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p || !p.auraDeFenixAtiva) return;
   p.auraDeFenixAtiva = false;
+  recomputeProtMax(p);
   saveState();
   renderAll();
 }

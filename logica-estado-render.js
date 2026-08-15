@@ -1359,6 +1359,7 @@ function useSkill(pid, skid) {
   // desativarAuraDeFenix).
   if (sk.id === 'sk_banco_soldado_elementar_aura_de_fenix' || sk.bancoId === 'soldado_elementar_aura_de_fenix') {
     p.auraDeFenixAtiva = true;
+    recomputeProtMax(p);
     saveState();
     renderAll();
   }
@@ -1489,6 +1490,7 @@ function resetLuta() {
     // "Aura de Fênix" (Soldado Elementar): dura "até o final da Luta/Cena"
     // — mesmo raciocínio do Duelo/Fúria acima, encerra sozinha aqui.
     p.auraDeFenixAtiva = false;
+    recomputeProtMax(p);
     // "Fúria" (Combatente): mesmo raciocínio do Duelo logo acima — se a
     // Luta terminou, a Fúria não faz mais sentido continuar ativa, mesmo
     // que o jogador tenha esquecido de encerrar manualmente pelo badge.
@@ -1828,7 +1830,11 @@ function recomputeProtMax(p) {
   const bonusLigeirinho = temLigeirinho ? Math.ceil(maestriaDe(p, 'agi') / 2) : 0;
   // Origem Demoníaca (Draenei): +2 de Passos fixo, sempre que tiver essa origem.
   const bonusOrigemDemoniaca = (p.race === 'Draenei' && p.origemId === 'draenei_origem_demoniaco') ? 2 : 0;
-  p.passos = Math.max(0, p.passosBase - penalidadeTotal + bonusLigeirinho + bonusOrigemDemoniaca);
+  // "Aura de Fênix" (Soldado Elementar): +10 de Passos fixo enquanto o
+  // badge estiver ativo (voando) — ver useSkill/desativarAuraDeFenix/
+  // resetLuta, que ligam/desligam a marca e chamam recomputeProtMax de novo.
+  const bonusAuraFenix = p.auraDeFenixAtiva ? 10 : 0;
+  p.passos = Math.max(0, p.passosBase - penalidadeTotal + bonusLigeirinho + bonusOrigemDemoniaca + bonusAuraFenix);
 }
 
 // Efeitos automáticos de subida/queda de Nível dependentes de raça.
