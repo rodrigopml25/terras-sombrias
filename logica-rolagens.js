@@ -697,6 +697,15 @@ function finishRollEntry(key) {
 // Bônus, sem maestria.
 const ATTR_DA_COR_HABILIDADE = { green: 'agi', red: 'forca', blue: 'intel' };
 
+// Habilidades de longo alcance — usada só pra exibir a tag "🎯 Longo Alcance"
+// no card (renderJogador/renderNarradorGroup), sem nenhum efeito mecânico.
+// Adicionar aqui o id final da Habilidade (com prefixo sk_banco_/sk_geral_
+// etc., o mesmo formato salvo em p.skills) pra marcar como longo alcance.
+const HABILIDADES_LONGO_ALCANCE = new Set([
+  'sk_geral_arremesso',
+  'sk_banco_combatente_arremesso_imprudente',
+]);
+
 // Habilidades puramente utilitárias/de alternância — nunca "acertam" nada,
 // então não fazem sentido no botão de Acerto (mesmos casos que useSkill já
 // trata como fluxo especial, com return antecipado, antes de chegar na
