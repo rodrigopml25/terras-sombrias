@@ -1949,7 +1949,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
           && PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId]
           && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id;
         const formaSombriaAtivaBadge = formaSombriaAtivaChip ? `<span class="chip-badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)" title="Clique para desativar a Forma Sombria">🐼 Desativar</span>` : '';
-        const longoAlcanceBadge = HABILIDADES_LONGO_ALCANCE.has(sk.id) ? `<span class="chip-badge" style="background:rgba(74,143,212,0.15);color:var(--blue);border:1px solid var(--blue-bd)" title="Habilidade de longo alcance">🎯</span>` : '';
+        const longoAlcanceBadge = habilidadeEhLongoAlcance(p, sk) ? `<span class="chip-badge" style="background:rgba(74,143,212,0.15);color:var(--blue);border:1px solid var(--blue-bd)" title="Habilidade de longo alcance">🎯</span>` : '';
         const podeRecarregar = !temUso && ['turno_N','luta','sessao','perturn'].includes(sk.tipo);
         const recarregarBtn = podeRecarregar
           ? `<button class="chip-reload-btn" onclick="event.stopPropagation();recarregarHabilidadeNarrador(${p.id},'${sk.id}')" title="Recarregar agora"><i class="ti ti-reload"></i></button>`
@@ -2598,7 +2598,7 @@ function renderJogador() {
           <span class="sk-tag">${sk.cost===0?'0 ações':sk.cost===1?'1 ação':'2 ações'}</span>
           <span class="sk-tag">${tipoLabel(sk)}</span>
           ${mstTagCard}
-          ${HABILIDADES_LONGO_ALCANCE.has(sk.id) ? `<span class="sk-tag" style="background:rgba(74,143,212,0.15);color:var(--blue)" title="Habilidade de longo alcance">🎯 Longo Alcance</span>` : ''}
+          ${habilidadeEhLongoAlcance(p, sk) ? `<span class="sk-tag" style="background:rgba(74,143,212,0.15);color:var(--blue)" title="Habilidade de longo alcance">🎯 Longo Alcance</span>` : ''}
           ${sk.lendario ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">✨ Feitiço Lendário</span>` : ''}
           ${sk.ritualMacabro ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🌀 Ritual Macabro</span>` : ''}
           ${sk.encantamentoItemId ? `<span class="sk-tag" style="background:rgba(124,92,191,0.18);color:var(--accent2)">🔮 Encantamento</span>` : ''}

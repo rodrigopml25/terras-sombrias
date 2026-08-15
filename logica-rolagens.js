@@ -700,11 +700,31 @@ const ATTR_DA_COR_HABILIDADE = { green: 'agi', red: 'forca', blue: 'intel' };
 // Habilidades de longo alcance — usada só pra exibir a tag "🎯 Longo Alcance"
 // no card (renderJogador/renderNarradorGroup), sem nenhum efeito mecânico.
 // Adicionar aqui o id final da Habilidade (com prefixo sk_banco_/sk_geral_
-// etc., o mesmo formato salvo em p.skills) pra marcar como longo alcance.
+// etc., o mesmo formato salvo em p.skills) pra marcar como longo alcance
+// fixo, independente de qualquer coisa equipada.
 const HABILIDADES_LONGO_ALCANCE = new Set([
   'sk_geral_arremesso',
   'sk_banco_combatente_arremesso_imprudente',
 ]);
+
+// "Ataque com Arma"/"Ataque com 2 Armas" não têm alcance fixo — dependem da
+// Arma/Instrumento equipado no momento (campo alcance: 'longo'/'ambos').
+// "Sem Arma" e itens sem o campo definido nunca contam como longo alcance.
+function armaEhLongoAlcance(item) {
+  return !!item && (item.alcance === 'longo' || item.alcance === 'ambos');
+}
+
+// Decide se uma Habilidade mostra a tag "🎯 Longo Alcance": fixo via
+// HABILIDADES_LONGO_ALCANCE, ou dinâmico pras Habilidades Gerais de ataque,
+// conforme a Arma/Instrumento atualmente equipado.
+function habilidadeEhLongoAlcance(p, sk) {
+  if (HABILIDADES_LONGO_ALCANCE.has(sk.id)) return true;
+  if (sk.id === 'sk_geral_ataque_com_arma') return armaEhLongoAlcance(getArmaEquipadaPrincipal(p));
+  if (sk.id === 'sk_geral_ataque_com_2_armas') {
+    return armaEhLongoAlcance(getArmaEquipadaPrincipal(p)) || armaEhLongoAlcance(getArmaSecundariaEquipada(p));
+  }
+  return false;
+}
 
 // Habilidades puramente utilitárias/de alternância — nunca "acertam" nada,
 // então não fazem sentido no botão de Acerto (mesmos casos que useSkill já
