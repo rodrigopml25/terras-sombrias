@@ -2690,10 +2690,17 @@ function escolherArremesso(pid, tipo) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
   fecharCriacaoAnaoModal();
+  // Mira na Cabeça (ver rolarAcertoArremessoCabeca): marca deixada na
+  // própria Habilidade Geral, lida aqui pra dobrar o Dano da escolha feita
+  // (Arma equipada ou Objeto genérico), qualquer que ela seja.
+  const skArremesso = p.skills.find(s => s.id === 'sk_geral_arremesso');
+  const mirandoCabeca = !!(skArremesso && skArremesso.miraCabecaPendente);
+  if (skArremesso) skArremesso.miraCabecaPendente = false;
 
   if (tipo === 'arma') {
     const item = getArmaEquipadaPrincipal(p);
     if (!item || item.id === 'sem_arma' || !item.dano) return;
+    if (mirandoCabeca) item.miraCabecaPendente = true;
     rolarDanoArma(pid, item.id, { labelPrefixo: 'Arremesso' });
     // A Arma foi jogada longe — guarda ela em seguida. Se houver uma 2ª
     // arma na mão secundária, ela assume a mão principal na hora.
@@ -2707,25 +2714,30 @@ function escolherArremesso(pid, tipo) {
   const info = ARREMESSO_OBJETOS[tipo];
   if (!info) return;
   const d = 1 + Math.floor(Math.random() * info.sides);
+  const terms = [{ sign: '+', node: { type: 'dice', sides: info.sides, count: 1, results: [d], sum: d, countNode: null } }];
+  let total = d;
+  if (mirandoCabeca) total += dobrarDadosDano(terms);
 
   const entry = {
     playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
     charName: p.name,
     isNarrator: !!IS_NARRADOR,
     formula: `Arremesso — Objeto ${info.label}`,
-    tree: { type: 'sum', terms: [{ sign: '+', node: { type: 'dice', sides: info.sides, count: 1, results: [d], sum: d, countNode: null } }] },
-    total: d,
+    tree: { type: 'sum', terms },
+    total,
     sides: info.sides,
     hidden: hiddenPadrao(p),
     rolling: true,
     ts: Date.now(),
-    label: `🎯 Arremesso — Objeto ${info.label}`,
+    label: mirandoCabeca ? `🎯 Arremesso na Cabeça — Objeto ${info.label} (dados dobrados)` : `🎯 Arremesso — Objeto ${info.label}`,
   };
   spinDiceFab(true, info.sides);
   pushRollEntry(entry, key => {
     setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
+  saveState();
+  renderAll();
 }
 
 // "Aparo Agressivo" (Subclasse Combatente): o Acerto (ver
@@ -2804,7 +2816,7 @@ function escolherAparoAgressivo(pid, atacanteFalhou) {
 // fica guardada em sk._arremessoImprudenteItemId/BonusDano até o "Usar
 // Efeito" (ver rolarDanoArremessoImprudente), que rola o Dano da arma
 // escolhida + Maestria de Força + esse bônus.
-function abrirArremessoImprudenteModal(pid, skid) {
+function abrirArremessoImprudenteModal(pid, skid, mirarCabeca) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
   if (!overlay || !p) return;
@@ -2813,13 +2825,14 @@ function abrirArremessoImprudenteModal(pid, skid) {
   const temArmaEquipada = armaEquipada && armaEquipada.id !== 'sem_arma' && armaEquipada.dano;
   const armasInventario = (p.inventario || []).filter(it =>
     it.tipo === 'arma' && it.dano && (!temArmaEquipada || it.id !== armaEquipada.id));
+  const mc = mirarCabeca ? 'true' : 'false';
 
   const opcoesHtml = [
-    temArmaEquipada ? `<button class="tm-opcao tm-opcao-blue" onclick="escolherArmaArremessoImprudente(${p.id},'${skid}','${armaEquipada.id}','equipada')">
+    temArmaEquipada ? `<button class="tm-opcao tm-opcao-blue" onclick="escolherArmaArremessoImprudente(${p.id},'${skid}','${armaEquipada.id}','equipada',${mc})">
       <span class="tm-opcao-nome">🖐 ${escHtml(armaEquipada.name)} (equipada)</span>
       <span class="tm-opcao-info">+1d6 de Vantagem no Arremesso</span>
     </button>` : '',
-    ...armasInventario.map(item => `<button class="tm-opcao tm-opcao-blue" onclick="escolherArmaArremessoImprudente(${p.id},'${skid}','${item.id}','inventario')">
+    ...armasInventario.map(item => `<button class="tm-opcao tm-opcao-blue" onclick="escolherArmaArremessoImprudente(${p.id},'${skid}','${item.id}','inventario',${mc})">
       <span class="tm-opcao-nome">🎒 ${escHtml(item.name)}</span>
       <span class="tm-opcao-info">+3 de Dano</span>
     </button>`),
@@ -2842,7 +2855,7 @@ function abrirArremessoImprudenteModal(pid, skid) {
   overlay.classList.add('open');
 }
 
-function escolherArmaArremessoImprudente(pid, skid, itemId, tipo) {
+function escolherArmaArremessoImprudente(pid, skid, itemId, tipo, mirarCabeca) {
   const p = PLAYERS.find(x => x.id === pid);
   const sk = p && p.skills.find(s => s.id === skid);
   fecharCriacaoAnaoModal();
@@ -2854,12 +2867,17 @@ function escolherArmaArremessoImprudente(pid, skid, itemId, tipo) {
   // a arma jogada — mesmo comportamento da Habilidade Geral "Arremesso"
   // (escolherArremesso) quando a arma arremessada é a equipada.
   sk._arremessoImprudenteEraEquipada = tipo === 'equipada';
+  // Mira na Cabeça (ver abrirArremessoImprudenteModal/rolarAcertoNaCabecaClick):
+  // marcado na Habilidade pra dobrar o Dano em rolarDanoArremessoImprudente.
+  if (mirarCabeca) sk.miraCabecaPendente = true;
 
-  // Marca temporária lida só pelo Teste de Arremessar desta rolagem (ver
-  // construirRolagemTeste) — nunca persiste no personagem.
+  // Marcas temporárias lidas só pelo Teste de Arremessar desta rolagem (ver
+  // construirRolagemTeste) — nunca persistem no personagem.
   if (tipo === 'equipada') p._arremessoImprudenteVantagemTemp = true;
+  if (mirarCabeca) p._miraCabecaTesteTemp = true;
   rolarTeste(pid, 'arremessar');
   delete p._arremessoImprudenteVantagemTemp;
+  delete p._miraCabecaTesteTemp;
 
   sk.aguardandoResultado = true;
   saveState();
@@ -2888,6 +2906,15 @@ function rolarDanoArremessoImprudente(pid, sk) {
   const baseNode = parsed ? parsed.node : null;
   const terms = baseNode ? (baseNode.type === 'sum' ? baseNode.terms.slice() : [{ sign: '+', node: baseNode }]) : [];
   let total = parsed ? parsed.value : 0;
+
+  // Mira na Cabeça: dobra os dados da fórmula base da Arma arremessada (ex:
+  // 1d6 → 2d6) — marca deixada por escolherArmaArremessoImprudente quando o
+  // Acerto foi feito com o botão "🎯 Acerto na Cabeça" (mesma mecânica do
+  // dobro de Crítico em construirRolagemDanoArma).
+  if (sk.miraCabecaPendente) {
+    total += dobrarDadosDano(terms);
+    sk.miraCabecaPendente = false;
+  }
 
   const mstForca = maestriaDe(p, 'forca');
   if (mstForca) {

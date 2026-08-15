@@ -534,6 +534,31 @@ function getBonusesDanoArma(p, item) {
 // Ponto de extensão: qualquer novo bônus de Dano que dependa de arma/item
 // (encantamentos, outros Aprimoramentos Dourados, passivas raciais futuras)
 // entra aqui, como mais um termo — nunca direto na string item.dano.
+// Dobra todos os termos de dado (tipo 'dice') de uma lista de termos de
+// rolagem, rerolando a mesma quantidade e somando ao contador/resultado
+// existente (ex: 1d6 → 2d6, 1d8+1d6 → 2d8+2d6) — mutando os termos in-place.
+// Retorna o delta (soma dos dados extras, já com o sinal do termo aplicado)
+// pra somar ao total. Termos que não são dado (constantes, labeled_const)
+// não são afetados. Compartilhada entre o dobro de Acerto Crítico e o dobro
+// de Mirar na Cabeça (mesma mecânica, gatilhos diferentes).
+function dobrarDadosDano(terms) {
+  let delta = 0;
+  terms.forEach(t => {
+    if (t.node.type === 'dice' && Array.isArray(t.node.results)) {
+      const extra = [];
+      for (let i = 0; i < t.node.count; i++) {
+        extra.push(1 + Math.floor(Math.random() * t.node.sides));
+      }
+      const extraSum = extra.reduce((a, b) => a + b, 0);
+      t.node.results = t.node.results.concat(extra);
+      t.node.count = t.node.count * 2;
+      t.node.sum = (t.node.sum || 0) + extraSum;
+      delta += (t.sign === '-' ? -extraSum : extraSum);
+    }
+  });
+  return delta;
+}
+
 function construirRolagemDanoArma(p, item, opts) {
   opts = opts || {};
   if (!p || !item) return null;
@@ -557,20 +582,18 @@ function construirRolagemDanoArma(p, item, opts) {
   // pra essa PRÓXIMA rolagem de Dano dessa Arma específica.
   const critDobro = !!item.critPendente;
   if (critDobro) {
-    terms.forEach(t => {
-      if (t.node.type === 'dice' && Array.isArray(t.node.results)) {
-        const extra = [];
-        for (let i = 0; i < t.node.count; i++) {
-          extra.push(1 + Math.floor(Math.random() * t.node.sides));
-        }
-        const extraSum = extra.reduce((a, b) => a + b, 0);
-        t.node.results = t.node.results.concat(extra);
-        t.node.count = t.node.count * 2;
-        t.node.sum = (t.node.sum || 0) + extraSum;
-        total += (t.sign === '-' ? -extraSum : extraSum);
-      }
-    });
+    total += dobrarDadosDano(terms);
     item.critPendente = false;
+  }
+
+  // Mirar na Cabeça (Habilidades de Longo Alcance): mesma dobra de dados do
+  // Crítico, só que a marca vem de rolarAcertoArma com opts.mirarCabeca (ver
+  // construirRolagemAcertoArma) em vez de um resultado de dado alto. Pode
+  // acumular com o Crítico normalmente (dados dobram 2x, uma vez por marca).
+  const cabecaDobro = !!item.miraCabecaPendente;
+  if (cabecaDobro) {
+    total += dobrarDadosDano(terms);
+    item.miraCabecaPendente = false;
   }
 
   // "Origem Comum" (Orc): precisa saber se a arma causou o Dano Total dela
@@ -597,6 +620,12 @@ function construirRolagemDanoArma(p, item, opts) {
     // termos que não são dado).
     if (item.id === 'sem_arma' && critDobro) {
       terms.push({ sign: '+', node: { type: 'labeled_const', value: mb.val, label: 'Maestria ' + mb.attr + ' (Crítico)' } });
+      total += mb.val;
+    }
+    // Mesma lógica acima, mas pro dobro de Mirar na Cabeça — "Sem Arma"
+    // também não tem dado de base pra dobrar, então soma a Maestria de novo.
+    if (item.id === 'sem_arma' && cabecaDobro) {
+      terms.push({ sign: '+', node: { type: 'labeled_const', value: mb.val, label: 'Maestria ' + mb.attr + ' (Mira na Cabeça)' } });
       total += mb.val;
     }
   }
@@ -717,6 +746,17 @@ function construirRolagemAcertoArma(p, item, opts) {
     total += mstFinal;
   }
 
+  // Mirar na Cabeça (Habilidades de Longo Alcance): penalidade fixa no
+  // Acerto — -8 se a Maestria da Arma usada for de Agilidade ou Força, -4
+  // se for de Intelecto (ver penalidadeMiraCabeca/attrBaseDeMaestria). Se
+  // acertar, o Dano desta Arma sai com os dados dobrados (ver
+  // item.miraCabecaPendente, consumido em construirRolagemDanoArma).
+  if (opts.mirarCabeca) {
+    const pen = penalidadeMiraCabeca(mb ? attrBaseDeMaestria(mb.attr) : null);
+    terms.push({ sign: '-', node: { type: 'labeled_const', value: pen, label: '🎯 Mira na Cabeça' } });
+    total -= pen;
+  }
+
   // "Duelo" (Campeão): mesmo bônus/penalidade de +1d6/-1d6 do Teste e do
   // Acerto de Habilidade (ver construirRolagemTeste) — atacar com Arma
   // também conta como "acerto" pro efeito do Duelo.
@@ -770,11 +810,15 @@ function rolarAcertoArma(pid, itemId, opts) {
   // que pushRollEntry serializa o objeto na hora (mutar depois não teria efeito).
   const critInfo = rollCritInfo({ tree: r.tree, critMin: r.critMin, fumbleMax: r.fumbleMax, fumbleImune: r.fumbleImune });
   if (critInfo.hasCrit) item.critPendente = true;
+  // Mirar na Cabeça: marca a Arma pra dobrar os dados na PRÓXIMA rolagem de
+  // Dano dela (ver construirRolagemDanoArma) — mesma mecânica do Crítico,
+  // gatilho diferente (penalidade no Acerto em vez de resultado alto).
+  if (opts.mirarCabeca) item.miraCabecaPendente = true;
 
   const armaSecNome = r.ambidestroUsado && getArmaSecundariaEquipada(p) ? getArmaSecundariaEquipada(p).name : null;
   const labelPadrao = armaSecNome
     ? `🎯 Rolagem de Acerto (🤝 Ambidestro: Maestria pela metade — ${armaSecNome})`
-    : '🎯 Rolagem de Acerto';
+    : (opts.mirarCabeca ? '🎯 Acerto na Cabeça' : '🎯 Rolagem de Acerto');
 
   const entry = {
     playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
@@ -848,7 +892,15 @@ function renderBotoesHabilidade(p, sk, ready) {
     return `<button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>
       <button class="sk-btn sk-btn-falhou" onclick="event.stopPropagation();falharHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Gasta a Ação e coloca a Habilidade em recarga, sem aplicar o efeito">Falhou</button>`;
   }
-  return `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>`;
+  // "Acerto na Cabeça": só pra Habilidades de Longo Alcance (ver
+  // habilidadeEhLongoAlcance) — mesmo Acerto normal, mas com penalidade fixa
+  // (-8 Agilidade/Força, -4 Intelecto — ver penalidadeMiraCabeca) e, se
+  // acertar, dobra os dados de Dano da próxima rolagem (ver
+  // rolarAcertoNaCabecaClick).
+  const cabecaBtn = habilidadeEhLongoAlcance(p, sk)
+    ? `<button class="sk-btn sk-btn-acerto" style="background:rgba(74,143,212,0.15);color:var(--blue)" onclick="event.stopPropagation();rolarAcertoNaCabecaClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Mira na Cabeça: mesmo Acerto, com -8 de penalidade (Agilidade/Força) ou -4 (Intelecto) — se acertar, o Dano sai com os dados dobrados">🎯 Acerto na Cabeça</button>`
+    : '';
+  return `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>${cabecaBtn}`;
 }
 
 // ═══════════════════════════════════════
@@ -3791,6 +3843,25 @@ function rolarAcertoAtaqueGeral(pid, skid) {
   // marca também.
   sk.aguardandoResultado = true;
   rolarAcertoArma(pid, item.id, { forcarAmbidestro: usa2Armas, labelPrefixo: sk.name });
+}
+
+// Variante "Mira na Cabeça" de rolarAcertoAtaqueGeral — mesma coisa, mas com
+// opts.mirarCabeca ligado (penalidade no Acerto e dobro de Dano na Arma
+// equipada da mão principal se acertar, ver construirRolagemAcertoArma/
+// construirRolagemDanoArma). Botão "🎯 Acerto na Cabeça", só aparece quando
+// habilidadeEhLongoAlcance for true pra essa Habilidade (ver renderBotoesHabilidade).
+function rolarAcertoAtaqueGeralCabeca(pid, skid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skid);
+  if (!p || !sk) return;
+  const usa2Armas = skid === 'sk_geral_ataque_com_2_armas';
+  const item = getArmaEquipadaPrincipal(p);
+  if (usa2Armas && !getArmaSecundariaEquipada(p)) {
+    alert('Equipe uma 2ª Arma/Instrumento na mão secundária antes (badge "🤝 Mão Secundária" no Inventário).');
+    return;
+  }
+  sk.aguardandoResultado = true;
+  rolarAcertoArma(pid, item.id, { forcarAmbidestro: usa2Armas, labelPrefixo: sk.name, mirarCabeca: true });
 }
 
 // Rola o Dano das Habilidades Gerais "Ataque com Arma"/"Ataque com 2

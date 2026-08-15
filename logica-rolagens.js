@@ -726,6 +726,49 @@ function habilidadeEhLongoAlcance(p, sk) {
   return false;
 }
 
+// Mirar na Cabeça: penalidade fixa no Acerto de Habilidades de Longo
+// Alcance — -8 se a Maestria usada for de Agilidade ou Força, -4 se for de
+// Intelecto (attrBase: 'agi'|'forca'|'intel'|null). Sem Maestria reconhecida,
+// assume -8 (caso mais comum: Agilidade/Força).
+function penalidadeMiraCabeca(attrBase) {
+  return attrBase === 'intel' ? 4 : 8;
+}
+
+// Normaliza o campo .attr de getArmaMaestriaBonus ('INT'|'AGI'|'FOR'|
+// 'AGI/2'|'FOR/2'|'INT/2') pro atributo base, pra decidir a penalidade de
+// Mirar na Cabeça acima.
+function attrBaseDeMaestria(attrLabel) {
+  if (!attrLabel) return null;
+  if (attrLabel.indexOf('INT') === 0) return 'intel';
+  if (attrLabel.indexOf('AGI') === 0) return 'agi';
+  if (attrLabel.indexOf('FOR') === 0) return 'forca';
+  return null;
+}
+
+// Handler do botão "🎯 Acerto na Cabeça" — só aparece em Habilidades de
+// Longo Alcance (ver habilidadeEhLongoAlcance/renderBotoesHabilidade). Roteia
+// pra rota própria de cada Habilidade, mesma ideia de rolarAcertoHabilidadeClick,
+// mas cada rota aplica a penalidade fixa e marca o dobro de Dano pendente.
+function rolarAcertoNaCabecaClick(pid, skid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skid);
+  if (!sk) return;
+  if (!isReady(sk, p)) return;
+  if (formaSombriaBloqueiaHabilidade(p, sk)) return;
+  if (sk.id === 'sk_geral_ataque_com_arma' || sk.id === 'sk_geral_ataque_com_2_armas') {
+    rolarAcertoAtaqueGeralCabeca(pid, sk.id);
+    return;
+  }
+  if (sk.id === 'sk_geral_arremesso') {
+    rolarAcertoArremessoCabeca(pid, sk);
+    return;
+  }
+  if (sk.id === 'combatente_arremesso_imprudente' || sk.bancoId === 'combatente_arremesso_imprudente') {
+    abrirArremessoImprudenteModal(pid, skid, true);
+    return;
+  }
+}
+
 // Habilidades puramente utilitárias/de alternância — nunca "acertam" nada,
 // então não fazem sentido no botão de Acerto (mesmos casos que useSkill já
 // trata como fluxo especial, com return antecipado, antes de chegar na
@@ -834,6 +877,23 @@ function rolarAcertoArremesso(pid, sk) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;
   rolarTeste(pid, 'arremessar');
+  sk.aguardandoResultado = true;
+  saveState();
+  renderAll();
+}
+
+// Variante "Mira na Cabeça" de rolarAcertoArremesso — mesmo Teste de
+// Arremessar, mas com a penalidade fixa de -8 (ver construirRolagemTeste/
+// p._miraCabecaTesteTemp) e marcando sk.miraCabecaPendente pra dobrar o
+// Dano na escolha do "Usar Efeito" (ver escolherArremesso), seja Arma
+// equipada ou Objeto genérico.
+function rolarAcertoArremessoCabeca(pid, sk) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  sk.miraCabecaPendente = true;
+  p._miraCabecaTesteTemp = true;
+  rolarTeste(pid, 'arremessar');
+  delete p._miraCabecaTesteTemp;
   sk.aguardandoResultado = true;
   saveState();
   renderAll();
@@ -1251,6 +1311,17 @@ function construirRolagemTeste(p, testeId) {
     const aiRoll = 1 + Math.floor(Math.random() * 6);
     terms.push({ sign: '+', node: { type: 'dice', sides: 6, count: 1, results: [aiRoll], sum: aiRoll, countNode: null, label: 'Arremesso Imprudente' } });
     total += aiRoll;
+  }
+
+  // Mirar na Cabeça (Arremesso/Arremesso Imprudente): -8 fixo no Teste de
+  // Arremessar (sempre Força) — marca temporária deixada por
+  // rolarAcertoArremessoCabeca/escolherArmaArremessoImprudente, nunca
+  // persiste no personagem. Pode acumular com o +1d6 do Arremesso
+  // Imprudente acima (bônus e penalidade de fontes diferentes).
+  if (testeId === 'arremessar' && p._miraCabecaTesteTemp) {
+    const pen = penalidadeMiraCabeca('forca');
+    terms.push({ sign: '-', node: { type: 'labeled_const', value: pen, label: '🎯 Mira na Cabeça' } });
+    total -= pen;
   }
 
   // "Comum" (Origem, Troll): se NÃO houver troca configurada, o Teste de
