@@ -2682,6 +2682,30 @@ function rolarCorrenteDeVento(pid, itemId, opcao) {
   renderAll();
 }
 
+// "Encantamento do Ar" (Soldado Elementar): concede à Arma/Instrumento
+// equipado na mão principal a capacidade de fazer ataques de longo alcance
+// até o final do próximo turno (ver armaEhLongoAlcance/
+// habilidadeEhLongoAlcance, que passam a considerar o item de longo alcance
+// enquanto item.encantamentoArAtivo estiver ligado — consumido em
+// aplicarResetDeTurno/resetLuta). Não mexe no campo item.alcance real, pra
+// não disparar a exigência de Munição de outros itens que já são de longo
+// alcance por natureza. "Dobro de distância se já for de longo alcance" é
+// só narrativo — o app não rastreia Casas/distância entre personagens.
+function rolarEncantamentoDoAr(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = getArmaEquipadaPrincipal(p);
+  if (!item || item.id === 'sem_arma') {
+    alert(`${p.name} precisa estar com uma Arma/Instrumento equipado na mão principal pra receber o Encantamento do Ar.`);
+    return;
+  }
+  const jaEraLongo = armaEhLongoAlcance(item);
+  item.encantamentoArAtivo = true;
+  alert(`${p.name} concede Encantamento do Ar para ${item.name}: ataques a longa distância (${jaEraLongo ? '12' : '6'} Casas) até o final do próximo turno.`);
+  saveState();
+  renderAll();
+}
+
 // "Recurso" (Habilidade Geral): pergunta qual tipo de item pegar. Pequeno,
 // Médio e Grande têm o custo em Dinheiro decidido por dado (1 do dado = 25 de
 // Dinheiro: Pequeno 1d2, Médio 1d4, Grande 1d6) e abrem a tela normal de

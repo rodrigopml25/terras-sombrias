@@ -1415,6 +1415,16 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Encantamento do Ar" (Soldado Elementar): não "acerta" nada (ver
+  // HABILIDADES_SEM_ACERTO) — concede pra Arma/Instrumento equipado na mão
+  // principal a capacidade de longo alcance até o final do próximo turno
+  // (ver rolarEncantamentoDoAr/item.encantamentoArAtivo, consumido em
+  // aplicarResetDeTurno/resetLuta). "O dobro de distância se já for de longo
+  // alcance" é só narrativo (o app não rastreia Casas/distância).
+  if (sk.id === 'sk_banco_soldado_elementar_encantamento_do_ar' || sk.bancoId === 'soldado_elementar_encantamento_do_ar') {
+    rolarEncantamentoDoAr(pid);
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
@@ -1472,6 +1482,10 @@ function aplicarResetDeTurno() {
     // "Auxílio Elementar — Fogo" (Soldado Elementar): as cargas de +1d6 de
     // Dano valem só até o início do próximo turno — zera o que sobrou.
     p.auxilioElementarFogoCargas = 0;
+    // "Encantamento do Ar" (Soldado Elementar): a capacidade de longo
+    // alcance concedida a uma Arma/Instrumento vale só até o final do
+    // próximo turno — desliga a marca em qualquer item que ainda a tenha.
+    (p.inventario || []).forEach(it => { if (it.encantamentoArAtivo) it.encantamentoArAtivo = false; });
     // "Arsenal": a permissão pra trocar de Arma vale só dentro do turno em
     // que foi usada — se não foi aproveitada, não carrega pro próximo.
     p.arsenalPendente = false;
@@ -1541,6 +1555,9 @@ function resetLuta() {
     p.furiaOrcAtiva = false;
     p.dueloAtivo = false;
     p.arsenalPendente = false;
+    // "Encantamento do Ar" (Soldado Elementar): mesmo raciocínio acima —
+    // não faz sentido continuar valendo depois que a Luta terminou.
+    (p.inventario || []).forEach(it => { if (it.encantamentoArAtivo) it.encantamentoArAtivo = false; });
     // "Aura de Fênix" (Soldado Elementar): dura "até o final da Luta/Cena"
     // — mesmo raciocínio do Duelo/Fúria acima, encerra sozinha aqui.
     p.auraDeFenixAtiva = false;
@@ -3631,7 +3648,10 @@ function renderInventarioArea(p, readOnly) {
       const critBadge = item.critPendente
         ? `<div style="font-size:11px;color:#e8c53a;margin-top:2px" title="Próxima rolagem de Dano desta Arma sai com os dados dobrados">🎯 Crítico! Próximo Dano dobrado</div>`
         : '';
-      return `<div class="inv-stats-row">${danoPart}${acertoPart}${precoPart}</div>${critBadge}`;
+      const encantamentoArBadge = item.encantamentoArAtivo
+        ? `<div style="font-size:11px;color:#7ecbe8;margin-top:2px" title="Encantamento do Ar: ataques a longa distância até o final do próximo turno">💨 Encantamento do Ar ativo</div>`
+        : '';
+      return `<div class="inv-stats-row">${danoPart}${acertoPart}${precoPart}</div>${critBadge}${encantamentoArBadge}`;
     }
     const encantamentoBox = item.encantamento
       ? `<div class="inv-sub-section"><div class="inv-sub-label"><i class="ti ti-sparkles" style="color:var(--accent2)"></i> Encantamento: ${item.encantamento.name} <span style="font-size:10px;color:var(--text3);font-weight:400">(${item.encantamento.estilo === 'arcano' ? 'Arcano' : 'Místico'})</span></div><div class="inv-aprimo-item"><span class="inv-aprimo-desc">${item.encantamento.passivaDesc}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px">O Feitiço/Ritual concedido aparece nas Habilidades.</div></div>`

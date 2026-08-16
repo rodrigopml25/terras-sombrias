@@ -708,10 +708,14 @@ const HABILIDADES_LONGO_ALCANCE = new Set([
 ]);
 
 // "Ataque com Arma"/"Ataque com 2 Armas" não têm alcance fixo — dependem da
-// Arma/Instrumento equipado no momento (campo alcance: 'longo'/'ambos').
+// Arma/Instrumento equipado no momento (campo alcance: 'longo'/'ambos'), ou
+// do "Encantamento do Ar" (Soldado Elementar) ativo temporariamente nesse
+// item específico (ver item.encantamentoArAtivo/rolarEncantamentoDoAr) —
+// não mexe no campo alcance real do item pra não afetar munição/outras
+// regras que dependem dele.
 // "Sem Arma" e itens sem o campo definido nunca contam como longo alcance.
 function armaEhLongoAlcance(item) {
-  return !!item && (item.alcance === 'longo' || item.alcance === 'ambos');
+  return !!item && (item.alcance === 'longo' || item.alcance === 'ambos' || item.encantamentoArAtivo);
 }
 
 // Decide se uma Habilidade mostra a tag "🎯 Longo Alcance": fixo via
@@ -799,6 +803,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_soldado_elementar_auxilio_elementar',
   'sk_banco_soldado_elementar_carapaca_rochosa',
   'sk_banco_soldado_elementar_corrente_de_vento',
+  'sk_banco_soldado_elementar_encantamento_do_ar',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
