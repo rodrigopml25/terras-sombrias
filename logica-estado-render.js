@@ -1404,6 +1404,17 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Corrente de Vento" (Soldado Elementar): não "acerta" nada (ver
+  // HABILIDADES_SEM_ACERTO) — abre a escolha de qual Arma/Instrumento
+  // GUARDADO (fora das duas mãos) a corrente traz de volta (ver
+  // abrirCorrenteDeVentoModal), depois a escolha entre parar no alvo (dano
+  // normal) ou continuar o percurso (1/4 do dano, ver
+  // escolherCorrenteDeVentoArma/rolarCorrenteDeVento).
+  if (sk.id === 'sk_banco_soldado_elementar_corrente_de_vento' || sk.bancoId === 'soldado_elementar_corrente_de_vento') {
+    abrirCorrenteDeVentoModal(pid);
+    return;
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de

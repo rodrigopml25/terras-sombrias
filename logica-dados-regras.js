@@ -2569,6 +2569,118 @@ function rolarCarapacaRochosa(pid, sk) {
   renderAll();
 }
 
+// "Corrente de Vento" (Soldado Elementar): traz uma Arma/Instrumento
+// GUARDADO (nenhuma das mãos — ver toggleEquipArma/toggleEquipArmaSecundaria)
+// até a mão do personagem. Passo 1 escolhe QUAL Arma/Instrumento guardado é
+// trazido; passo 2 escolhe se ela para no primeiro alvo (dano normal, igual
+// a um ataque comum) ou continua o percurso (1/4 do dano normal, arredondado
+// pra cima — texto da Habilidade). Em ambos os casos "o percurso termina na
+// sua mão": a Arma escolhida fica equipada na mão principal ao final (ver
+// rolarCorrenteDeVento), guardando qualquer outra que estivesse equipada.
+function abrirCorrenteDeVentoModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  const guardadas = (p.inventario || []).filter(it =>
+    (it.tipo === 'arma' || it.tipo === 'instrumento') && !it.equipado && !it.equipadoSecundaria && (it.dano || '').trim());
+  if (!guardadas.length) {
+    alert(`${p.name} não tem nenhuma Arma/Instrumento guardado (fora das mãos) pra trazer com a Corrente de Vento.`);
+    return;
+  }
+
+  const opcoesHtml = guardadas.map(item => {
+    const icone = item.tipo === 'instrumento' ? 'ti-music' : 'ti-sword';
+    return `<button class="tm-opcao tm-opcao-blue" onclick="escolherCorrenteDeVentoArma(${p.id},'${item.id}')">
+      <span class="tm-opcao-nome"><i class="ti ${icone}"></i> ${escHtml(item.name)}</span>
+      <span class="tm-opcao-info">${escHtml(item.dano)} + Maestria</span>
+    </button>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-wind"></i> Corrente de Vento</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        Qual Arma/Instrumento guardado ${escHtml(p.name)} traz pela corrente de vento?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherCorrenteDeVentoArma(pid, itemId) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(x => x.id === itemId);
+  if (!overlay || !p || !item) return;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-wind"></i> Corrente de Vento — ${escHtml(item.name)}</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        A Arma acerta alguém a caminho da sua mão — parar nesse alvo ou continuar o percurso?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="rolarCorrenteDeVento(${p.id},'${item.id}','parar')">
+          <span class="tm-opcao-nome">🎯 Parar no Alvo</span>
+          <span class="tm-opcao-info">Dano normal — ${escHtml(item.dano)} + Maestria + bônus</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="rolarCorrenteDeVento(${p.id},'${item.id}','continuar')">
+          <span class="tm-opcao-nome">💨 Continuar o Percurso</span>
+          <span class="tm-opcao-info">1/4 do dano normal (arredondado pra cima)</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+}
+
+function rolarCorrenteDeVento(pid, itemId, opcao) {
+  if (!currentUser) return;
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(x => x.id === itemId);
+  if (!p || !item) return;
+  fecharCriacaoAnaoModal();
+
+  const r = construirRolagemDanoArma(p, item);
+  if (!r) return;
+
+  // "O percurso precisa terminar na sua mão": em qualquer dos 2 desfechos, a
+  // Arma escolhida acaba equipada na mão principal (mesmo padrão de
+  // toggleEquipArma — guarda qualquer outra Arma/Instrumento que estivesse
+  // equipada e tira do slot secundário, já que não pode estar nos dois ao
+  // mesmo tempo).
+  p.inventario.forEach(it => {
+    if ((it.tipo === 'arma' || it.tipo === 'instrumento') && it.id !== item.id) it.equipado = false;
+  });
+  item.equipadoSecundaria = false;
+  item.equipado = true;
+
+  const quarto = opcao === 'continuar';
+  const total = quarto ? Math.ceil(r.total / 4) : r.total;
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: quarto ? `Corrente de Vento — ${item.name} (1/4 do Dano, arred. pra cima)` : `Corrente de Vento — ${item.name}`,
+    tree: r.tree,
+    total,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+    label: quarto ? '💨 Corrente de Vento — continua o percurso (1/4 do dano)' : '🎯 Corrente de Vento — para no alvo (dano normal)',
+  };
+
+  spinDiceFab(true, 6);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  saveState();
+  renderAll();
+}
 
 // "Recurso" (Habilidade Geral): pergunta qual tipo de item pegar. Pequeno,
 // Médio e Grande têm o custo em Dinheiro decidido por dado (1 do dado = 25 de
