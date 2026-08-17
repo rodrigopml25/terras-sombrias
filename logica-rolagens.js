@@ -780,6 +780,11 @@ function rolarAcertoNaCabecaClick(pid, skid) {
 const HABILIDADES_SEM_ACERTO = new Set([
   'sk_racial_dragao_metamorfose',
   'sk_racial_dragao_iniciar_voo',
+  'sk_origem_dragao_sopro_fogo',
+  'sk_origem_dragao_sopro_arcano',
+  'sk_origem_dragao_sopro_radioativo',
+  'sk_origem_dragao_sopro_sonhos',
+  'sk_origem_dragao_sopro_magma',
   'sk_geral_teste_mental',
   'sk_geral_arsenal',
   'sk_origem_draenei_forjado_luz',
