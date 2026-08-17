@@ -705,6 +705,21 @@ const ATTR_DA_COR_HABILIDADE = { green: 'agi', red: 'forca', blue: 'intel' };
 const HABILIDADES_LONGO_ALCANCE = new Set([
   'sk_geral_arremesso',
   'sk_banco_combatente_arremesso_imprudente',
+  'sk_origem_dragao_sopro_fogo',
+  'sk_origem_dragao_sopro_arcano',
+  'sk_origem_dragao_sopro_radioativo',
+  'sk_origem_dragao_sopro_sonhos',
+  'sk_origem_dragao_sopro_magma',
+]);
+
+// Habilidades que, além de Longo Alcance, permitem o botão "🎯 Acerto na
+// Cabeça" (mira na cabeça — ver renderBotoesHabilidade/rolarAcertoNaCabecaClick).
+// Os Sopros de Dragão (também em HABILIDADES_LONGO_ALCANCE, só pro badge
+// visual) ficam de fora: são feixes que atingem TODOS no caminho, não um
+// alvo único, então não faz sentido "mirar na cabeça" de um alvo específico.
+const HABILIDADES_MIRA_CABECA_FIXA = new Set([
+  'sk_geral_arremesso',
+  'sk_banco_combatente_arremesso_imprudente',
 ]);
 
 // "Ataque com Arma"/"Ataque com 2 Armas" não têm alcance fixo — dependem da
@@ -728,6 +743,21 @@ function habilidadeEhLongoAlcance(p, sk) {
     return armaEhLongoAlcance(getArmaEquipadaPrincipal(p)) || armaEhLongoAlcance(getArmaSecundariaEquipada(p));
   }
   return false;
+}
+
+// Decide se uma Habilidade mostra o botão "🎯 Acerto na Cabeça" — parecido
+// com habilidadeEhLongoAlcance (mesma lógica dinâmica pra Ataque com
+// Arma/2 Armas, conforme o que está equipado), mas usando
+// HABILIDADES_MIRA_CABECA_FIXA em vez de HABILIDADES_LONGO_ALCANCE pra
+// parte fixa — assim Habilidades que só têm o badge "Longo Alcance"
+// visual (ex: Sopros de Dragão, que atingem todos no feixe) não ganham
+// esse botão junto.
+function permiteMiraCabeca(p, sk) {
+  if (sk.id === 'sk_geral_ataque_com_arma') return armaEhLongoAlcance(getArmaEquipadaPrincipal(p));
+  if (sk.id === 'sk_geral_ataque_com_2_armas') {
+    return armaEhLongoAlcance(getArmaEquipadaPrincipal(p)) || armaEhLongoAlcance(getArmaSecundariaEquipada(p));
+  }
+  return HABILIDADES_MIRA_CABECA_FIXA.has(sk.id);
 }
 
 // Mirar na Cabeça: penalidade fixa no Acerto de Habilidades de Longo
@@ -780,11 +810,6 @@ function rolarAcertoNaCabecaClick(pid, skid) {
 const HABILIDADES_SEM_ACERTO = new Set([
   'sk_racial_dragao_metamorfose',
   'sk_racial_dragao_iniciar_voo',
-  'sk_origem_dragao_sopro_fogo',
-  'sk_origem_dragao_sopro_arcano',
-  'sk_origem_dragao_sopro_radioativo',
-  'sk_origem_dragao_sopro_sonhos',
-  'sk_origem_dragao_sopro_magma',
   'sk_geral_teste_mental',
   'sk_geral_arsenal',
   'sk_origem_draenei_forjado_luz',

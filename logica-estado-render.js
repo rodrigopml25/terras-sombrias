@@ -924,12 +924,13 @@ function renderBotoesHabilidade(p, sk, ready) {
     return `<button class="sk-btn" onclick="event.stopPropagation();useSkill(${p.id},'${sk.id}')" ${!ready?'disabled':''}>Usar Efeito</button>
       <button class="sk-btn sk-btn-falhou" onclick="event.stopPropagation();falharHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Gasta a Ação e coloca a Habilidade em recarga, sem aplicar o efeito">Falhou</button>`;
   }
-  // "Acerto na Cabeça": só pra Habilidades de Longo Alcance (ver
-  // habilidadeEhLongoAlcance) — mesmo Acerto normal, mas com penalidade fixa
+  // "Acerto na Cabeça": só pra Habilidades na lista fixa de Mira na Cabeça
+  // ou Ataque com Arma/2 Armas de longo alcance (ver permiteMiraCabeca) —
+  // mesmo Acerto normal, mas com penalidade fixa
   // (-8 Agilidade/Força, -4 Intelecto — ver penalidadeMiraCabeca) e, se
   // acertar, dobra os dados de Dano da próxima rolagem (ver
   // rolarAcertoNaCabecaClick).
-  const cabecaBtn = habilidadeEhLongoAlcance(p, sk)
+  const cabecaBtn = permiteMiraCabeca(p, sk)
     ? `<button class="sk-btn sk-btn-acerto" style="background:rgba(74,143,212,0.15);color:var(--blue)" onclick="event.stopPropagation();rolarAcertoNaCabecaClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Mira na Cabeça: mesmo Acerto, com -8 de penalidade (Agilidade/Força) ou -4 (Intelecto) — se acertar, o Dano sai com os dados dobrados">🎯 Acerto na Cabeça</button>`
     : '';
   return `<button class="sk-btn sk-btn-acerto" onclick="event.stopPropagation();rolarAcertoHabilidadeClick(${p.id},'${sk.id}')" ${!ready?'disabled':''} title="Rola 1d20 + maestria + bônus, só pra checar se acertou — não gasta a Habilidade">🎯 Acerto</button>${cabecaBtn}`;
@@ -4060,7 +4061,7 @@ function rolarAcertoAtaqueGeral(pid, skid) {
 // opts.mirarCabeca ligado (penalidade no Acerto e dobro de Dano na Arma
 // equipada da mão principal se acertar, ver construirRolagemAcertoArma/
 // construirRolagemDanoArma). Botão "🎯 Acerto na Cabeça", só aparece quando
-// habilidadeEhLongoAlcance for true pra essa Habilidade (ver renderBotoesHabilidade).
+// permiteMiraCabeca for true pra essa Habilidade (ver renderBotoesHabilidade).
 function rolarAcertoAtaqueGeralCabeca(pid, skid) {
   const p = PLAYERS.find(x => x.id === pid);
   const sk = p && p.skills.find(s => s.id === skid);
