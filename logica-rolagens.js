@@ -779,6 +779,7 @@ function rolarAcertoNaCabecaClick(pid, skid) {
 // parte de custo/efeito).
 const HABILIDADES_SEM_ACERTO = new Set([
   'sk_racial_dragao_metamorfose',
+  'sk_racial_dragao_iniciar_voo',
   'sk_geral_teste_mental',
   'sk_geral_arsenal',
   'sk_origem_draenei_forjado_luz',
