@@ -170,6 +170,12 @@ function applyData(data) {
     if (typeof p.pontosPendentes !== 'number') p.pontosPendentes = 0;
     if (typeof p.dinheiro !== 'number') p.dinheiro = 100;
     if (typeof p.cristais !== 'number') p.cristais = 0;
+    // Dinheiro Falso (passiva "Falsificador", Mercenário) — começa com 50 e
+    // fica limitado a esse teto (ver adjDinheiroFalso/setDinheiroFalso).
+    if (temPassivaSubclasse(p, 'mercenario_falsificador')) {
+      if (typeof p.dinheiroFalso !== 'number') p.dinheiroFalso = DINHEIRO_FALSO_MAX;
+      p.dinheiroFalso = Math.max(0, Math.min(DINHEIRO_FALSO_MAX, p.dinheiroFalso));
+    }
     // Migração: ações por turno — fichas antigas ainda não têm o campo
     if (typeof p.acoesMax !== 'number') p.acoesMax = ACOES_POR_TURNO_PADRAO;
     if (typeof p.acoesAtuais !== 'number') p.acoesAtuais = p.acoesMax;
@@ -1911,6 +1917,27 @@ function setCristais(id, val) {
   saveState(); renderAll();
 }
 
+// Dinheiro Falso (passiva "Falsificador" do Mercenário) — mesmo padrão de
+// Cristais, mas com teto fixo de 50 (ver temPassivaSubclasse/DINHEIRO_FALSO_MAX
+// e o bloco condicional no stat-block do renderJogador).
+const DINHEIRO_FALSO_MAX = 50;
+
+function adjDinheiroFalso(id, d) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  p.dinheiroFalso = Math.max(0, Math.min(DINHEIRO_FALSO_MAX, (p.dinheiroFalso || 0) + d));
+  saveState(); renderAll();
+}
+
+function setDinheiroFalso(id, val) {
+  const p = PLAYERS.find(x => x.id === id);
+  if (!p) return;
+  const v = parseInt(val);
+  if (isNaN(v)) { renderAll(); return; }
+  p.dinheiroFalso = Math.max(0, Math.min(DINHEIRO_FALSO_MAX, v));
+  saveState(); renderAll();
+}
+
 function adjDinheiro(id, d) {
   const p = PLAYERS.find(x => x.id === id);
   if (!p) return; p.dinheiro = Math.max(0, (p.dinheiro || 0) + d);
@@ -2258,6 +2285,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         <div class="mini-stats">
           <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.trovoadaMegaVantagemAtiva ? `<span class="mstat mstat-grito" title="Trovoada: Mega Vantagem em Aparar até o próximo turno">⚡ Trovoada</span>` : ''}${p.auraDeFenixAtiva ? `<span class="mstat mstat-grito" title="Aura de Fênix: Asas de Fogo até o final da Luta/Cena — +10 de Passos e +1d6 de Vantagem em ataques de longo alcance enquanto voando">🔥 Aura de Fênix</span>` : ''}${p.auxilioElementarFogoCargas > 0 ? `<span class="mstat mstat-grito" title="Auxílio Elementar (Fogo): +1d6 de Dano nos próximos ataques com Arma">🔥 Aux. Elem. (${p.auxilioElementarFogoCargas})</span>` : ''}${p.encantamentoFlamejanteAtivo ? `<span class="mstat mstat-grito" title="Encantamento Flamejante: +1d6 de Dano (atravessa Armadura) em todos os ataques até o final do turno">🔥 Enc. Flamejante</span>` : ''}${p.encantamentoRochosoAtivo ? `<span class="mstat mstat-grito" title="Encantamento Rochoso: pendente pro próximo Aparo — se acertar, (1d4)d6 de Dano; se errar, pode causar (1d2)d6 mesmo assim">🪨 Enc. Rochoso</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${p.forcaColossalTesteForcaPendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d10 de Vantagem no próximo Teste de Força (Aparar/Arremessar/Empurrar/Resistir)">💪 F. Colossal</span>` : ''}${p.forcaColossalDanoGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d8 de Dano no próximo Golpe">🩸 F. Colossal</span>` : ''}${p.forcaColossalMegaVantagemGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: Mega Vantagem no Acerto do próximo Golpe, só neste turno">⚡ F. Colossal</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
+          ${temPassivaSubclasse(p, 'mercenario_falsificador') ? `<span class="mstat" style="color:var(--amber)" title="Dinheiro Falso">🪙 ${p.dinheiroFalso || 0}/${DINHEIRO_FALSO_MAX}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
         </div>
         <button class="prow-edit-btn ${skillsExpanded ? 'prow-passiva-on' : ''}" onclick="toggleNarSkills(${p.id})" title="Ver habilidades agrupadas por atributo"><i class="ti ti-sword"></i></button>
@@ -2373,6 +2401,15 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
             <button onclick="adjCristais(${p.id},-1)">−1</button>
             <input type="number" class="nar-ctrl-input" value="${p.cristais || 0}" onchange="setCristais(${p.id}, this.value)">
             <button onclick="adjCristais(${p.id},+1)">+1</button>
+          </div>
+        </div>` : ''}
+        ${temPassivaSubclasse(p, 'mercenario_falsificador') ? `
+        <div class="nar-ctrl-group">
+          <span class="nar-ctrl-lbl">🪙 Dinheiro Falso</span>
+          <div class="nar-ctrl-btns">
+            <button onclick="adjDinheiroFalso(${p.id},-1)">−1</button>
+            <input type="number" class="nar-ctrl-input" value="${p.dinheiroFalso || 0}" onchange="setDinheiroFalso(${p.id}, this.value)">
+            <button onclick="adjDinheiroFalso(${p.id},+1)">+1</button>
           </div>
         </div>` : ''}
         ${p.isNPC ? '' : `<div class="nar-ctrl-group">
@@ -3211,6 +3248,15 @@ function renderJogador() {
           <button onclick="adjCristais(${p.id},-1)">−1</button>
           <input type="number" class="stat-input" value="${p.cristais || 0}" onchange="setCristais(${p.id}, this.value)">
           <button onclick="adjCristais(${p.id},+1)">+1</button>
+        </div>
+      </div>` : ''}
+      ${temPassivaSubclasse(p, 'mercenario_falsificador') ? `
+      <div class="stat-block">
+        <div class="stat-row"><span class="stat-lbl"><i class="ti ti-currency-dollar-off" style="color:var(--amber)"></i> Dinheiro Falso</span><span class="stat-val" style="color:var(--amber)">${p.dinheiroFalso || 0} / ${DINHEIRO_FALSO_MAX}</span></div>
+        <div class="arm-ctrl arm-ctrl-3">
+          <button onclick="adjDinheiroFalso(${p.id},-1)">−1</button>
+          <input type="number" class="stat-input" value="${p.dinheiroFalso || 0}" onchange="setDinheiroFalso(${p.id}, this.value)">
+          <button onclick="adjDinheiroFalso(${p.id},+1)">+1</button>
         </div>
       </div>` : ''}
     </div>
