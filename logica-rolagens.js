@@ -808,6 +808,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_soldado_elementar_encantamento_gelido',
   'sk_banco_soldado_elementar_encantamento_rochoso',
   'sk_banco_soldado_elementar_elementar',
+  'sk_banco_soldado_elementar_troca_elementar',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar

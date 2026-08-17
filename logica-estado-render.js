@@ -1055,7 +1055,13 @@ function consumirRecursosHabilidade(pid, skid) {
 
   // Ações do turno: habilidades com custo (0/1/2 ações) descontam do saldo
   // atual do personagem. Sem saldo suficiente, a ativação é bloqueada.
-  const custo = sk.cost || 0;
+  // "Troca Elementar" (Soldado Elementar): -1 Ação no próximo lançamento do
+  // Encantamento escolhido (ver abrirTrocaElementarModal/
+  // escolherTrocaElementar) — consumido aqui, na hora de descontar.
+  let custo = sk.cost || 0;
+  if (sk.custoReduzidoTrocaElementarPendente) {
+    custo = Math.max(0, custo - 1);
+  }
   if (custo > 0) {
     const atuais = p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO;
     if (atuais < custo) {
@@ -1104,6 +1110,12 @@ function consumirRecursosHabilidade(pid, skid) {
   // (sem poder ser Aparada) na próxima Habilidade.
   if (sk.id === 'sk_racial_orc_furia') {
     p.furiaOrcAtiva = true;
+  }
+
+  // "Troca Elementar" (Soldado Elementar): a marca de -1 Ação já foi
+  // aplicada acima (se estava ligada) — consumida aqui, só 1 uso.
+  if (sk.custoReduzidoTrocaElementarPendente) {
+    sk.custoReduzidoTrocaElementarPendente = false;
   }
 
   // "Treinamento Militar" (Orc): liga a marca no próximo Aparar — ele fica
@@ -1474,6 +1486,14 @@ function useSkill(pid, skid) {
   // Gélido isolado).
   if (sk.id === 'sk_banco_soldado_elementar_elementar' || sk.bancoId === 'soldado_elementar_elementar') {
     rolarElementar(pid);
+  }
+
+  // "Troca Elementar" (Soldado Elementar): não "acerta" nada (ver
+  // HABILIDADES_SEM_ACERTO) — abre a escolha de QUAL dos 4 Encantamentos
+  // (Ar/Flamejante/Gélido/Rochoso) recebe o benefício (ver
+  // abrirTrocaElementarModal/escolherTrocaElementar).
+  if (sk.id === 'sk_banco_soldado_elementar_troca_elementar' || sk.bancoId === 'soldado_elementar_troca_elementar') {
+    abrirTrocaElementarModal(pid);
   }
 
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
@@ -2154,12 +2174,13 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
           && sk.id === PANDAREN_FORMAS_SOMBRIAS[p.formaSombriaId].skillNeutra.id;
         const formaSombriaAtivaBadge = formaSombriaAtivaChip ? `<span class="chip-badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)" title="Clique para desativar a Forma Sombria">🐼 Desativar</span>` : '';
         const longoAlcanceBadge = habilidadeEhLongoAlcance(p, sk) ? `<span class="chip-badge" style="background:rgba(74,143,212,0.15);color:var(--blue);border:1px solid var(--blue-bd)" title="Habilidade de longo alcance">🎯</span>` : '';
+        const trocaElementarBadge = sk.custoReduzidoTrocaElementarPendente ? `<span class="chip-badge" style="background:rgba(74,143,212,0.15);color:var(--blue);border:1px solid var(--blue-bd)" title="Troca Elementar — −1 Ação no próximo lançamento">🌀 −1 Ação</span>` : '';
         const podeRecarregar = !temUso && ['turno_N','luta','sessao','perturn'].includes(sk.tipo);
         const recarregarBtn = podeRecarregar
           ? `<button class="chip-reload-btn" onclick="event.stopPropagation();recarregarHabilidadeNarrador(${p.id},'${sk.id}')" title="Recarregar agora"><i class="ti ti-reload"></i></button>`
           : '';
         return `<div class="skill-chip sc-${cor} ${(ready || formaSombriaAtivaChip)?'':'used'}" onclick="useSkill(${p.id},'${sk.id}')" title="${sk.name}\n${lendarioTooltip}${descTooltip}${corromperTooltip}${statusTooltip}${efeitoSecTxt}">
-          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${magharBadge}${filosofiaBadge}${furiaOrcHabBadge}${bloqueadaBadge}${formaSombriaAtivaBadge}${longoAlcanceBadge}${extra}${recarregarBtn}
+          <span class="chip-dot"></span><span class="chip-name">${sk.lendario ? '✨ ' : ''}${sk.ritualMacabro ? '🌀 ' : ''}${sk.encantamentoItemId ? '🔮 ' : ''}${sk.name}</span><span class="chip-badge">${tipoLabel(sk)}</span>${efeitoSecBadge}${magharBadge}${filosofiaBadge}${furiaOrcHabBadge}${bloqueadaBadge}${formaSombriaAtivaBadge}${longoAlcanceBadge}${trocaElementarBadge}${extra}${recarregarBtn}
         </div>`;
       }).join('');
       gruposHtml += `<div class="nar-skill-group">
@@ -2800,6 +2821,7 @@ function renderJogador() {
         </div>
         <div class="sk-tags">
           <span class="sk-tag">${sk.cost===0?'0 ações':sk.cost===1?'1 ação':'2 ações'}</span>
+          ${sk.custoReduzidoTrocaElementarPendente ? `<span class="sk-tag" style="background:rgba(74,143,212,0.15);color:var(--blue)" title="Troca Elementar: −1 Ação no próximo lançamento">🌀 −1 Ação (Troca Elementar)</span>` : ''}
           <span class="sk-tag">${tipoLabel(sk)}</span>
           ${mstTagCard}
           ${habilidadeEhLongoAlcance(p, sk) ? `<span class="sk-tag" style="background:rgba(74,143,212,0.15);color:var(--blue)" title="Habilidade de longo alcance">🎯 Longo Alcance</span>` : ''}

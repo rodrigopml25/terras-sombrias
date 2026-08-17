@@ -2731,6 +2731,72 @@ function rolarElementar(pid) {
   renderAll();
 }
 
+// "Troca Elementar" (Soldado Elementar): escolhe QUAL dos 4 Encantamentos
+// (Ar/Flamejante/Gélido/Rochoso) recebe -1 turno de recarga (imediato, se
+// estiver em recarga) e -1 Ação no custo do próximo lançamento (marca
+// `sk.custoReduzidoTrocaElementarPendente`, consumida em
+// consumirRecursosHabilidade). Só lista os que o personagem já tem escolhidos
+// na ficha (não faz sentido reduzir recarga de uma Habilidade que ele não
+// possui).
+function abrirTrocaElementarModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+
+  const IDS_ENCANTAMENTOS = [
+    ['sk_banco_soldado_elementar_encantamento_do_ar', '💨 Encantamento do Ar'],
+    ['sk_banco_soldado_elementar_encantamento_flamejante', '🔥 Encantamento Flamejante'],
+    ['sk_banco_soldado_elementar_encantamento_gelido', '❄️ Encantamento Gélido'],
+    ['sk_banco_soldado_elementar_encantamento_rochoso', '🪨 Encantamento Rochoso'],
+  ];
+  const disponiveis = IDS_ENCANTAMENTOS
+    .map(([skid, label]) => [p.skills.find(s => s.id === skid), label])
+    .filter(([sk]) => !!sk);
+
+  if (!disponiveis.length) {
+    alert(`${p.name} ainda não tem nenhum Encantamento Elementar escolhido na ficha.`);
+    return;
+  }
+
+  const opcoesHtml = disponiveis.map(([sk, label]) => {
+    const emRecarga = sk.tipo === 'turno_N' && sk.cdRestante > 0;
+    const info = emRecarga
+      ? `Recarga: ${sk.cdRestante} turno${sk.cdRestante > 1 ? 's' : ''} → ${sk.cdRestante - 1}`
+      : 'Já pronto';
+    return `<button class="tm-opcao tm-opcao-blue" onclick="escolherTrocaElementar(${p.id},'${sk.id}')">
+      <span class="tm-opcao-nome">${label}</span>
+      <span class="tm-opcao-info">${info} · próximo lançamento: -1 Ação</span>
+    </button>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-recycle"></i> Troca Elementar</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        Em qual Encantamento ${escHtml(p.name)} se concentra?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">${opcoesHtml}</div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherTrocaElementar(pid, skidAlvo) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const sk = p && p.skills.find(s => s.id === skidAlvo);
+  if (!p || !sk) return;
+
+  if (sk.tipo === 'turno_N' && sk.cdRestante > 0) {
+    sk.cdRestante = Math.max(0, sk.cdRestante - 1);
+    if (sk.cdRestante === 0) sk.usosAtuais = sk.usosMax;
+  }
+  sk.custoReduzidoTrocaElementarPendente = true;
+
+  fecharCriacaoAnaoModal();
+  saveState();
+  renderAll();
+}
+
 // "Recurso" (Habilidade Geral): pergunta qual tipo de item pegar. Pequeno,
 // Médio e Grande têm o custo em Dinheiro decidido por dado (1 do dado = 25 de
 // Dinheiro: Pequeno 1d2, Médio 1d4, Grande 1d6) e abrem a tela normal de
