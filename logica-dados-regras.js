@@ -2706,6 +2706,31 @@ function rolarEncantamentoDoAr(pid) {
   renderAll();
 }
 
+// "Elementar..." (Soldado Elementar): coloca os 4 Encantamentos (Ar,
+// Flamejante, Gélido, Rochoso) na Arma equipada de uma vez só — reaproveita
+// as mesmas marcas/automação já implementadas pra cada um isoladamente, sem
+// duplicar lógica. Precisa de uma Arma/Instrumento equipado (mesmo
+// requisito do Encantamento do Ar sozinho).
+function rolarElementar(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = getArmaEquipadaPrincipal(p);
+  if (!item || item.id === 'sem_arma') {
+    alert(`${p.name} precisa estar com uma Arma/Instrumento equipado na mão principal pra receber os Encantamentos.`);
+    return;
+  }
+
+  const jaEraLongo = armaEhLongoAlcance(item);
+  item.encantamentoArAtivo = true;
+  p.encantamentoFlamejanteAtivo = true;
+  p.encantamentoRochosoAtivo = true;
+
+  alert(`${p.name} coloca 4 Encantamentos em ${item.name}, todos com a mesma duração:\n\n💨 Ar: ataques a longa distância (${jaEraLongo ? '12' : '6'} Casas)\n🔥 Flamejante: +1d6 de Dano (atravessa Armadura) em todos os ataques\n❄️ Gélido: no próximo ataque, o Alvo tem -1d8 de Desvantagem pra Aparar e perde a Ação de Movimento até o início do seu próximo turno (resolvido na mesa)\n🪨 Rochoso: no próximo Aparo, se acertar causa (1d4)d6 de Dano; se errar, pode causar (1d2)d6 mesmo assim`);
+
+  saveState();
+  renderAll();
+}
+
 // "Recurso" (Habilidade Geral): pergunta qual tipo de item pegar. Pequeno,
 // Médio e Grande têm o custo em Dinheiro decidido por dado (1 do dado = 25 de
 // Dinheiro: Pequeno 1d2, Médio 1d4, Grande 1d6) e abrem a tela normal de

@@ -1465,6 +1465,17 @@ function useSkill(pid, skid) {
     renderAll();
   }
 
+  // "Elementar..." (Soldado Elementar): não "acerta" nada (ver
+  // HABILIDADES_SEM_ACERTO) — coloca os 4 Encantamentos na Arma equipada de
+  // uma vez, cada um reaproveitando a automação que já existe pra ele
+  // isoladamente (ver rolarEncantamentoDoAr/encantamentoFlamejanteAtivo/
+  // encantamentoRochosoAtivo). O Gélido continua narrativo (efeito recai
+  // sobre um Alvo — sem seleção de Alvo no app, mesmo caso do Encantamento
+  // Gélido isolado).
+  if (sk.id === 'sk_banco_soldado_elementar_elementar' || sk.bancoId === 'soldado_elementar_elementar') {
+    rolarElementar(pid);
+  }
+
   // "Beber Poção" (Habilidade Geral): não "acerta" nada (ver
   // HABILIDADES_SEM_ACERTO), então o efeito já resolve aqui. Se o Inventário
   // tiver alguma "Poção de Cura", abre a escolha entre os dois efeitos de
