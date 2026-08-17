@@ -806,6 +806,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_soldado_elementar_encantamento_do_ar',
   'sk_banco_soldado_elementar_encantamento_flamejante',
   'sk_banco_soldado_elementar_encantamento_gelido',
+  'sk_banco_soldado_elementar_encantamento_rochoso',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
@@ -1630,11 +1631,123 @@ function rolarTeste(pid, testeId) {
     }
   }
 
+  // "Encantamento Rochoso" (Soldado Elementar): a marca fica ativa até o
+  // PRÓXIMO Teste de Aparar de verdade (este aqui) — abre a pergunta de
+  // acertou/errou o Aparo (sem CD automático no app, mesmo padrão do Teste
+  // de Resistência do Ataque Giratório — ver
+  // abrirEncantamentoRochosoResultadoModal).
+  if (testeId === 'aparar' && p.encantamentoRochosoAtivo) {
+    setTimeout(() => abrirEncantamentoRochosoResultadoModal(pid), ROLL_ANIM_MS + 250);
+  }
+
   // Abre o painel de dados na aba Histórico para o resultado aparecer na hora.
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
 
   return r.total;
+}
+
+// "Encantamento Rochoso" (Soldado Elementar): pergunta se o Teste de Aparar
+// que acabou de rolar (com a marca ativa) acertou o atacante — o app não
+// tem CD automático de Teste, então quem decide é o jogador/narrador.
+function abrirEncantamentoRochosoResultadoModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p || !p.encantamentoRochosoAtivo) return;
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-mountain"></i> Encantamento Rochoso</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        A Arma de ${escHtml(p.name)} está Petrificada — esse Aparo acertou o atacante?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="resolverEncantamentoRochoso(${p.id},true)">
+          <span class="tm-opcao-nome">✅ Sim, acertou</span>
+          <span class="tm-opcao-info">A pedra quebra e causa (1d4)d6 de Dano</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="resolverEncantamentoRochoso(${p.id},false)">
+          <span class="tm-opcao-nome">❌ Não, errou o Aparo</span>
+          <span class="tm-opcao-info">Ainda dá pra escolher quebrar a pedra</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Decidir depois</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function resolverEncantamentoRochoso(pid, acertouAparo) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  if (acertouAparo) {
+    rolarDanoEncantamentoRochoso(pid, '(1d4)d6', '🪨 Encantamento Rochoso — Aparo certeiro');
+    return;
+  }
+  // Errou o Aparo — mesmo assim pode escolher quebrar a pedra por menos Dano.
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  if (!overlay) return;
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-mountain"></i> Encantamento Rochoso</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        Mesmo errando o Aparo, ${escHtml(p.name)} quer quebrar a pedra e causar (1d2)d6 de Dano no atacante?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="rolarDanoEncantamentoRochoso(${p.id},'(1d2)d6','🪨 Encantamento Rochoso — quebrada mesmo errando')">
+          <span class="tm-opcao-nome">💥 Sim, quebrar a pedra</span>
+          <span class="tm-opcao-info">(1d2)d6 de Dano — o Encantamento acaba</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="fecharCriacaoAnaoModal()">
+          <span class="tm-opcao-nome">🪨 Não, manter a pedra intacta</span>
+          <span class="tm-opcao-info">O Encantamento continua ativo pro próximo Aparo</span>
+        </button>
+      </div>
+    </div>`;
+}
+
+// Rola uma fórmula composta (ex: "(1d4)d6") pro Encantamento Rochoso e
+// publica no feed — reaproveita o parser de fórmulas avançadas que já
+// existe (parseFormula), então "(1d4)d6"/"(1d2)d6" funcionam de verdade
+// (rola o d4/d2 primeiro, e o resultado vira a quantidade de d6 a rolar).
+function rolarDanoEncantamentoRochoso(pid, formula, label) {
+  if (!currentUser) return;
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  fecharCriacaoAnaoModal();
+
+  let parsed;
+  try { parsed = parseFormula(formula); } catch (e) { return; }
+
+  // "Depois do dano, o encantamento acaba."
+  p.encantamentoRochosoAtivo = false;
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: label,
+    tree: { type: 'sum', terms: [{ sign: '+', node: parsed.node }] },
+    total: parsed.value,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+  };
+
+  spinDiceFab(true, 6);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  saveState();
+  renderAll();
+}
+
+function desativarEncantamentoRochoso(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  p.encantamentoRochosoAtivo = false;
+  saveState();
+  renderAll();
 }
 
 // ─── Modal de escolha de Teste — habilidade "Teste Mental" ─────────────────
