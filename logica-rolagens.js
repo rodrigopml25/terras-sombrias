@@ -812,6 +812,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_racial_dragao_iniciar_voo',
   'sk_racial_orc_furia',
   'sk_racial_orc_treinamento_militar',
+  'sk_forma_bombado_fruto_proibido',
   'sk_geral_teste_mental',
   'sk_geral_arsenal',
   'sk_origem_draenei_forjado_luz',
