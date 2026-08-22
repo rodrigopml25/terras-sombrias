@@ -3623,6 +3623,74 @@ function rolarInvestidaBruta(pid, sk) {
   });
 }
 
+// "Ataque Corrosivo" (Mercenário): mantém o Acerto normal (não entra em
+// HABILIDADES_SEM_ACERTO) — "Usar Efeito" rola o Dano normal da Arma
+// equipada na mão principal (fórmula + Maestria + bônus de item, igual a
+// um "Ataque com Arma" comum — ver construirRolagemDanoArma, incluindo o
+// dobro de dados se a Arma tiver Crítico/Mira na Cabeça pendente) somado a
+// +2d2 de Dano direto na Armadura. Se a soma dos 2d2 for 4, o ácido também
+// atinge o Alvo: encadeia +1d4 de Dano direto na Vida (atravessa
+// Armadura); se ESSE d4 também sair 4, rola outro +1d4, e assim
+// sucessivamente enquanto continuar saindo 4 (efeito infinito do texto da
+// Habilidade).
+function rolarDanoAtaqueCorrosivo(pid, sk) {
+  if (!currentUser) return;
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  const item = getArmaEquipadaPrincipal(p);
+  const base = construirRolagemDanoArma(p, item, {});
+  if (!base) return;
+
+  const terms = base.tree.terms.slice();
+  let total = base.total;
+
+  const a1 = 1 + Math.floor(Math.random() * 2);
+  const a2 = 1 + Math.floor(Math.random() * 2);
+  const acidoSoma = a1 + a2;
+  terms.push({ sign: '+', node: { type: 'dice', sides: 2, count: 2, results: [a1, a2], sum: acidoSoma, countNode: null, label: '🧪 Ácido — Armadura' } });
+  total += acidoSoma;
+
+  let atingiuAlvo = false;
+  if (acidoSoma === 4) {
+    atingiuAlvo = true;
+    let continuar = true;
+    while (continuar) {
+      const vRoll = 1 + Math.floor(Math.random() * 4);
+      terms.push({ sign: '+', node: { type: 'dice', sides: 4, count: 1, results: [vRoll], sum: vRoll, countNode: null, label: '🧪 Ácido — Vida (atravessa Armadura)' } });
+      total += vRoll;
+      continuar = (vRoll === 4);
+    }
+  }
+
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `${base.formula} + 🧪 Ataque Corrosivo`,
+    tree: { type: 'sum', terms },
+    total,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+    ...(atingiuAlvo ? { label: '🧪 Ácido atingiu o Alvo! +1d4 de Dano direto na Vida (atravessa Armadura)' } : {}),
+  };
+
+  spinDiceFab(true, 6);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+
+  // item.critPendente/miraCabecaPendente podem ter sido consumidos dentro
+  // de construirRolagemDanoArma (mesma correção de sempre — salva e
+  // re-renderiza pra valer pra mesa inteira).
+  saveState();
+  renderAll();
+
+  if (!dicePanelOpen) toggleDicePanel();
+  else if (dicePanelTab !== 'feed') switchDiceTab('feed');
+}
+
 // "Troca de Mestre" (Subclasse Combatente): mantém o Acerto normal (não
 // entra em HABILIDADES_SEM_ACERTO) — "Usar Efeito" rola de cara o 1º ataque
 // (7 de Dano fixo + Dano da Arma atualmente equipada + Maestria de Força +

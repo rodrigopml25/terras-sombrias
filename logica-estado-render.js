@@ -1409,6 +1409,17 @@ function useSkill(pid, skid) {
     return;
   }
 
+  // "Ataque Corrosivo" (Mercenário): "Usar Efeito" rola o Dano normal da
+  // Arma equipada (fórmula + Maestria + bônus de item — ver
+  // construirRolagemDanoArma) + 2d2 direto na Armadura; se a soma dos 2d2
+  // for 4, encadeia +1d4 de Dano direto na Vida (atravessa Armadura), e se
+  // esse d4 também sair 4, rola outro +1d4, e assim por diante enquanto
+  // continuar saindo 4 — ver rolarDanoAtaqueCorrosivo.
+  if (sk.id === 'mercenario_ataque_corrosivo' || sk.bancoId === 'mercenario_ataque_corrosivo') {
+    rolarDanoAtaqueCorrosivo(pid, sk);
+    return;
+  }
+
   // "Troca de Mestre" (Subclasse Combatente): "Usar Efeito" rola o 1º
   // ataque (7 fixo + Dano da Arma equipada + Maestria FOR + bônus) e depois
   // abre a escolha de outra Arma pra trocar, disparando o 2º ataque (só a
