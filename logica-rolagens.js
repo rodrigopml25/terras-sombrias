@@ -846,6 +846,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_soldado_elementar_elementar',
   'sk_banco_soldado_elementar_troca_elementar',
   'sk_banco_mercenario_aposta',
+  'sk_banco_mercenario_intuicao_mercenaria',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
