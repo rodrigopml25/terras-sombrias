@@ -2490,6 +2490,70 @@ function abrirAuxilioElementarModal(pid) {
   overlay.classList.add('open');
 }
 
+// "Aposta" (Mercenário): não "acerta" nada (ver HABILIDADES_SEM_ACERTO) —
+// abre a escolha entre os 4 resultados possíveis do PRÓXIMO Dado (Erro
+// Crítico / Erro / Acerto / Acerto Crítico). Fica pendente (p.apostaPendente
+// + p.apostaEscolha) até a próxima Ação ou Teste de verdade for rolada
+// (Teste, Acerto de Habilidade ou Acerto de Arma — os mesmos 3 pontos onde
+// Motivar é consumido), comparando o resultado real com a escolha (ver
+// resolverApostaAposRolagem em logica-rolagens.js). Se acertar a aposta,
+// vira +1d12 de Vantagem (p.apostaVantagemPendente) na Ação/Teste SEGUINTE
+// a essa; se errar, -1d8 de Desvantagem (p.apostaDesvantagemPendente) —
+// mesmo padrão de "próxima rolagem" do Motivar, só que com uma rolagem de
+// atraso a mais (primeiro resolve a aposta, só a rolagem DEPOIS dela recebe
+// o bônus/penalidade).
+const APOSTA_OPCOES = [
+  { id: 'erro_critico', label: '💀 Erro Crítico' },
+  { id: 'erro', label: '❌ Erro' },
+  { id: 'acerto', label: '✅ Acerto' },
+  { id: 'critico', label: '🎯 Acerto Crítico' },
+];
+
+function apostaLabelEscolha(escolha) {
+  const opt = APOSTA_OPCOES.find(o => o.id === escolha);
+  return opt ? opt.label : (escolha || '');
+}
+
+function abrirApostaModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p) return;
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:400px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-dice"></i> Aposta</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        "Qual será o valor do seu próximo Dado?" Escolha o resultado da próxima Ação ou Teste de ${escHtml(p.name)}. Acertando, +1d12 de Vantagem na rolagem seguinte; errando, -1d8 de Desvantagem.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${APOSTA_OPCOES.map(o => `
+        <button class="tm-opcao tm-opcao-blue" onclick="escolherAposta(${p.id},'${o.id}')">
+          <span class="tm-opcao-nome">${o.label}</span>
+        </button>`).join('')}
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Cancelar</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function escolherAposta(pid, escolha) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  fecharCriacaoAnaoModal();
+  p.apostaPendente = true;
+  p.apostaEscolha = escolha;
+  saveState();
+  renderAll();
+}
+
+function desativarAposta(pid) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  p.apostaPendente = false;
+  p.apostaEscolha = null;
+  saveState();
+  renderAll();
+}
+
 function escolherAuxilioElementar(pid, opcao) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p) return;

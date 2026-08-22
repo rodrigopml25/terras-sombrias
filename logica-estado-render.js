@@ -809,6 +809,21 @@ function construirRolagemAcertoArma(p, item, opts) {
     p.motivarPendente = false;
   }
 
+  // "Aposta" (Mercenário): mesmo bônus/penalidade de +1d12/-1d8 do Teste/
+  // Acerto de Habilidade (ver construirRolagemTeste) — atacar com Arma
+  // também conta como "próxima Ação ou Teste" pro efeito da Aposta.
+  if (p.apostaVantagemPendente) {
+    const apRoll = 1 + Math.floor(Math.random() * 12);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 12, count: 1, results: [apRoll], sum: apRoll, countNode: null, label: 'Aposta' } });
+    total += apRoll;
+    p.apostaVantagemPendente = false;
+  } else if (p.apostaDesvantagemPendente) {
+    const apRoll = 1 + Math.floor(Math.random() * 8);
+    terms.push({ sign: '-', node: { type: 'dice', sides: 8, count: 1, results: [apRoll], sum: apRoll, countNode: null, label: 'Aposta' } });
+    total -= apRoll;
+    p.apostaDesvantagemPendente = false;
+  }
+
   // "Aura de Fênix" (Soldado Elementar): +1d6 de Vantagem em ataques de
   // longo alcance enquanto o badge estiver ativo (voando) — só vale se a
   // Arma usada nesta rolagem for de longo alcance (ver armaEhLongoAlcance).
@@ -886,6 +901,12 @@ function rolarAcertoArma(pid, itemId, opts) {
   // rolarTeste/rolarAcertoHabilidade).
   saveState();
   renderAll();
+
+  // "Aposta" (Mercenário): este Acerto de Arma é a próxima Ação/Teste depois
+  // de uma Aposta pendente? Ver resolverApostaAposRolagem em
+  // logica-rolagens.js (critInfo já foi calculado acima, pro crítico da
+  // própria Arma — reaproveitado aqui).
+  resolverApostaAposRolagem(pid, critInfo);
 
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
@@ -1224,6 +1245,15 @@ function useSkill(pid, skid) {
   // (automatizado de verdade — ver abrirConclamarModal/escolherConclamar).
   if (sk.id === 'sk_banco_campeao_conclamar' && combatAtivo) {
     abrirConclamarModal(pid);
+    return;
+  }
+
+  // "Aposta" (Mercenário): abre a escolha entre os 4 resultados possíveis
+  // do próximo Dado (ver abrirApostaModal/escolherAposta em
+  // logica-dados-regras.js) — a resolução em si só acontece na PRÓXIMA
+  // Ação/Teste rolado (ver resolverApostaAposRolagem em logica-rolagens.js).
+  if (sk.id === 'sk_banco_mercenario_aposta' || sk.bancoId === 'mercenario_aposta') {
+    abrirApostaModal(pid);
     return;
   }
 
@@ -2283,7 +2313,7 @@ function renderNarradorGroup(list, containerId, editable, isBank) {
         <div class="av" style="background:${av.bg};color:${av.color}">${p.name.slice(0,2).toUpperCase()}</div>
         <div><div class="prow-name">${p.name}${npcTipoBadge}${pendBadge}${pendHabBadge}${pendTalentoBadge}${pendTalentoSuperiorBadge}${pendFeiticoLendarioBadge}${pendRitualMacabroBadge}${formaDragaoBadge}${formaSombriaBadge}${pendFormaSombriaBadge}${dueloBadge}${furiaBadge}</div><div class="prow-sub">${[p.race + origemSubLabel, p.classeBase || p.cls, p.classeBase ? p.cls : null, p.isNPC ? null : 'Nv ' + p.level].filter(Boolean).join(' · ')}${p.ownerName ? ' · <span style="color:var(--accent);font-size:11px">👤 ' + p.ownerName + '</span>' : ''}</div></div>
         <div class="mini-stats">
-          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.trovoadaMegaVantagemAtiva ? `<span class="mstat mstat-grito" title="Trovoada: Mega Vantagem em Aparar até o próximo turno">⚡ Trovoada</span>` : ''}${p.auraDeFenixAtiva ? `<span class="mstat mstat-grito" title="Aura de Fênix: Asas de Fogo até o final da Luta/Cena — +10 de Passos e +1d6 de Vantagem em ataques de longo alcance enquanto voando">🔥 Aura de Fênix</span>` : ''}${p.auxilioElementarFogoCargas > 0 ? `<span class="mstat mstat-grito" title="Auxílio Elementar (Fogo): +1d6 de Dano nos próximos ataques com Arma">🔥 Aux. Elem. (${p.auxilioElementarFogoCargas})</span>` : ''}${p.encantamentoFlamejanteAtivo ? `<span class="mstat mstat-grito" title="Encantamento Flamejante: +1d6 de Dano (atravessa Armadura) em todos os ataques até o final do turno">🔥 Enc. Flamejante</span>` : ''}${p.encantamentoRochosoAtivo ? `<span class="mstat mstat-grito" title="Encantamento Rochoso: pendente pro próximo Aparo — se acertar, (1d4)d6 de Dano; se errar, pode causar (1d2)d6 mesmo assim">🪨 Enc. Rochoso</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${p.forcaColossalTesteForcaPendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d10 de Vantagem no próximo Teste de Força (Aparar/Arremessar/Empurrar/Resistir)">💪 F. Colossal</span>` : ''}${p.forcaColossalDanoGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d8 de Dano no próximo Golpe">🩸 F. Colossal</span>` : ''}${p.forcaColossalMegaVantagemGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: Mega Vantagem no Acerto do próximo Golpe, só neste turno">⚡ F. Colossal</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
+          <span class="mstat mstat-hp">❤ ${p.hp}/${p.hpMax}</span><span class="mstat mstat-acoes">⚡ ${p.acoesAtuais ?? p.acoesMax ?? ACOES_POR_TURNO_PADRAO}/${p.acoesMax ?? ACOES_POR_TURNO_PADRAO}</span><span class="mstat mstat-ins">🧠 ${p.ins}</span>${p.gritoDeGuerraAtivo ? `<span class="mstat mstat-grito" title="Grito de Guerra: Mega Vantagem em todos os Testes até o próximo turno — não pode Desviar">📣 Grito</span>` : ''}${p.trovoadaMegaVantagemAtiva ? `<span class="mstat mstat-grito" title="Trovoada: Mega Vantagem em Aparar até o próximo turno">⚡ Trovoada</span>` : ''}${p.auraDeFenixAtiva ? `<span class="mstat mstat-grito" title="Aura de Fênix: Asas de Fogo até o final da Luta/Cena — +10 de Passos e +1d6 de Vantagem em ataques de longo alcance enquanto voando">🔥 Aura de Fênix</span>` : ''}${p.auxilioElementarFogoCargas > 0 ? `<span class="mstat mstat-grito" title="Auxílio Elementar (Fogo): +1d6 de Dano nos próximos ataques com Arma">🔥 Aux. Elem. (${p.auxilioElementarFogoCargas})</span>` : ''}${p.encantamentoFlamejanteAtivo ? `<span class="mstat mstat-grito" title="Encantamento Flamejante: +1d6 de Dano (atravessa Armadura) em todos os ataques até o final do turno">🔥 Enc. Flamejante</span>` : ''}${p.encantamentoRochosoAtivo ? `<span class="mstat mstat-grito" title="Encantamento Rochoso: pendente pro próximo Aparo — se acertar, (1d4)d6 de Dano; se errar, pode causar (1d2)d6 mesmo assim">🪨 Enc. Rochoso</span>` : ''}${p.motivarPendente ? `<span class="mstat mstat-motivar" title="Motivar: +1d12 de Vantagem no próximo Teste ou Acerto">📢 Motivar</span>` : ''}${p.apostaPendente ? `<span class="mstat mstat-motivar" title="Aposta: apostou em ${apostaLabelEscolha(p.apostaEscolha)} — aguardando a próxima Ação ou Teste">🎲 Aposta (${apostaLabelEscolha(p.apostaEscolha)})</span>` : ''}${p.apostaVantagemPendente ? `<span class="mstat mstat-motivar" title="Aposta vencida: +1d12 de Vantagem no próximo Teste ou Acerto">🎲 +1d12</span>` : ''}${p.apostaDesvantagemPendente ? `<span class="mstat mstat-honra" title="Aposta perdida: -1d8 de Desvantagem no próximo Teste ou Acerto">🎲 -1d8</span>` : ''}${p.honraMegaVantagemPendente ? `<span class="mstat mstat-honra" title="Honra: Mega Vantagem no Acerto da próxima Técnica ou Golpe">⚔️ Honra</span>` : ''}${p.forcaColossalTesteForcaPendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d10 de Vantagem no próximo Teste de Força (Aparar/Arremessar/Empurrar/Resistir)">💪 F. Colossal</span>` : ''}${p.forcaColossalDanoGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: +1d8 de Dano no próximo Golpe">🩸 F. Colossal</span>` : ''}${p.forcaColossalMegaVantagemGolpePendente ? `<span class="mstat mstat-honra" title="Força Colossal: Mega Vantagem no Acerto do próximo Golpe, só neste turno">⚡ F. Colossal</span>` : ''}${isBruxo ? `<span class="mstat mstat-human">🩸 ${getHumanidade(p)}/${HUMANIDADE_MAX}</span>` : ''}${isBardo ? `<span class="mstat mstat-bardo">🎵 ${countNotasAtivas(p)}/7</span>` : ''}${isClerigo ? `<span class="mstat mstat-pecado">😈 ${getPecado(p)}</span>` : ''}<span class="mstat mstat-arm">🛡 ${p.armadura || 0}/${p.armaduraMax || 0}</span>${temCarapacaAntimagia(p) ? (() => { syncArmaduraAntiMagia(p); return `<span class="mstat mstat-antimagia">🔮 ${p.armaduraAntiMagia || 0}/${p.armaduraAntiMagiaMax || 0}</span>`; })() : ''}<span class="mstat mstat-elm">⛑ ${p.elmo || 0}/${p.elmoMax || 0}</span><span class="mstat mstat-passos">👣 ${p.passos || 0}</span><span class="mstat mstat-money">💰 ${p.dinheiro || 0}</span>
           ${(p.inventario || []).some(i => i.peso === 'exotica' || (Array.isArray(i.aprimoramentos) && i.aprimoramentos.length > 0 && !i.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado')))) ? `<span class="mstat" style="color:var(--accent2)">💎 ${p.cristais || 0}</span>` : ''}
           ${temPassivaSubclasse(p, 'mercenario_falsificador') ? `<span class="mstat" style="color:var(--amber)" title="Dinheiro Falso">🪙 ${p.dinheiroFalso || 0}/${DINHEIRO_FALSO_MAX}</span>` : ''}
           ${bm ? '<span class="mstat mstat-bm">⚠ Beira Morte</span>' : ''}
@@ -3072,6 +3102,31 @@ function renderJogador() {
           <div style="flex:1">
             <div style="font-size:12px;font-weight:700;color:var(--green)">Motivar ativo</div>
             <div style="font-size:11px;color:var(--text2)">+1d12 de Vantagem no próximo Teste ou Acerto — some sozinho ao ser usado</div>
+          </div>
+        </div>` : ''}
+        ${p.apostaPendente ? `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">🎲</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700">Aposta pendente — apostou em ${apostaLabelEscolha(p.apostaEscolha)}</div>
+            <div style="font-size:11px;color:var(--text2)">Acertando a próxima Ação/Teste, +1d12 de Vantagem na rolagem seguinte; errando, -1d8 de Desvantagem</div>
+          </div>
+          <span onclick="event.stopPropagation();desativarAposta(${p.id})" title="Cancelar a Aposta" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-size:10px;font-weight:700;border-radius:50%">✕</span>
+        </div>` : ''}
+        ${p.apostaVantagemPendente ? `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">🎲</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:var(--green)">Aposta vencida</div>
+            <div style="font-size:11px;color:var(--text2)">+1d12 de Vantagem no próximo Teste ou Acerto — some sozinho ao ser usado</div>
+          </div>
+        </div>` : ''}
+        ${p.apostaDesvantagemPendente ? `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--red-bg);border:1px solid var(--red-bd);border-radius:10px;padding:8px 12px;margin-top:10px">
+          <span style="font-size:18px">🎲</span>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700;color:#f08080">Aposta perdida</div>
+            <div style="font-size:11px;color:var(--text2)">-1d8 de Desvantagem no próximo Teste ou Acerto — some sozinho ao ser usado</div>
           </div>
         </div>` : ''}
         ${p.honraMegaVantagemPendente ? `

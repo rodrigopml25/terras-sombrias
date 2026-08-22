@@ -845,6 +845,7 @@ const HABILIDADES_SEM_ACERTO = new Set([
   'sk_banco_soldado_elementar_encantamento_rochoso',
   'sk_banco_soldado_elementar_elementar',
   'sk_banco_soldado_elementar_troca_elementar',
+  'sk_banco_mercenario_aposta',
 ]);
 
 // Decide se uma Habilidade mostra o botão "Acerto" (separado do "Usar
@@ -1122,6 +1123,21 @@ function construirRolagemAcertoHabilidade(p, sk) {
     p.motivarPendente = false;
   }
 
+  // "Aposta" (Mercenário): mesmo bônus/penalidade de +1d12/-1d8 do Teste
+  // normal (ver construirRolagemTeste) — o Acerto de Habilidade também
+  // conta como "próxima Ação ou Teste" pro efeito da Aposta.
+  if (p.apostaVantagemPendente) {
+    const apRoll = 1 + Math.floor(Math.random() * 12);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 12, count: 1, results: [apRoll], sum: apRoll, countNode: null, label: 'Aposta' } });
+    total += apRoll;
+    p.apostaVantagemPendente = false;
+  } else if (p.apostaDesvantagemPendente) {
+    const apRoll = 1 + Math.floor(Math.random() * 8);
+    terms.push({ sign: '-', node: { type: 'dice', sides: 8, count: 1, results: [apRoll], sum: apRoll, countNode: null, label: 'Aposta' } });
+    total -= apRoll;
+    p.apostaDesvantagemPendente = false;
+  }
+
   // "Aura de Fênix" (Soldado Elementar): +1d6 de Vantagem em ataques de
   // longo alcance enquanto o badge estiver ativo (voando) — só vale se
   // esta Habilidade for de longo alcance (ver habilidadeEhLongoAlcance).
@@ -1180,6 +1196,10 @@ function rolarAcertoHabilidade(pid, sk) {
   // rolarTeste).
   saveState();
   renderAll();
+
+  // "Aposta" (Mercenário): este Acerto de Habilidade é a próxima Ação/Teste
+  // depois de uma Aposta pendente? Ver resolverApostaAposRolagem.
+  resolverApostaAposRolagem(pid, rollCritInfo(entry));
 
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
@@ -1466,6 +1486,22 @@ function construirRolagemTeste(p, testeId) {
     p.motivarPendente = false;
   }
 
+  // "Aposta" (Mercenário): +1d12 de Vantagem ou -1d8 de Desvantagem na
+  // Ação/Teste seguinte à resolução da aposta (ver resolverApostaAposRolagem/
+  // finalizarAposta) — mesmo padrão de marca de 1 uso do Motivar, só que
+  // vinda de vencer/perder a aposta em vez de uma Habilidade de Aliado.
+  if (p.apostaVantagemPendente) {
+    const apRoll = 1 + Math.floor(Math.random() * 12);
+    terms.push({ sign: '+', node: { type: 'dice', sides: 12, count: 1, results: [apRoll], sum: apRoll, countNode: null, label: 'Aposta' } });
+    total += apRoll;
+    p.apostaVantagemPendente = false;
+  } else if (p.apostaDesvantagemPendente) {
+    const apRoll = 1 + Math.floor(Math.random() * 8);
+    terms.push({ sign: '-', node: { type: 'dice', sides: 8, count: 1, results: [apRoll], sum: apRoll, countNode: null, label: 'Aposta' } });
+    total -= apRoll;
+    p.apostaDesvantagemPendente = false;
+  }
+
   // "Duelo" (Campeão): enquanto ativo, +1d6 de Vantagem se esta rolagem é
   // contra o Alvo do Duelo, ou -1d6 de Desvantagem se é contra outro Alvo —
   // o jogador escolhe qual dos dois pelo badge no cabeçalho (não é
@@ -1678,6 +1714,10 @@ function rolarTeste(pid, testeId) {
     setTimeout(() => abrirEncantamentoRochosoResultadoModal(pid), ROLL_ANIM_MS + 250);
   }
 
+  // "Aposta" (Mercenário): este Teste é a próxima Ação/Teste depois de uma
+  // Aposta pendente? Ver resolverApostaAposRolagem.
+  resolverApostaAposRolagem(pid, rollCritInfo(entry));
+
   // Abre o painel de dados na aba Histórico para o resultado aparecer na hora.
   if (!dicePanelOpen) toggleDicePanel();
   else if (dicePanelTab !== 'feed') switchDiceTab('feed');
@@ -1776,6 +1816,88 @@ function rolarDanoEncantamentoRochoso(pid, formula, label) {
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
 
+  saveState();
+  renderAll();
+}
+
+// "Aposta" (Mercenário): decide se a Ação/Teste que acabou de ser rolada é
+// a que resolve uma Aposta pendente (ver escolherAposta em
+// logica-dados-regras.js) — chamada depois de QUALQUER Teste, Acerto de
+// Habilidade ou Acerto de Arma (os mesmos 3 pontos onde Motivar é
+// consumido), já que a Aposta vale pra "próxima Ação ou Teste", seja lá
+// qual for. Quando dá pra saber sozinho (saiu Crítico/Falha Crítica no d20,
+// ou a aposta era em Crítico/Falha Crítica mas saiu um resultado normal),
+// resolve na hora; senão (aposta era em Acerto/Erro simples e saiu normal
+// — o app não tem CD automático de Teste/Acerto) pergunta pro jogador,
+// mesmo padrão do Encantamento Rochoso.
+function resolverApostaAposRolagem(pid, critInfo) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || !p.apostaPendente) return;
+
+  if (critInfo.hasCrit) {
+    finalizarAposta(pid, p.apostaEscolha === 'critico');
+    return;
+  }
+  if (critInfo.hasFumble) {
+    finalizarAposta(pid, p.apostaEscolha === 'erro_critico');
+    return;
+  }
+  if (p.apostaEscolha === 'critico' || p.apostaEscolha === 'erro_critico') {
+    // Não saiu Crítico nem Falha Crítica — já dá pra saber que essa
+    // aposta específica foi perdida, sem precisar perguntar nada.
+    finalizarAposta(pid, false);
+    return;
+  }
+  setTimeout(() => abrirApostaResultadoModal(pid), ROLL_ANIM_MS + 250);
+}
+
+function abrirApostaResultadoModal(pid) {
+  const overlay = document.getElementById('modal-criacao-anao-overlay');
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!overlay || !p || !p.apostaPendente) return;
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:380px" onclick="event.stopPropagation()">
+      <h3><i class="ti ti-dice"></i> Aposta</h3>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        ${escHtml(p.name)} apostou em ${apostaLabelEscolha(p.apostaEscolha)} — essa Ação/Teste foi um Acerto?
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="tm-opcao tm-opcao-blue" onclick="resolverApostaResultadoManual(${p.id},true)">
+          <span class="tm-opcao-nome">✅ Sim, foi Acerto</span>
+        </button>
+        <button class="tm-opcao tm-opcao-blue" onclick="resolverApostaResultadoManual(${p.id},false)">
+          <span class="tm-opcao-nome">❌ Não, foi Erro</span>
+        </button>
+      </div>
+      <button class="tm-cancelar" style="margin-top:10px" onclick="fecharCriacaoAnaoModal()">Decidir depois</button>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+function resolverApostaResultadoManual(pid, foiAcerto) {
+  fecharCriacaoAnaoModal();
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p || !p.apostaPendente) return;
+  const escolhaCorrespondente = foiAcerto ? 'acerto' : 'erro';
+  finalizarAposta(pid, p.apostaEscolha === escolhaCorrespondente);
+}
+
+// Fecha uma Aposta pendente (vencida ou perdida) e liga a marca de
+// +1d12 de Vantagem ou -1d8 de Desvantagem pra próxima rolagem (ver bloco
+// "Aposta" em construirRolagemTeste/construirRolagemAcertoHabilidade/
+// construirRolagemAcertoArma).
+function finalizarAposta(pid, venceu) {
+  const p = PLAYERS.find(x => x.id === pid);
+  if (!p) return;
+  p.apostaPendente = false;
+  p.apostaEscolha = null;
+  if (venceu) {
+    p.apostaVantagemPendente = true;
+    p.apostaDesvantagemPendente = false;
+  } else {
+    p.apostaDesvantagemPendente = true;
+    p.apostaVantagemPendente = false;
+  }
   saveState();
   renderAll();
 }
