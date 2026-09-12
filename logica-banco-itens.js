@@ -595,26 +595,35 @@ function renderInvCatalogo() {
   const temMultifuncoesAqui = pOwner && (tipo === 'arma' || tipo === 'instrumento') && temMultifuncoesArma(pOwner);
   const temEncantadoAqui = temEncantado || temMultifuncoesAqui;
   const temExoticoAqui = temExotico || temMultifuncoesAqui;
+  // (Set 12) Armadura/Elmo Encantada/Exótica não dependem mais dos Talentos
+  // Inferiores acima — passam a exigir só a Maestria correspondente. Vale
+  // só pro catálogo de Proteção (tipo === 'protecao'); Arma/Instrumento
+  // Encantado/Exótico continuam pelo Talento normal (temEncantadoAqui/temExoticoAqui).
+  const temArmaduraEncantada = pOwner ? temAcessoArmaduraEncantada(pOwner) : false;
+  const temArmaduraExotica   = pOwner ? temAcessoArmaduraExotica(pOwner) : false;
   // NPC: Narrador pode dar qualquer item pro NPC — Encantado, Exótico ou
   // qualquer categoria de peso (inclusive Mega) — sem depender de Talento
-  // Inferior nem do atributo da subclasse, que só valem pra fichas de jogador.
+  // Inferior nem de Maestria, que só valem pra fichas de jogador.
   const isNPCOwner = !!(pOwner && pOwner.isNPC);
 
   const filtrados = banco.filter(item => {
-    // Itens de peso 'encantada' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Encantado" (ou Multifunções, se for Arma/Instrumento)
-    if (!isNPCOwner && item.peso === 'encantada' && !temEncantadoAqui) return false;
-    // Itens de peso 'exotica' só aparecem no catálogo pra quem tem o Talento Inferior "Equipamento Exótico" (ou Multifunções, se for Arma/Instrumento)
-    if (!isNPCOwner && item.peso === 'exotica' && !temExoticoAqui) return false;
-    // Armadura e Elmo: TODAS as categorias de peso (Leve/Média/Pesada/Mega) são
-    // travadas pelo atributo da subclasse + Talento Inferior "Maestria de Peso
-    // Aprimorada" (ver getPesoMaximoArmaduraPersonagem/temAcessoPesoArmaduraOuElmo).
-    if (!isNPCOwner && (item.subtipo === 'armadura' || item.subtipo === 'elmo') && pOwner && !temAcessoPesoArmaduraOuElmo(pOwner, item.peso)) return false;
-    if (!isNPCOwner && (item.subtipo === 'armadura' || item.subtipo === 'elmo') && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
-    // Arma e Instrumento: o acesso por peso é EXCLUSIVO por atributo (só 1
-    // categoria), e o Talento Inferior "Maestria de Peso Aprimorada" libera
-    // também a categoria seguinte — ver getPesosArmaPermitidosPersonagem/temAcessoPesoArma.
-    if (!isNPCOwner && (tipo === 'arma' || tipo === 'instrumento') && pOwner && !temAcessoPesoArma(pOwner, item.peso)) return false;
-    if (!isNPCOwner && (tipo === 'arma' || tipo === 'instrumento') && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
+    if (tipo === 'protecao') {
+      // Armadura/Elmo Leve/Média/Pesada: escolha livre (Set 12). Mega Pesada
+      // exige Maestria de Força 5 — ver temAcessoPesoArmaduraOuElmo.
+      if (!isNPCOwner && pOwner && !temAcessoPesoArmaduraOuElmo(pOwner, item.peso)) return false;
+      if (!isNPCOwner && !pOwner && item.peso === 'mega') return false;
+      // Encantada exige Maestria de Intelecto 5; Exótica exige Maestria de Agilidade 5.
+      if (!isNPCOwner && item.peso === 'encantada' && (!pOwner || !temArmaduraEncantada)) return false;
+      if (!isNPCOwner && item.peso === 'exotica' && (!pOwner || !temArmaduraExotica)) return false;
+    } else {
+      // Arma e Instrumento: o acesso por peso é EXCLUSIVO por atributo (só 1
+      // categoria), e o Talento Inferior "Maestria de Peso Aprimorada" libera
+      // também a categoria seguinte — ver getPesosArmaPermitidosPersonagem/temAcessoPesoArma.
+      if (!isNPCOwner && item.peso === 'encantada' && !temEncantadoAqui) return false;
+      if (!isNPCOwner && item.peso === 'exotica' && !temExoticoAqui) return false;
+      if (!isNPCOwner && pOwner && !temAcessoPesoArma(pOwner, item.peso)) return false;
+      if (!isNPCOwner && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
+    }
     if (subAtivo && item.subtipo !== subAtivo) return false;
     if (!termoNorm) return true;
     return item.name.toLowerCase().includes(termoNorm);

@@ -1833,8 +1833,8 @@ function saveCharacter() {
         novo.skills.push(construirSkillRitualMacabro(item));
       }
     });
-    // Armadura inicial escolhida no passo 7 do wizard de criação (opções
-    // filtradas pelo atributo principal da subclasse — ver getPesosArmaduraPermitidos).
+    // Armadura inicial escolhida no passo 7 do wizard de criação (Leve/Média/
+    // Pesada livres; Mega Pesada/Exótica/Encantada por Maestria — ver getPesosArmaduraDisponiveisWizard).
     if (wizardArmaduraEscolhidaId) {
       const catItem = CATALOGO_ITENS.protecao.find(x => x.id === wizardArmaduraEscolhidaId);
       if (catItem) {

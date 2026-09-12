@@ -51,9 +51,10 @@ let wizardFeiticosLendariosEscolhidos = [];
 // das outras listas do wizard.
 let wizardRituaisMacabrosEscolhidos = [];
 // Armadura inicial escolhida durante a criação (passo 5 do wizard), guardada
-// como o id do item no CATALOGO_ITENS.protecao (ou null = nenhuma). As opções
-// disponíveis dependem do atributo principal da subclasse escolhida (ver
-// getPesosArmaduraPermitidos). Mesmo ciclo de vida das outras escolhas do wizard.
+// como o id do item no CATALOGO_ITENS.protecao (ou null = nenhuma). Leve/
+// Média/Pesada estão sempre disponíveis; Mega Pesada/Exótica/Encantada
+// dependem da Maestria em edição no formulário (ver
+// getPesosArmaduraDisponiveisWizard). Mesmo ciclo de vida das outras escolhas do wizard.
 let wizardArmaduraEscolhidaId = null;
 // Elmo inicial escolhido no passo 8 do wizard (mesma lógica da Armadura, ver renderWizardElmoStep).
 let wizardElmoEscolhidaId = null;

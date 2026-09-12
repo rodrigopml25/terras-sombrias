@@ -6489,11 +6489,11 @@ function toggleWizardRitualMacabro(itemId) {
   renderWizardRituaisMacabrosStep();
 }
 
-// Repinta a escolha de Armadura inicial (passo 5 do wizard de criação).
-// As opções disponíveis vêm do CATALOGO_ITENS.protecao (subtipo armadura),
-// filtradas pelas categorias de peso liberadas pelo atributo principal da
-// subclasse escolhida (ver getPesosArmaduraPermitidos). Escolha única —
-// selecionar outra troca a anterior; clicar na já escolhida remove.
+// Repinta a escolha de Armadura inicial (passo 7 do wizard de criação).
+// As opções disponíveis vêm do CATALOGO_ITENS.protecao (subtipo armadura):
+// Leve/Média/Pesada são livres, Mega Pesada/Exótica/Encantada dependem da
+// Maestria ainda em edição no formulário (ver getPesosArmaduraDisponiveisWizard).
+// Escolha única — selecionar outra troca a anterior; clicar na já escolhida remove.
 function renderWizardArmaduraStep() {
   const lista = document.getElementById('c-armadura-lista');
   const aviso = document.getElementById('c-armadura-aviso');
@@ -6506,10 +6506,11 @@ function renderWizardArmaduraStep() {
     return;
   }
 
-  const pesosPermitidos = wizardIsNPC ? ORDEM_PESO_ARMADURA.slice() : getPesosArmaduraPermitidos(cls);
+  const pesosPermitidos = getPesosArmaduraDisponiveisWizard();
   const opcoes = CATALOGO_ITENS.protecao.filter(item => item.subtipo === 'armadura' && pesosPermitidos.includes(item.peso));
 
-  // Descarta uma escolha antiga que não seja mais válida (ex.: trocou de subclasse/atributo).
+  // Descarta uma escolha antiga que não seja mais válida (ex.: baixou os
+  // Atributos e perdeu acesso a Mega Pesada/Exótica/Encantada).
   if (wizardArmaduraEscolhidaId && !opcoes.some(o => o.id === wizardArmaduraEscolhidaId)) {
     wizardArmaduraEscolhidaId = null;
   }
@@ -6518,7 +6519,7 @@ function renderWizardArmaduraStep() {
     aviso.style.display = '';
     aviso.textContent = wizardIsNPC
       ? 'NPC: todas as categorias de peso de Armadura estão liberadas.'
-      : `Categorias liberadas por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
+      : `Escolha livre entre Leve/Média/Pesada. Mega Pesada exige Maestria de Força 5, Exótica exige Maestria de Agilidade 5, e Encantada exige Maestria de Intelecto 5 — liberadas: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
   }
 
   if (!opcoes.length) {
@@ -6548,8 +6549,8 @@ function toggleWizardArmadura(itemId) {
 }
 
 // Repinta a escolha de Elmo inicial (passo 8 do wizard de criação) — mesma
-// lógica da Armadura (ver renderWizardArmaduraStep): opções filtradas pelas
-// categorias de peso liberadas pelo atributo principal da subclasse.
+// lógica da Armadura (ver renderWizardArmaduraStep): Leve/Média/Pesada
+// livres, Mega Pesada/Exótica/Encantada dependem da Maestria em edição.
 function renderWizardElmoStep() {
   const lista = document.getElementById('c-elmo-lista');
   const aviso = document.getElementById('c-elmo-aviso');
@@ -6562,10 +6563,11 @@ function renderWizardElmoStep() {
     return;
   }
 
-  const pesosPermitidos = wizardIsNPC ? ORDEM_PESO_ARMADURA.slice() : getPesosArmaduraPermitidos(cls);
+  const pesosPermitidos = getPesosArmaduraDisponiveisWizard();
   const opcoes = CATALOGO_ITENS.protecao.filter(item => item.subtipo === 'elmo' && pesosPermitidos.includes(item.peso));
 
-  // Descarta uma escolha antiga que não seja mais válida (ex.: trocou de subclasse/atributo).
+  // Descarta uma escolha antiga que não seja mais válida (ex.: baixou os
+  // Atributos e perdeu acesso a Mega Pesada/Exótica/Encantada).
   if (wizardElmoEscolhidaId && !opcoes.some(o => o.id === wizardElmoEscolhidaId)) {
     wizardElmoEscolhidaId = null;
   }
@@ -6574,7 +6576,7 @@ function renderWizardElmoStep() {
     aviso.style.display = '';
     aviso.textContent = wizardIsNPC
       ? 'NPC: todas as categorias de peso de Elmo estão liberadas.'
-      : `Categorias liberadas por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
+      : `Escolha livre entre Leve/Média/Pesada. Mega Pesada exige Maestria de Força 5, Exótica exige Maestria de Agilidade 5, e Encantada exige Maestria de Intelecto 5 — liberadas: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
   }
 
   if (!opcoes.length) {
@@ -7207,17 +7209,28 @@ function getSubAttr(subclasseName) {
   return null;
 }
 
-// Categorias de peso de Armadura liberadas conforme o atributo principal da
-// subclasse: Intelecto → só Leve; Agilidade → Leve e Média; Força → Leve,
-// Média e Pesada. Usado na escolha de armadura inicial (passo 5 do wizard).
-const PESO_ARMADURA_POR_ATRIBUTO = {
-  intel: ['leve'],
-  agi:   ['leve', 'media'],
-  forca: ['leve', 'media', 'pesada'],
-};
-function getPesosArmaduraPermitidos(subclasseName) {
-  const attr = getSubAttr(subclasseName);
-  return PESO_ARMADURA_POR_ATRIBUTO[attr] || ['leve'];
+// (Set 12) Categorias de peso de Armadura/Elmo disponíveis no wizard de
+// criação: Leve/Média/Pesada são livres pra qualquer subclasse; Mega
+// Pesada/Exótica/Encantada exigem a Maestria mínima correspondente, já
+// calculada a partir dos valores de Atributo ainda em edição no formulário
+// (ver getWizardMaestriaDraft) — sem precisar esperar salvar o personagem.
+function getWizardMaestriaDraft(campoAttr) {
+  const elId = campoAttr === 'agi' ? 'c-agi' : campoAttr === 'forca' ? 'c-for' : 'c-int';
+  const el = document.getElementById(elId);
+  const val = el ? (parseInt(el.value) || ATTR_BASE_STAT) : ATTR_BASE_STAT;
+  let m = Math.ceil(val / 5);
+  const raceAtual = (typeof getRacaSelecionada === 'function') ? getRacaSelecionada() : null;
+  const trollMaestriaEl = document.getElementById('c-troll-maestria');
+  if (raceAtual === 'Troll' && trollMaestriaEl && trollMaestriaEl.value === campoAttr) m += 1;
+  return m;
+}
+function getPesosArmaduraDisponiveisWizard() {
+  if (wizardIsNPC) return ['leve', 'media', 'pesada', 'mega', 'exotica', 'encantada'];
+  const pesos = ['leve', 'media', 'pesada'];
+  if (getWizardMaestriaDraft('forca') >= 5) pesos.push('mega');
+  if (getWizardMaestriaDraft('agi') >= 5) pesos.push('exotica');
+  if (getWizardMaestriaDraft('intel') >= 5) pesos.push('encantada');
+  return pesos;
 }
 
 // Categoria de peso de Arma/Instrumento liberada conforme o atributo
@@ -7237,32 +7250,28 @@ function getPesosArmaPermitidos(subclasseName) {
 
 const ORDEM_PESO_ARMADURA = ['leve', 'media', 'pesada', 'mega'];
 
-// Peso máximo de Armadura/Elmo que o personagem pode comprar/vestir,
-// considerando o atributo primário da subclasse (getPesosArmaduraPermitidos)
-// e, se tiver, o Talento Inferior "Maestria de Peso Aprimorada" — sobe 1
-// grau: quem só tinha Leve passa a ter Média, quem tinha Média passa a ter
-// Pesada, e quem tinha Pesada passa a ter Mega Pesada. É o único jeito de
-// chegar em Mega. Vale igualmente pra Armadura e Elmo (mesma lógica de
-// categorias de peso). Arma/Instrumento têm regra própria — ver
-// getPesosArmaPermitidosPersonagem, mais abaixo.
-function getPesoMaximoArmaduraPersonagem(p) {
-  const base = getPesosArmaduraPermitidos(p.cls);
-  let maxIdx = base.reduce((max, peso) => Math.max(max, ORDEM_PESO_ARMADURA.indexOf(peso)), 0);
-  const temMaestriaAprimorada = getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'maestria_de_peso_aprimorada');
-  if (temMaestriaAprimorada) maxIdx = Math.min(maxIdx + 1, ORDEM_PESO_ARMADURA.length - 1);
-  // "Colosso" (Origem, Troll): garante acesso a Armadura/Elmo Pesado,
-  // independente do caminho da Classe — mesma ideia da "Mulgore" pra Armas,
-  // só que aqui é um teto (não uma lista), então só sobe o índice se for menor.
-  const temColosso = p.origemId === 'troll_origem_colosso';
-  if (temColosso) maxIdx = Math.max(maxIdx, ORDEM_PESO_ARMADURA.indexOf('pesada'));
-  return ORDEM_PESO_ARMADURA[maxIdx];
-}
-
-// O personagem pode comprar/vestir Armadura ou Elmo Mega Pesado no catálogo?
-// Só quem já tinha Pesada como teto (atributo Força) e melhorou com
-// "Maestria de Peso Aprimorada" chega em Mega.
+// (Set 12) NOVA REGRA DE ARMADURA/ELMO: a escolha de peso Leve/Média/Pesada
+// passou a ser LIVRE — não depende mais do atributo principal da subclasse
+// nem do Talento Inferior "Maestria de Peso Aprimorada" (esse talento
+// continua valendo só pra Arma/Instrumento, ver
+// getPesosArmaPermitidosPersonagem, mais abaixo). Só as categorias mais
+// raras exigem uma Maestria mínima (5): Mega Pesada → Maestria de Força;
+// Encantada → Maestria de Intelecto (ver temAcessoArmaduraEncantada);
+// Exótica → Maestria de Agilidade (ver temAcessoArmaduraExotica) — essas
+// duas substituem os antigos Talentos Inferiores "Equipamento
+// Encantado"/"Equipamento Exótico" (que continuam existindo só pra
+// Arma/Instrumento). NPC sempre libera tudo, sem checar Maestria.
 function temAcessoArmaduraMegaPesada(p) {
-  return getPesoMaximoArmaduraPersonagem(p) === 'mega';
+  if (p.isNPC) return true;
+  return maestriaDe(p, 'forca') >= 5;
+}
+function temAcessoArmaduraEncantada(p) {
+  if (p.isNPC) return true;
+  return maestriaDe(p, 'intel') >= 5;
+}
+function temAcessoArmaduraExotica(p) {
+  if (p.isNPC) return true;
+  return maestriaDe(p, 'agi') >= 5;
 }
 
 // Categorias de peso de Arma/Instrumento liberadas pro personagem: o acesso
@@ -7317,17 +7326,16 @@ function temAcessoPesoArma(p, peso) {
   return getPesosArmaPermitidosPersonagem(p).includes(peso);
 }
 
-// O personagem pode comprar/vestir uma peça de peso `peso` (leve/media/pesada/
-// mega), considerando o teto calculado em getPesoMaximoArmaduraPersonagem
-// (atributo da subclasse + "Maestria de Peso Aprimorada")? Não se aplica a
-// Exótica/Encantada, que têm suas próprias travas por Talento — ver
-// temAcessoEquipamentoExotico/temAcessoEquipamentoEncantado.
+// O personagem pode comprar/vestir uma peça de Armadura/Elmo de peso `peso`
+// (leve/media/pesada/mega)? Leve/Média/Pesada: sempre true (escolha livre,
+// Set 12). Mega Pesada: exige Maestria de Força 5 — ver
+// temAcessoArmaduraMegaPesada. Não se aplica a Exótica/Encantada, que têm
+// suas próprias travas de Maestria — ver
+// temAcessoArmaduraExotica/temAcessoArmaduraEncantada.
 function temAcessoPesoArmaduraOuElmo(p, peso) {
-  if (p.isNPC) return true; // NPC: qualquer categoria de peso, sem depender do atributo da subclasse
-  const idx = ORDEM_PESO_ARMADURA.indexOf(peso);
-  if (idx === -1) return true;
-  const maxIdx = ORDEM_PESO_ARMADURA.indexOf(getPesoMaximoArmaduraPersonagem(p));
-  return idx <= maxIdx;
+  if (p.isNPC) return true; // NPC: qualquer categoria de peso, sem checar Maestria
+  if (peso === 'mega') return temAcessoArmaduraMegaPesada(p);
+  return true;
 }
 
 // Retorna a classe-base (Guerreiro, Ladino…) dado o nome de uma subclasse
