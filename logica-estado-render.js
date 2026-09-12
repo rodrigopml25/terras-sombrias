@@ -1671,6 +1671,9 @@ function resetLuta() {
     });
     // Usos de Arma ("Usar Nx") com escopo "Por Luta" ou "Por Turno"
     resetUsosArmaPorEscopo(p, ['luta','turno']);
+    // (Set 12) Munição Normal (não Exótica): rola 1x por item ao fim da Luta
+    // — ver rolarMunicaoFimDeLuta. Munição Exótica é testada a cada uso, não aqui.
+    rolarMunicaoFimDeLuta(p);
     // Notas do Bardo: resetar no início de cada luta
     if (p.classeBase === 'Bardo' && p.notasBardo) {
       NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
@@ -3683,6 +3686,21 @@ function renderInventarioArea(p, readOnly) {
     return `<span class="inv-peso-tag" style="color:${INV_PESO_COLOR[item.peso]};background:${INV_PESO_BG[item.peso]};border-color:${INV_PESO_BD[item.peso]}">${INV_PESO_LABEL[item.peso]}</span>`;
   }
 
+  // (Set 12) Tag de Tipo de Ação por peso — só Arma/Instrumento, só
+  // Leve/Média/Pesada: Leve → Feitiços (INT); Média → Técnicas (AGI);
+  // Pesada → Golpes (FOR). Reaproveita a mesma paleta de cor do peso.
+  const TIPO_ACAO_POR_PESO = {
+    leve:   { label: '🔮 Feitiços', },
+    media:  { label: '🎯 Técnicas', },
+    pesada: { label: '⚔️ Golpes',   },
+  };
+  function tipoAcaoTag(item) {
+    if (item.tipo !== 'arma' && item.tipo !== 'instrumento') return '';
+    const info = TIPO_ACAO_POR_PESO[item.peso];
+    if (!info) return '';
+    return `<span class="inv-peso-tag" style="color:${INV_PESO_COLOR[item.peso]};background:${INV_PESO_BG[item.peso]};border-color:${INV_PESO_BD[item.peso]}">${info.label}</span>`;
+  }
+
   function alcanceTag(item) {
     if (!item.alcance) return '';
     if (item.alcance === 'ambos') {
@@ -3700,54 +3718,37 @@ function renderInventarioArea(p, readOnly) {
   }
 
   function municaoRow(item) {
-    // Usa cristais se: item exótico por peso, OU item com aprimoramento exótico (não-Dourado)
+    // (Set 12) NOVO SISTEMA DE MUNIÇÃO — Arma/Instrumento usa o dado
+    // automático por item (getMunicaoDadoAtual), não mais um número manual
+    // nem Cristais (exceto Proteção, ver abaixo, que não muda).
+    if (item.tipo === 'arma' || item.tipo === 'instrumento') {
+      if (!itemUsaMunicaoAutomatica(item)) return '';
+      const exotica = itemUsaMunicaoExotica(item);
+      const infinito = temCarregamentoAprimorado(item);
+      const dado = getMunicaoDadoAtual(item);
+      const custoRepor = exotica ? CUSTO_REPOR_MUNICAO_EXOTICA : CUSTO_REPOR_MUNICAO;
+      const acabou = !infinito && dado <= 0;
+      return `<div class="inv-municao-row">
+        <span class="inv-municao-lbl"><i class="ti ti-target-arrow" style="color:${exotica?'var(--accent2)':'var(--teal)'}"></i> ${exotica ? 'Munição Exótica' : 'Munição'}</span>
+        <div class="inv-municao-ctrl" style="gap:8px">
+          <span class="inv-municao-val" style="${acabou?'color:var(--red)':''}">${infinito ? '∞' : (acabou ? 'Acabou' : `1d${dado}`)}</span>
+          ${infinito ? '' : `<button onclick="reporMunicaoItem(${p.id},'${item.id}')" title="Repor Munição (${custoRepor} de Dinheiro)" style="background:var(--bg3);border:1px solid var(--border);color:var(--amber);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer">💰${custoRepor}</button>`}
+        </div>
+      </div>`;
+    }
+
+    // Proteção (Armadura/Elmo) Exótica, ou com Aprimoramento Exótico: continua
+    // com Cristais compartilhados do personagem — fora de escopo desta mudança.
     const temAprimoExotico = Array.isArray(item.aprimoramentos) && item.aprimoramentos.length > 0
       && !item.aprimoramentos.every(a => (a.dourado || a.name === 'Dourado'));
     const usaCristal = item.peso === 'exotica' || temAprimoExotico;
-    const temMunicaoPropria = (item.usos || []).some(u => u.custoRecarga);
-    const semMunicaoForcado = (item.usos || []).some(u => u.semMunicao)
-      || item.name === 'Grimório do Conhecimento' || item.name === 'Varinha';
-    const isLongoAlcance = item.alcance === 'longo' && !temMunicaoPropria && !semMunicaoForcado;
-    const precisaMunicao = isLongoAlcance || usaCristal;
-    if (!precisaMunicao) return '';
-
-    // Arma/instrumento exótico de longo alcance: mostra cristais E munição
-    if (usaCristal && isLongoAlcance && item.peso === 'exotica') {
-      return `<div class="inv-municao-row">
-        <span class="inv-municao-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais <span style="font-size:10px;color:var(--text3)">(compartilhados)</span></span>
-        <div class="inv-municao-ctrl">
-          <button onclick="adjCristais(${p.id},-1)">−</button>
-          <span class="inv-municao-val">${p.cristais || 0}</span>
-          <button onclick="adjCristais(${p.id},+1)">+</button>
-        </div>
-      </div>
-      <div class="inv-municao-row">
-        <span class="inv-municao-lbl"><i class="ti ti-target-arrow" style="color:var(--teal)"></i> Munição</span>
-        <div class="inv-municao-ctrl">
-          <button onclick="adjInvMunicao(${p.id},'${item.id}',-1)">−</button>
-          <span class="inv-municao-val">${item.municao || 0}</span>
-          <button onclick="adjInvMunicao(${p.id},'${item.id}',+1)">+</button>
-        </div>
-      </div>`;
-    }
-
-    if (usaCristal) {
-      // Cristais são do personagem, compartilhados entre todos os itens exóticos
-      return `<div class="inv-municao-row">
-        <span class="inv-municao-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais <span style="font-size:10px;color:var(--text3)">(compartilhados)</span></span>
-        <div class="inv-municao-ctrl">
-          <button onclick="adjCristais(${p.id},-1)">−</button>
-          <span class="inv-municao-val">${p.cristais || 0}</span>
-          <button onclick="adjCristais(${p.id},+1)">+</button>
-        </div>
-      </div>`;
-    }
+    if (!usaCristal) return '';
     return `<div class="inv-municao-row">
-      <span class="inv-municao-lbl"><i class="ti ti-target-arrow" style="color:var(--teal)"></i> Munição</span>
+      <span class="inv-municao-lbl"><i class="ti ti-diamond" style="color:var(--accent2)"></i> Cristais <span style="font-size:10px;color:var(--text3)">(compartilhados)</span></span>
       <div class="inv-municao-ctrl">
-        <button onclick="adjInvMunicao(${p.id},'${item.id}',-1)">−</button>
-        <span class="inv-municao-val">${item.municao || 0}</span>
-        <button onclick="adjInvMunicao(${p.id},'${item.id}',+1)">+</button>
+        <button onclick="adjCristais(${p.id},-1)">−</button>
+        <span class="inv-municao-val">${p.cristais || 0}</span>
+        <button onclick="adjCristais(${p.id},+1)">+</button>
       </div>
     </div>`;
   }
@@ -3901,6 +3902,7 @@ function renderInventarioArea(p, readOnly) {
           ${offhandBadge}
           ${alcanceTag(item)}
           ${pesoTag(item)}
+          ${tipoAcaoTag(item)}
           ${duasMaosTag(item)}
         </div>
         ${statsRow(item.peso)}
@@ -3920,6 +3922,7 @@ function renderInventarioArea(p, readOnly) {
         ${offhandBadge}
         ${alcanceTag(item)}
         ${pesoTag(item)}
+        ${tipoAcaoTag(item)}
         ${duasMaosTag(item)}
       </div>
       ${statsRow(item.peso)}

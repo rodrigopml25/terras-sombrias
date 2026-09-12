@@ -1787,6 +1787,37 @@ function resolverEncantamentoRochoso(pid, acertouAparo) {
 // publica no feed — reaproveita o parser de fórmulas avançadas que já
 // existe (parseFormula), então "(1d4)d6"/"(1d2)d6" funcionam de verdade
 // (rola o d4/d2 primeiro, e o resultado vira a quantidade de d6 a rolar).
+// (Set 12) "Teste de Munição" — chamado a cada uso de uma Habilidade/Uso de
+// equipamento Exótico marcada `municaoExotica` (ver usarArmaUso, em
+// logica-dados-regras.js). Rola o dado de Munição Exótica atual do item
+// (1d10 → 1d8 → ... conforme degrada) e publica no feed de dados, igual
+// qualquer outra rolagem — se sair 1, o dado degrada 1 passo (ver
+// degradarMunicaoDado). Não faz nada se "Carregamento Aprimorado" (Munição infinita).
+function rolarTesteMunicaoExotica(p, item) {
+  if (!currentUser || temCarregamentoAprimorado(item)) return;
+  const atual = getMunicaoDadoAtual(item);
+  if (atual <= 0) return;
+  let parsed;
+  try { parsed = parseFormula(`1d${atual}`); } catch (e) { return; }
+  if (parsed.value === 1) degradarMunicaoDado(item);
+  const entry = {
+    playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
+    charName: p.name,
+    isNarrator: !!IS_NARRADOR,
+    formula: `Teste de Munição (${item.name})`,
+    tree: { type: 'sum', terms: [{ sign: '+', node: parsed.node }] },
+    total: parsed.value,
+    hidden: hiddenPadrao(p),
+    rolling: true,
+    ts: Date.now(),
+  };
+  spinDiceFab(true, atual);
+  pushRollEntry(entry, key => {
+    setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
+    setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
+  });
+}
+
 function rolarDanoEncantamentoRochoso(pid, formula, label) {
   if (!currentUser) return;
   const p = PLAYERS.find(x => x.id === pid);

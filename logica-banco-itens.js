@@ -35,9 +35,9 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Restauração do Amuleto', desc: 'Restaure 1d8 de Vida. Pode ser usado diversas vezes no mesmo turno. Ao usar a 5ª vez, o amuleto se quebra.', escopo: 'arma', usosMax: 5 }],
     },
     {
-      id: 'cat_arma_adagas_magicas', name: 'Adagas Mágicas', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto',
-      efeito: 'Munição (Runas): as adagas guardam até 2 Runas. Ao gastar uma Runa, recarregue pagando 10 de Dinheiro no final da luta.',
-      usos: [{ name: 'Invisibilidade da Runa', desc: 'Gaste 1 Runa: as adagas ficam invisíveis até acertarem um alvo — o alvo não consegue Desviar nem Aparar. 1 uso por Ação.', escopo: 'arma', usosMax: 2, custo: 1, custoRecarga: 10 }],
+      id: 'cat_arma_adagas_magicas', name: 'Adagas Mágicas', peso: 'leve', dano: '1d4', preco: 25, alcance: 'curto', precisaMunicao: true,
+      efeito: 'Requer Munição (Runas): ver Munição no card do item.',
+      usos: [{ name: 'Invisibilidade da Runa', desc: 'Gaste 1 Runa: as adagas ficam invisíveis até acertarem um alvo — o alvo não consegue Desviar nem Aparar. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1 }],
     },
     {
       id: 'cat_arma_cajado', duasMaos: true, name: 'Cajado', peso: 'leve', dano: '1d4', preco: 25, alcance: 'ambos',
@@ -45,29 +45,27 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Recarga Arcana', desc: 'Recarregue um turno de recarga de um Feitiço seu. Pode ser usado diversas vezes no mesmo turno. Ao usar a 10ª vez, o cajado se quebra.', escopo: 'arma', usosMax: 10, reduzRecargaFeitico: true }],
     },
     {
-      id: 'cat_arma_grimorio_conhecimento', name: 'Grimório do Conhecimento', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
+      id: 'cat_arma_grimorio_conhecimento', name: 'Grimório do Conhecimento', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo', precisaMunicao: false,
       efeito: 'Passiva: escolha um Feitiço — pode lançá-lo uma vez por luta. Escolha também um elemento: seus disparos passam a ser baseados nele.',
       usos: [{ name: 'Lançar Feitiço Escolhido', desc: 'Lance o Feitiço escolhido na Passiva. Não consome os usos/recarga do Feitiço original do personagem.', escopo: 'luta', usosMax: 1, grimorioFeitico: true, semMunicao: true }],
     },
     {
       id: 'cat_arma_orbe_tecnologico', name: 'Orbe Tecnológico', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
-      efeito: 'Munição (Cápsulas de Energia): o orbe guarda até 2 Cápsulas. Recarregue pagando 10 de Dinheiro por Cápsula.',
-      usos: [{ name: 'Disparo de Energia', desc: 'Sacrifique 1 Cápsula de Energia e libere um disparo de energia — o dano é um teste de Arcano ou Místico (não pode mirar na cabeça).', escopo: 'arma', usosMax: 2, custoRecarga: 10 }],
+      efeito: 'Requer Munição (Cápsulas de Energia): ver Munição no card do item.',
+      usos: [{ name: 'Disparo de Energia', desc: 'Sacrifique 1 Cápsula de Energia e libere um disparo de energia — o dano é um teste de Arcano ou Místico (não pode mirar na cabeça).', escopo: 'luta', usosMax: 2 }],
     },
     {
-      id: 'cat_arma_varinha', name: 'Varinha', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
+      id: 'cat_arma_varinha', name: 'Varinha', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo', precisaMunicao: false,
       efeito: 'Passiva: a varinha possui magia, permitindo lançar feixes mágicos a Longo Alcance.',
       usos: [{ name: 'Impulso Arcano', desc: 'Ao lançar um Feitiço, conceda +1 de Vantagem para ele. Pode ser usado diversas vezes no mesmo turno. Ao usar a 10ª vez, a varinha se quebra.', escopo: 'arma', usosMax: 10, semMunicao: true }],
     },
     {
-      id: 'cat_arma_adagas', name: 'Adagas', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
-      efeito: 'Passiva: se você estiver Furtivo, seu teste de Arremesso possui +1d6 de Vantagem.',
-      usos: [{ name: 'Bolsa de Adagas', desc: 'Ative 1 Bolsa de Adagas: ela serve para a Luta inteira, sem precisar gastar de novo a cada Arremesso. Recarregue pagando 5 de Dinheiro por Bolsa.', escopo: 'arma', usosMax: 2, custoRecarga: 5 }],
+      id: 'cat_arma_adagas', name: 'Adagas', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto', precisaMunicao: true,
+      efeito: 'Passiva: se você estiver Furtivo, seu teste de Arremesso possui +1d6 de Vantagem. Requer Munição (arremesso): ver Munição no card do item.',
     },
     {
       id: 'cat_arma_arco', duasMaos: true, name: 'Arco', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
-      efeito: 'Passiva: possui +6 de Alcance.',
-      usos: [{ name: 'Aljava', desc: 'Ative 1 Aljava: ela serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 5 de Dinheiro por Aljava.', escopo: 'arma', usosMax: 2, custoRecarga: 5 }],
+      efeito: 'Passiva: possui +6 de Alcance. Requer Munição: ver Munição no card do item.',
     },
     {
       id: 'cat_arma_espada_uma_mao', name: 'Espada de Uma Mão', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
@@ -84,8 +82,7 @@ const CATALOGO_ITENS = {
     },
     {
       id: 'cat_arma_revolver', name: 'Revólver', peso: 'media', dano: '1d6', preco: 50, alcance: 'longo',
-      efeito: 'Passiva: ao acertar um alvo, retire 1d2 de Armadura dele.',
-      usos: [{ name: 'Pente de Balas', desc: 'Ative 1 Pente de Balas: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 10 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 10 }],
+      efeito: 'Passiva: ao acertar um alvo, retire 1d2 de Armadura dele. Requer Munição: ver Munição no card do item.',
     },
     {
       id: 'cat_arma_conjunto_glaives', duasMaos: true, name: 'Conjunto de Glaives', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
@@ -101,8 +98,7 @@ const CATALOGO_ITENS = {
     },
     {
       id: 'cat_arma_espingarda', duasMaos: true, name: 'Espingarda', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'longo',
-      efeito: 'Passiva: possui +2 de Alcance e causa +2 de dano perfurante (atravessa a Armadura).',
-      usos: [{ name: 'Pente de Cartuchos', desc: 'Ative 1 Pente de Cartuchos: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 10 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 10 }],
+      efeito: 'Passiva: possui +2 de Alcance e causa +2 de dano perfurante (atravessa a Armadura). Requer Munição: ver Munição no card do item.',
     },
     {
       id: 'cat_arma_machado_arremesso', duasMaos: true, name: 'Machado de Arremesso', peso: 'pesada', dano: '1d10', preco: 75, alcance: 'curto',
@@ -129,18 +125,17 @@ const CATALOGO_ITENS = {
     },
     {
       id: 'cat_arma_lanca_eletrica', duasMaos: true, name: 'Lança Elétrica', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'curto',
-      efeito: 'Ativa: o Cristal Elétrico libera cargas fortes que causam +1d4 de dano no ataque, porém possui -1d4 de Desvantagem no lançamento.',
-      usos: [{ name: 'Carga Elétrica', desc: 'Gaste 1 Cristal Elétrico: libera uma imensa carga que causa +(1d2+1)d4 de dano no próximo ataque. Um uso por turno.', escopo: 'luta', usosMax: 3, umPorTurno: true, custoCristal: 1 }],
+      efeito: 'Ativa: o Cristal Elétrico libera cargas fortes que causam +1d4 de dano no ataque, porém possui -1d4 de Desvantagem no lançamento. Requer Munição Exótica: ver Munição Exótica no card do item.',
+      usos: [{ name: 'Carga Elétrica', desc: 'Libera uma imensa carga que causa +(1d2+1)d4 de dano no próximo ataque. Um uso por turno.', escopo: 'luta', usosMax: 3, umPorTurno: true, municaoExotica: true }],
     },
     {
       id: 'cat_arma_orbe_cristalino', name: 'Orbe Cristalino', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
-      efeito: 'Passiva: possui +3 de Alcance.',
-      usos: [{ name: 'Feixe Perfurante', desc: 'Gaste 2 Cristais Elétricos: libera um feixe que atravessa Armadura e rola 1d2+1 que multiplica seu dano — caso o alvo esteja sem Armadura, perfura-o e o feixe continua o caminho. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1, custoCristal: 2, semMunicao: true }],
+      efeito: 'Passiva: possui +3 de Alcance. Requer Munição Exótica: ver Munição Exótica no card do item.',
+      usos: [{ name: 'Feixe Perfurante', desc: 'Libera um feixe que atravessa Armadura e rola 1d2+1 que multiplica seu dano — caso o alvo esteja sem Armadura, perfura-o e o feixe continua o caminho. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1, municaoExotica: true }],
     },
     {
       id: 'cat_arma_lanca_granada', duasMaos: true, name: 'Lança-Granada', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
-      efeito: 'Ativa: gaste uma Ação para alternar o modo dela. Modo "Lança-Granada": dispara granadas numa área 5x5 com o alvo no centro — elas explodem no início do seu turno seguinte e atravessam Armadura. Modo Focado: dispara balas num alvo até 5 casas.',
-      usos: [{ name: 'Pente de Granadas', desc: 'Ative 1 Pente de Granadas: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 25 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 25 }],
+      efeito: 'Ativa: gaste uma Ação para alternar o modo dela. Modo "Lança-Granada": dispara granadas numa área 5x5 com o alvo no centro — elas explodem no início do seu turno seguinte e atravessam Armadura. Modo Focado: dispara balas num alvo até 5 casas. Requer Munição: ver Munição no card do item.',
       ativas: [{ name: 'Lança-Granada', desc: 'Sacrifique 1d10 de Vida: se estiver no modo "Lança-Granada", a bomba explode ao alcançar o alvo. Se estiver no modo Individual, o dano atravessa a Armadura. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
@@ -155,8 +150,7 @@ const CATALOGO_ITENS = {
     },
     {
       id: 'cat_arma_sniper', duasMaos: true, name: 'Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
-      efeito: 'Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
-      usos: [{ name: 'Pente de Munição', desc: 'Ative 1 Pente de Munição: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 25 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 25 }],
+      efeito: 'Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem. Requer Munição: ver Munição no card do item.',
       ativas: [{ name: 'Sniper', desc: 'Consuma 1d4 de Vida: para cada ponto, receba +10% de chance de Crítico no próximo tiro da sniper. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
     },
     {
@@ -185,7 +179,7 @@ const CATALOGO_ITENS = {
       ],
     },
     {
-      id: 'cat_instrumento_harpa_grimorio', duasMaos: true, name: 'Harpa-Grimório', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo',
+      id: 'cat_instrumento_harpa_grimorio', duasMaos: true, name: 'Harpa-Grimório', peso: 'leve', dano: '1d4', preco: 25, alcance: 'longo', precisaMunicao: false,
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: escolha um Feitiço — pode lançá-lo uma vez por luta, concedendo qualquer Nota Musical ao fazê-lo.',
       usos: [
         { name: 'Lançar Feitiço Escolhido', desc: 'Lance o Feitiço escolhido na Passiva. Não consome os usos/recarga do Feitiço original do personagem.', escopo: 'luta', usosMax: 1, grimorioFeitico: true, semMunicao: true },
@@ -193,10 +187,9 @@ const CATALOGO_ITENS = {
       ],
     },
     {
-      id: 'cat_instrumento_microfone_adaga', name: 'Microfone-Adaga', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto',
-      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: se o alvo estiver te encarando de longe, seu teste de Arremesso possui +1d4 de Vantagem, e ao acertá-lo no arremesso, receba qualquer Nota Musical.',
+      id: 'cat_instrumento_microfone_adaga', name: 'Microfone-Adaga', peso: 'media', dano: '1d6', preco: 50, alcance: 'curto', precisaMunicao: true,
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: se o alvo estiver te encarando de longe, seu teste de Arremesso possui +1d4 de Vantagem, e ao acertá-lo no arremesso, receba qualquer Nota Musical. Requer Munição (arremesso): ver Munição no card do item.',
       usos: [
-        { name: 'Bolsa de Microfone-Adaga', desc: 'Ative 1 Bolsa de Microfone-Adaga: ela serve para a Luta inteira, sem precisar gastar de novo a cada Arremesso. Recarregue pagando 5 de Dinheiro por Bolsa.', escopo: 'arma', usosMax: 2, custoRecarga: 5 },
         { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
       ],
     },
@@ -216,7 +209,7 @@ const CATALOGO_ITENS = {
       usos: [{ name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true }],
     },
     {
-      id: 'cat_instrumento_clarinete_encantado', duasMaos: true, name: 'Clarinete Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'longo', vidaMax: 15,
+      id: 'cat_instrumento_clarinete_encantado', duasMaos: true, name: 'Clarinete Encantado', peso: 'encantada', dano: '1d4+3', preco: 50, alcance: 'longo', vidaMax: 15, precisaMunicao: false,
       efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva 1: ao usar um Feitiço e receber dano dele, pode transmiti-lo para a Vida do instrumento (ver Vida do Item). Passiva 2: o instrumento possui uma carga mágica, podendo lançar pequenos feixes mágicos até 5 casas que causam dano.',
       usos: [
         { name: 'Restauração do Clarinete', desc: 'Restaure 1d8 de Vida do instrumento musical. Diversos usos por turno. Se a Vida do instrumento chegar a 0, ele se quebra.', escopo: 'arma', usosMax: 5, semMunicao: true },
@@ -225,9 +218,9 @@ const CATALOGO_ITENS = {
     },
     {
       id: 'cat_instrumento_teclado_constelacao', duasMaos: true, name: 'Teclado Constelação', peso: 'exotica', dano: '1d8', preco: 60, alcance: 'longo',
-      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: produz mini-constelações que acertam a Longo Alcance e possuem +3 de Alcance.',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Passiva: produz mini-constelações que acertam a Longo Alcance e possuem +3 de Alcance. Requer Munição Exótica: ver Munição Exótica no card do item.',
       usos: [
-        { name: 'Campo Harmônico', desc: 'Gaste 2 Cristais Elétricos e lance um campo harmônico. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1, custoCristal: 2, semMunicao: true },
+        { name: 'Campo Harmônico', desc: 'Lança um campo harmônico. 1 uso por Ação.', escopo: 'luta', usosMax: 2, custo: 1, municaoExotica: true },
         { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
       ],
     },
@@ -239,9 +232,8 @@ const CATALOGO_ITENS = {
     },
     {
       id: 'cat_instrumento_guitarra_sniper', duasMaos: true, name: 'Guitarra-Sniper', peso: 'mega', dano: '1d8+1d6', preco: 100, alcance: 'longo',
-      efeito: 'Instrumento musical (Nota: Qualquer Nota). Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem.',
+      efeito: 'Instrumento musical (Nota: Qualquer Nota). Tem alcance do tabuleiro inteiro, porém possui Mega Desvantagem se o alvo estiver até 5 casas de você. A partir de 15 casas, mirar na cabeça não apresenta -8 de Desvantagem. Requer Munição: ver Munição no card do item.',
       usos: [
-        { name: 'Pente de Munição', desc: 'Ative 1 Pente de Munição: ele serve para a Luta inteira, sem precisar gastar de novo a cada disparo. Recarregue pagando 25 de Dinheiro por Pente.', escopo: 'arma', usosMax: 2, custoRecarga: 25 },
         { name: 'Tocar Instrumento', desc: 'Toque o instrumento e receba uma Nota Musical à sua escolha.', escopo: 'turno', usosMax: 1, concedeNotaEscolhida: true },
       ],
       ativas: [{ name: 'Guitarra-Sniper', desc: 'Sacrifique 1d4 de Vida: para cada ponto, receba +10% de chance Crítica, qualquer Nota Musical, e seu próximo disparo causa Ensurdecimento a todos os outros por 1 turno. Pode ser usado 2x por luta, 0 Ações.', escopo: 'luta', usosMax: 2 }],
@@ -301,18 +293,18 @@ function _buildInvModal(data) {
   document.querySelectorAll('.inv-alcance-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.alcance === alcanceVal);
   });
-  // munição / cristais (arma de longo alcance ou exótica; proteção exótica usa p.cristais)
-  let municaoVal = data.municao != null ? data.municao : '';
+  // munição / cristais — Set 12: Arma/Instrumento não usa mais campo manual
+  // (Munição agora é automática por item, ver getMunicaoDadoAtual/municaoRow).
+  // Só sobra o campo pra Cristais de Proteção Exótica (informativo, valor
+  // vem do personagem).
+  let municaoVal = '';
   if (tipo === 'protecao' && (data.peso || 'leve') === 'exotica' && modalInvPid) {
     const pOwner = PLAYERS.find(x => x.id === modalInvPid);
     if (pOwner) municaoVal = pOwner.cristais || 0;
   }
   document.getElementById('inv-m-municao').value = municaoVal;
-  // Campo extra de munição para arma exótica de longo alcance
   const inputMunicaoExtra = document.getElementById('inv-m-municao-extra');
-  if (inputMunicaoExtra) {
-    inputMunicaoExtra.value = (data.peso === 'exotica' && data.alcance === 'longo' && data.municao != null) ? data.municao : '';
-  }
+  if (inputMunicaoExtra) inputMunicaoExtra.value = '';
   // valor protecao
   document.getElementById('inv-m-valor').value = data.valor != null ? data.valor : '';
   // penalidade de passos (armaduras)
@@ -350,6 +342,8 @@ function _buildInvModal(data) {
   invAtivas  = data.ativas ? JSON.parse(JSON.stringify(data.ativas)) : [];
   // usos ("Usar (Nx)" — só se aplica a Armas)
   invUsos = data.usos ? JSON.parse(JSON.stringify(data.usos)) : [];
+  // (Set 12) Precisa de Munição automática? (persiste ao editar; null = infere pelo Alcance)
+  invPrecisaMunicaoCatalogo = data.precisaMunicao === true ? true : (data.precisaMunicao === false ? false : null);
   // Vida do Item (opcional — Armas/Instrumentos)
   const inputVidaMax = document.getElementById('inv-m-vida-max');
   if (inputVidaMax) inputVidaMax.value = data.vidaMax != null ? data.vidaMax : '';
@@ -380,6 +374,11 @@ let _douradoPendente = null;
 let invAtivas  = [];
 // Lista de "Usos" (Usar Nx) da Arma em edição — ver ESCOPO_USO_ARMA_LABEL/resetUsosArmaPorEscopo.
 let invUsos = [];
+// (Set 12) Marca se o item de Arma/Instrumento em edição precisa de Munição
+// automática — true/false força (vem do catálogo, ver
+// selecionarCatalogoItem/_buildInvModal), null = infere pelo Alcance (Longo
+// = precisa) — ver saveInvItem.
+let invPrecisaMunicaoCatalogo = null;
 // 'nenhum' | 'dourado' | 'exotico' | 'encantado'  — estado do seletor de tipo de aprimoramento
 let invAprimoTipo = 'nenhum';
 // id de ENCANTAMENTOS_EQUIPAMENTO (Armadura) ou ENCANTAMENTOS_ELMO (Elmo)
@@ -430,36 +429,29 @@ function _updateInvModalSections(tipo) {
     if (mostraUsos) _renderInvUsos();
   }
 
-  // Munição (armas/instrumentos de longo alcance) ou Cristais (itens exóticos ou com aprimo exótico)
+  // Munição: pra Arma/Instrumento, agora é 100% automática (dado por item —
+  // ver getMunicaoDadoAtual/municaoRow, Set 12), não tem mais campo manual
+  // no modal. Só sobra campo manual pra Cristais de Proteção Exótica (ou
+  // Proteção com Aprimoramento Exótico) — informativo, valor vem do
+  // personagem (p.cristais), não do item.
   const alcance = _invSelectedAlcance();
-  const isExoticaLongoAlcance = ehArmaOuInstrumento && peso === 'exotica' && alcance === 'longo';
-  // Proteção com aprimo exótico também mostra cristais (via hint, sem campo extra de munição)
   const temAprimoExoticoModal = invAprimos.length > 0 && !invAprimos.every(a => a.dourado || a.name === 'Dourado');
   const protComAprimoExotico = tipo === 'protecao' && peso !== 'exotica' && temAprimoExoticoModal;
-  const precisaMunicao = (ehArmaOuInstrumento && (alcance === 'longo' || peso === 'exotica'))
-                      || (tipo === 'protecao' && (peso === 'exotica' || protComAprimoExotico));
+  const precisaMunicao = tipo === 'protecao' && (peso === 'exotica' || protComAprimoExotico);
   document.getElementById('inv-sec-municao').classList.toggle('hidden', !precisaMunicao);
   const municaoLabel = document.getElementById('inv-municao-label');
-  // Exótica ou com aprimo exótico: campo principal mostra Cristais (informativo, read-only)
-  // Comum longo alcance: campo principal = Munição editável
-  if (municaoLabel) municaoLabel.textContent = (peso === 'exotica' || protComAprimoExotico) ? 'Cristais (compartilhados)' : 'Munição';
-  // Campo extra de munição — só aparece quando exótica + longo alcance
+  if (municaoLabel) municaoLabel.textContent = 'Cristais (compartilhados)';
+  // Campo extra de munição (antigo "exótica + longo alcance") não existe mais.
   const secMunicaoExtra = document.getElementById('inv-sec-municao-extra');
-  if (secMunicaoExtra) secMunicaoExtra.classList.toggle('hidden', !isExoticaLongoAlcance);
-  // Campo de cristais vira informativo quando exótica ou proteção com aprimo exótico (valor vem do personagem, não do item)
+  if (secMunicaoExtra) secMunicaoExtra.classList.toggle('hidden', true);
+  // Campo de cristais é sempre informativo agora (Proteção Exótica) — valor vem do personagem.
   const inputMunicao = document.getElementById('inv-m-municao');
-  if (inputMunicao) {
-    if (peso === 'exotica' || protComAprimoExotico) {
-      const pOwner = modalInvPid != null ? PLAYERS.find(x => x.id === modalInvPid) : null;
-      inputMunicao.value = pOwner ? (pOwner.cristais || 0) : 0;
-      inputMunicao.readOnly = true;
-      inputMunicao.style.opacity = '0.6';
-      inputMunicao.title = 'Cristais são compartilhados entre todos os itens exóticos e gerenciados na ficha';
-    } else {
-      inputMunicao.readOnly = false;
-      inputMunicao.style.opacity = '';
-      inputMunicao.title = '';
-    }
+  if (inputMunicao && precisaMunicao) {
+    const pOwner = modalInvPid != null ? PLAYERS.find(x => x.id === modalInvPid) : null;
+    inputMunicao.value = pOwner ? (pOwner.cristais || 0) : 0;
+    inputMunicao.readOnly = true;
+    inputMunicao.style.opacity = '0.6';
+    inputMunicao.title = 'Cristais são compartilhados entre todos os itens exóticos e gerenciados na ficha';
   }
 
   _renderInvAprimos();
@@ -622,7 +614,7 @@ function renderInvCatalogo() {
       if (!isNPCOwner && item.peso === 'encantada' && !temEncantadoAqui) return false;
       if (!isNPCOwner && item.peso === 'exotica' && !temExoticoAqui) return false;
       if (!isNPCOwner && pOwner && !temAcessoPesoArma(pOwner, item.peso)) return false;
-      if (!isNPCOwner && !pOwner && ORDEM_PESO_ARMADURA.includes(item.peso) && item.peso !== 'leve') return false;
+      if (!isNPCOwner && !pOwner && item.peso === 'mega') return false;
     }
     if (subAtivo && item.subtipo !== subAtivo) return false;
     if (!termoNorm) return true;
@@ -671,8 +663,7 @@ function selecionarCatalogoItem(itemId) {
     if (item.alcance) invSelectAlcance(item.alcance);
     const inputDanoInst = document.getElementById('inv-m-dano-inst');
     if (inputDanoInst) inputDanoInst.value = item.dano || '';
-    const inputMunicaoInst = document.getElementById('inv-m-municao');
-    if (inputMunicaoInst) inputMunicaoInst.value = item.municao != null ? item.municao : '';
+    invPrecisaMunicaoCatalogo = item.precisaMunicao === true ? true : (item.precisaMunicao === false ? false : null);
     invUsos = item.usos ? JSON.parse(JSON.stringify(item.usos)) : [];
     _renderInvUsos();
     invAtivas = item.ativas ? JSON.parse(JSON.stringify(item.ativas)) : [];
@@ -684,8 +675,7 @@ function selecionarCatalogoItem(itemId) {
     invSelectPeso(item.peso);
     if (item.alcance) invSelectAlcance(item.alcance);
     document.getElementById('inv-m-dano').value = item.dano || '';
-    const inputMunicaoArma = document.getElementById('inv-m-municao');
-    if (inputMunicaoArma) inputMunicaoArma.value = item.municao != null ? item.municao : '';
+    invPrecisaMunicaoCatalogo = item.precisaMunicao === true ? true : (item.precisaMunicao === false ? false : null);
     invUsos = item.usos ? JSON.parse(JSON.stringify(item.usos)) : [];
     _renderInvUsos();
     invAtivas = item.ativas ? JSON.parse(JSON.stringify(item.ativas)) : [];
@@ -1354,15 +1344,11 @@ function saveInvItem(cobrarDinheiro) {
   const base = { name, efeito, tipo };
   if (tipo === 'arma') {
     Object.assign(base, { peso, dano, alcance, equipado: equipadoArma, duasMaos });
-    if (alcance === 'longo') {
-      if (peso === 'exotica') {
-        // Exótica longo alcance: munição vem do campo extra
-        const municaoExtraRaw = (document.getElementById('inv-m-municao-extra') || {}).value || '';
-        base.municao = municaoExtraRaw !== '' ? Math.max(0, parseInt(municaoExtraRaw)) : 0;
-      } else {
-        base.municao = municao;
-      }
-    }
+    // (Set 12) Munição agora é automática por item (dado próprio, ver
+    // getMunicaoDadoAtual) — não guarda mais número manual. precisaMunicao:
+    // Longo Alcance sempre; itens de Arremesso específicos do catálogo (ex.:
+    // Adagas, Bolsa de Microfone-Adaga) vêm marcados via invPrecisaMunicaoCatalogo.
+    base.precisaMunicao = invPrecisaMunicaoCatalogo != null ? invPrecisaMunicaoCatalogo : (alcance === 'longo');
     // Aprimoramentos disponíveis para todas as armas
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Armas exóticas: cristais ficam em p.cristais (pool do personagem), não no item
@@ -1375,15 +1361,8 @@ function saveInvItem(cobrarDinheiro) {
   } else if (tipo === 'instrumento') {
     const danoInst = (document.getElementById('inv-m-dano-inst') || {}).value || '';
     Object.assign(base, { peso, dano: danoInst.trim(), alcance, equipado: equipadoArma, duasMaos });
-    if (alcance === 'longo') {
-      if (peso === 'exotica') {
-        // Instrumento exótico de longo alcance: munição vem do campo extra
-        const municaoExtraRaw = (document.getElementById('inv-m-municao-extra') || {}).value || '';
-        base.municao = municaoExtraRaw !== '' ? Math.max(0, parseInt(municaoExtraRaw)) : 0;
-      } else {
-        base.municao = municao;
-      }
-    }
+    // (Set 12) Mesma lógica de Munição automática da Arma, ver acima.
+    base.precisaMunicao = invPrecisaMunicaoCatalogo != null ? invPrecisaMunicaoCatalogo : (alcance === 'longo');
     // Aprimoramentos disponíveis para todos os instrumentos
     base.aprimoramentos = invAprimos.filter(a => a.name || a.dourado);
     // Instrumentos Mega Pesados: Liberar Vileza

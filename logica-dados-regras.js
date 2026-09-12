@@ -1688,7 +1688,87 @@ function construirSkillEncantamento(encantamentoItem, itemInventarioId) {
 }
 
 // ═══════════════════════════════════════
-// USOS DE ARMA ("Usar (Nx)") — contador de uso livre em qualquer Arma
+// NOVO SISTEMA DE MUNIÇÃO (Set 12) — substitui de vez o antigo "Pente/Bolsa/
+// Aljava ativa a luta inteira + custoRecarga em Dinheiro" das Armas/
+// Instrumentos. Cada item marcado com `precisaMunicao` (Longo Alcance, ou
+// Arremesso específico do catálogo) tem seu PRÓPRIO dado de Munição
+// (item.municaoDado — null/undefined = ainda no dado cheio):
+//   Normal: 1d6 → 1d4 → 1d2 → acaba. Repor custa 20 de Dinheiro (CUSTO_REPOR_MUNICAO).
+//   Exótica (peso 'exotica', uso marcado municaoExotica): 1d10 → 1d8 → 1d6 →
+//     1d4 → 1d2 → acaba. Repor custa 25 (CUSTO_REPOR_MUNICAO_EXOTICA).
+// Munição Normal é rolada automaticamente 1x por item no Reset de Luta (ver
+// rolarMunicaoFimDeLuta, chamada em resetLuta) — não é um "Teste" com log,
+// só degrada silenciosamente. Munição Exótica é testada a cada USO da
+// Habilidade (ver rolarTesteMunicaoExotica, em logica-rolagens.js, chamada
+// de dentro de usarArmaUso), com rolagem visível no feed de dados — por
+// isso ela dura menos rolagens mas começa num dado maior. Em ambos os
+// casos, sair 1 no dado atual não custa o uso em si — só degrada o dado 1
+// passo. Aprimoramento Dourado "Carregamento Aprimorado": item nunca
+// degrada (ver temCarregamentoAprimorado) — Munição infinita, sem repor.
+const MUNICAO_DADO_SEQ = [6, 4, 2];
+const MUNICAO_DADO_SEQ_EXOTICA = [10, 8, 6, 4, 2];
+const CUSTO_REPOR_MUNICAO = 20;
+const CUSTO_REPOR_MUNICAO_EXOTICA = 25;
+
+function itemUsaMunicaoExotica(item) {
+  return item.peso === 'exotica' && Array.isArray(item.usos) && item.usos.some(u => u.municaoExotica);
+}
+function itemUsaMunicaoNormal(item) {
+  return !!item.precisaMunicao && item.peso !== 'exotica';
+}
+function itemUsaMunicaoAutomatica(item) {
+  return itemUsaMunicaoNormal(item) || itemUsaMunicaoExotica(item);
+}
+function getMunicaoSeq(item) {
+  return itemUsaMunicaoExotica(item) ? MUNICAO_DADO_SEQ_EXOTICA : MUNICAO_DADO_SEQ;
+}
+// Dado atual de Munição do item (número de faces — 0 = acabou, precisa
+// repor). "Carregamento Aprimorado": sempre no dado cheio, nunca degrada.
+function getMunicaoDadoAtual(item) {
+  const seq = getMunicaoSeq(item);
+  if (temCarregamentoAprimorado(item)) return seq[0];
+  return item.municaoDado != null ? item.municaoDado : seq[0];
+}
+// Degrada o dado de Munição do item 1 passo (chamado quando sai 1 no dado
+// atual) — 1d6→1d4→1d2→0; 1d10→1d8→1d6→1d4→1d2→0 pra Exótica.
+function degradarMunicaoDado(item) {
+  const seq = getMunicaoSeq(item);
+  const atual = getMunicaoDadoAtual(item);
+  const idx = seq.indexOf(atual);
+  item.municaoDado = (idx === -1 || idx >= seq.length - 1) ? 0 : seq[idx + 1];
+  return item.municaoDado;
+}
+// Repor Munição — paga em Dinheiro (20 normal / 25 Exótica) e restaura o dado cheio.
+function reporMunicaoItem(pid, itemId) {
+  const p = PLAYERS.find(x => x.id === pid);
+  const item = p && (p.inventario || []).find(i => i.id === itemId);
+  if (!p || !item) return;
+  const exotica = itemUsaMunicaoExotica(item);
+  const custo = exotica ? CUSTO_REPOR_MUNICAO_EXOTICA : CUSTO_REPOR_MUNICAO;
+  if ((p.dinheiro || 0) < custo) {
+    alert(`Dinheiro insuficiente! Repor a Munição de "${item.name}" custa ${custo} de Dinheiro, e ${p.name} só tem ${p.dinheiro || 0}.`);
+    return;
+  }
+  p.dinheiro = Math.max(0, (p.dinheiro || 0) - custo);
+  item.municaoDado = getMunicaoSeq(item)[0];
+  saveState();
+  renderAll();
+}
+// Reset de Luta: rola a Munição NORMAL (não Exótica) de toda Arma/
+// Instrumento do personagem que precise — 1x por item, silenciosamente
+// (sem log de dados). Munição Exótica não passa por aqui — ver
+// rolarTesteMunicaoExotica (logica-rolagens.js), testada a cada uso.
+function rolarMunicaoFimDeLuta(p) {
+  (p.inventario || []).forEach(item => {
+    if ((item.tipo === 'arma' || item.tipo === 'instrumento') && itemUsaMunicaoNormal(item) && !temCarregamentoAprimorado(item)) {
+      const atual = getMunicaoDadoAtual(item);
+      if (atual <= 0) return;
+      const rolagem = Math.floor(Math.random() * atual) + 1;
+      if (rolagem === 1) degradarMunicaoDado(item);
+    }
+  });
+}
+
 // ═══════════════════════════════════════
 // Diferente dos Encantamentos/Aprimoramentos (catálogos fixos), aqui o
 // jogador escreve livremente nome + efeito de cada "Usar (Nx)" da arma (ver
@@ -1745,7 +1825,7 @@ function construirUsosBoxHtml(item, p) {
           ${!infinito ? `<button onclick="event.stopPropagation();resetArmaUso(${p.id},'${item.id}',${ui})" title="Restaurar usos" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0"><i class="ti ti-refresh" style="font-size:15px"></i></button>` : ''}
         </div>
       </div>
-      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.custoCristal ? `<span class="sk-tag">💎${u.custoCristal===1?'1 Cristal':u.custoCristal+' Cristais'}</span>` : ''}${infinito ? `<span class="sk-tag" style="color:#e8c53a">✨ Carregamento Aprimorado (∞)</span>` : (u.custoRecarga ? `<span class="sk-tag">💰${u.custoRecarga}/uso</span>` : '')}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}${u.concedeNotaEscolhida ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 escolha uma nota</span>` : ''}</div>
+      <div class="sk-tags"><span class="sk-tag">${ESCOPO_USO_ARMA_LABEL[u.escopo] || u.escopo}</span>${u.custo ? `<span class="sk-tag">${u.custo===1?'1 ação':u.custo+' ações'}</span>` : ''}${u.custoCristal ? `<span class="sk-tag">💎${u.custoCristal===1?'1 Cristal':u.custoCristal+' Cristais'}</span>` : ''}${u.municaoExotica ? `<span class="sk-tag">🎯 Munição Exótica (1d${getMunicaoDadoAtual(item)})</span>` : ''}${infinito ? `<span class="sk-tag" style="color:#e8c53a">✨ Carregamento Aprimorado (∞)</span>` : (u.custoRecarga ? `<span class="sk-tag">💰${u.custoRecarga}/uso</span>` : '')}${u.umPorTurno ? `<span class="sk-tag">1x/turno</span>` : ''}${u.concedeNotaEscolhida ? `<span class="sk-tag" style="background:var(--bardo-dim);color:#f0dba0">🎵 escolha uma nota</span>` : ''}</div>
       ${u.desc ? `<div style="font-size:11px;color:var(--text2);margin:8px 0 6px;line-height:1.5">${u.desc}</div>` : ''}
       ${usadoNesteTurno ? `<div style="font-size:10px;color:var(--text3);margin-bottom:6px">Já usado neste turno.</div>` : ''}
       <div class="sk-bottom">
@@ -1784,6 +1864,12 @@ function usarArmaUso(pid, itemId, usoIdx) {
   // (Bolsa de Adagas, Pentes, Aljavas etc.) deixam de ter limite — nunca esgota.
   const infinito = !!(uso.custoRecarga && item && temCarregamentoAprimorado(item));
   if (!infinito && uso.usosAtuais <= 0) return;
+  // (Set 12) Munição Exótica: precisa de pelo menos 1 no dado atual do item
+  // pra poder usar — ver getMunicaoDadoAtual/rolarTesteMunicaoExotica.
+  if (uso.municaoExotica && getMunicaoDadoAtual(item) <= 0 && !temCarregamentoAprimorado(item)) {
+    alert(`Munição Exótica esgotada em "${item.name}"! Reponha pagando ${CUSTO_REPOR_MUNICAO_EXOTICA} de Dinheiro antes de usar de novo.`);
+    return;
+  }
   // "Um uso por turno": mesmo com usos sobrando no total, não deixa usar de
   // novo se já foi usado no turno global atual.
   if (uso.umPorTurno && uso.ultimoTurnoUsado === turnGlobal) return;
@@ -1830,6 +1916,12 @@ function usarArmaUso(pid, itemId, usoIdx) {
   }
   if (custoCristal > 0) {
     p.cristais = Math.max(0, (p.cristais || 0) - custoCristal);
+  }
+  // (Set 12) Munição Exótica: rola o "Teste de Munição" a cada uso — ver
+  // rolarTesteMunicaoExotica (logica-rolagens.js). Substitui custoCristal
+  // nos equipamentos Exóticos migrados pro novo sistema.
+  if (uso.municaoExotica) {
+    rolarTesteMunicaoExotica(p, item);
   }
   saveState();
   renderAll();
@@ -2320,21 +2412,21 @@ function escolherConclamar(pid, skidAlvo) {
 }
 
 // "Gambiarra de Alto Nível" (Campeão): lista as Armas do inventário que têm
-// "usos" (item.usos) pra escolher qual recarregar. Dentro de item.usos, cada
-// entrada com custoRecarga é uma "Munição" no sentido da Habilidade (mesmo
-// padrão da Aljava do Arco, do Pente de Balas do Revólver etc. — normalmente
-// custam Dinheiro pra recarregar); as entradas sem custoRecarga são "Usos"
-// genéricos da Arma (ex: Explosão Mágica da Aliança Encantada). Uma Arma só
-// aparece se tiver pelo menos um dos dois tipos.
+// "usos" (item.usos) e/ou Munição automática (Set 12 — ver
+// itemUsaMunicaoAutomatica) pra escolher o que recarregar de graça. "Usos"
+// restaura todas as entradas de item.usos (inclusive as marcadas
+// municaoExotica, que têm seu próprio limite de usosMax por Luta,
+// independente do dado de Munição). "Munição" restaura o dado de Munição do
+// item pro cheio (1d6 normal / 1d10 Exótica), sem cobrar em Dinheiro.
 function abrirGambiarraModal(pid) {
   const overlay = document.getElementById('modal-criacao-anao-overlay');
   const p = PLAYERS.find(x => x.id === pid);
   if (!overlay || !p) return;
 
-  const armas = (p.inventario || []).filter(i => i.tipo === 'arma' && Array.isArray(i.usos) && i.usos.length > 0);
+  const armas = (p.inventario || []).filter(i => i.tipo === 'arma' && ((Array.isArray(i.usos) && i.usos.length > 0) || itemUsaMunicaoAutomatica(i)));
   const linhasHtml = armas.map(item => {
-    const temMunicao = item.usos.some(u => u.custoRecarga);
-    const temUsosGerais = item.usos.some(u => !u.custoRecarga);
+    const temUsosGerais = Array.isArray(item.usos) && item.usos.length > 0;
+    const temMunicao = itemUsaMunicaoAutomatica(item);
     if (!temMunicao && !temUsosGerais) return '';
     return `<div style="display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--border);border-radius:10px">
       <span style="font-size:13px;font-weight:600">${escHtml(item.name)}</span>
@@ -2363,21 +2455,20 @@ function abrirGambiarraModal(pid) {
 }
 
 // Aplica a recarga escolhida no modal acima — de graça (a Gambiarra não
-// cobra o custoRecarga em Dinheiro normal desses "usos"): "usos" recarrega
-// as entradas de item.usos SEM custoRecarga; "municao" recarrega as
-// entradas COM custoRecarga (Aljava, Pente de Balas/Cartuchos/Munição/
-// Granadas, Bolsa de Adagas — o "container de munição" da Arma).
+// cobra em Dinheiro): "usos" restaura usosAtuais de TODAS as entradas de
+// item.usos; "municao" restaura o dado de Munição do item pro cheio (ver
+// getMunicaoSeq/itemUsaMunicaoAutomatica).
 function escolherGambiarra(pid, itemId, tipo) {
   const p = PLAYERS.find(x => x.id === pid);
   const item = p && (p.inventario || []).find(i => i.id === itemId);
-  if (!item || !Array.isArray(item.usos)) return;
+  if (!item) return;
 
-  item.usos.forEach(u => {
-    const eMunicao = !!u.custoRecarga;
-    if ((tipo === 'municao' && eMunicao) || (tipo === 'usos' && !eMunicao)) {
-      u.usosAtuais = u.usosMax;
-    }
-  });
+  if (tipo === 'usos' && Array.isArray(item.usos)) {
+    item.usos.forEach(u => { u.usosAtuais = u.usosMax; });
+  }
+  if (tipo === 'municao' && itemUsaMunicaoAutomatica(item)) {
+    item.municaoDado = getMunicaoSeq(item)[0];
+  }
 
   fecharCriacaoAnaoModal();
   saveState();
@@ -5178,11 +5269,12 @@ function escolherNotaInstrumento(pid, itemId, usoIdx, nota) {
   renderAll();
 }
 
-// Compra de volta 1 uso ("Runa") de um "Usar (Nx)" da arma, pagando o custo
-// em Dinheiro definido em u.custoRecarga (ex: Adagas Mágicas — 10 Dinheiro
-// por Runa). Diferente de resetArmaUso (reset manual grátis, geralmente de
-// uso do Narrador): esta é a recarga "oficial" via economia da campanha, um
-// uso de cada vez, e nunca passa do usosMax (a capacidade de Runas da arma).
+// (Set 12) DORMENTE: nenhum item do catálogo tem mais `custoRecarga` (Munição
+// virou o dado automático por item — ver getMunicaoDadoAtual/reporMunicaoItem).
+// Mantida sem remover pra não quebrar itens antigos salvos com custoRecarga
+// manual (o botão de "Comprar +1" em construirUsosBoxHtml também só aparece
+// se `u.custoRecarga` existir). Compra de volta 1 uso, pagando o custo em
+// Dinheiro definido em u.custoRecarga — nunca passa do usosMax.
 function comprarUsoArma(pid, itemId, usoIdx) {
   const p = PLAYERS.find(x => x.id === pid);
   const item = p && (p.inventario || []).find(i => i.id === itemId);
@@ -6621,12 +6713,12 @@ function renderWizardArmaStep() {
     return;
   }
 
-  const pesosPermitidos = wizardIsNPC ? ORDEM_PESO_ARMADURA.slice() : getPesosArmaPermitidos(cls);
+  const pesosPermitidos = wizardIsNPC ? ORDEM_PESO_ARMADURA.slice() : ['leve', 'media', 'pesada'];
   const opcoesArma = CATALOGO_ITENS.arma.filter(item => pesosPermitidos.includes(item.peso)).map(item => ({ ...item, _tipo: 'arma' }));
   const opcoesInstrumento = CATALOGO_ITENS.instrumento.filter(item => pesosPermitidos.includes(item.peso)).map(item => ({ ...item, _tipo: 'instrumento' }));
   const opcoes = [...opcoesArma, ...opcoesInstrumento];
 
-  // Descarta uma escolha antiga que não seja mais válida (ex.: trocou de subclasse/atributo).
+  // Descarta uma escolha antiga que não seja mais válida (ex.: trocou de subclasse).
   if (wizardArmaEscolhidaId && !opcoes.some(o => o.id === wizardArmaEscolhidaId && o._tipo === wizardArmaEscolhidaTipo)) {
     wizardArmaEscolhidaId = null;
     wizardArmaEscolhidaTipo = null;
@@ -6636,7 +6728,7 @@ function renderWizardArmaStep() {
     aviso.style.display = '';
     aviso.textContent = wizardIsNPC
       ? 'NPC: todas as categorias de peso de Arma/Instrumento estão liberadas.'
-      : `Categoria liberada por ${cls}: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
+      : `Escolha livre entre Leve/Média/Pesada (Set 12), independente da Classe.`;
   }
 
   if (!opcoes.length) {
@@ -7274,15 +7366,16 @@ function temAcessoArmaduraExotica(p) {
   return maestriaDe(p, 'agi') >= 5;
 }
 
-// Categorias de peso de Arma/Instrumento liberadas pro personagem: o acesso
-// base é EXCLUSIVO por atributo (ver getPesosArmaPermitidos — só 1
-// categoria). Com o Talento Inferior "Maestria de Peso Aprimorada", o
-// personagem passa a ter acesso à categoria seguinte TAMBÉM (sem perder a
-// original): Leve -> Leve+Média; Média -> Média+Pesada; Pesada -> Pesada+Mega.
+// Categorias de peso de Arma/Instrumento liberadas pro personagem. (Set 12)
+// Leve/Média/Pesada agora são LIVRES pra qualquer subclasse — não dependem
+// mais do atributo principal (getPesosArmaPermitidos, mantida só como
+// referência histórica/uso no wizard de criação — ver abaixo). Com o
+// Talento Inferior "Maestria de Peso Aprimorada", o personagem ganha também
+// acesso a Mega Pesada (Exótica/Encantada continuam pelos Talentos
+// "Equipamento Exótico"/"Equipamento Encantado", à parte).
 function getPesosArmaPermitidosPersonagem(p, ignorarMultifuncoes) {
   // "Multifunções" (passiva fixa do Campeão): sabe usar TODAS as Armas,
-  // independente do atributo da subclasse — ignora a regra exclusiva normal,
-  // e já inclui Mega Pesada de cara (sem depender da Maestria de Peso
+  // incluindo Mega Pesada de cara (sem depender da Maestria de Peso
   // Aprimorada — essa só serve pra outras classes chegarem em Mega). Porém,
   // só pode GANHAR essas categorias extras, não comprar — ver saveInvItem,
   // que usa `ignorarMultifuncoes=true` pra saber o que o personagem teria
@@ -7292,23 +7385,15 @@ function getPesosArmaPermitidosPersonagem(p, ignorarMultifuncoes) {
   if (temMultifuncoes) {
     return ['leve', 'media', 'pesada', 'mega'];
   }
-  const base = getPesosArmaPermitidos(p.cls); // ex: ['media']
-  let resultado;
-  if (!temMaestriaAprimorada) {
-    resultado = base;
-  } else {
-    const idx = ORDEM_PESO_ARMADURA.indexOf(base[0]);
-    resultado = (idx === -1 || idx >= ORDEM_PESO_ARMADURA.length - 1) ? base : [base[0], ORDEM_PESO_ARMADURA[idx + 1]];
-  }
-  // "Mulgore" (Origem, Tauren): garante acesso a Armas Pesadas, independente
-  // do caminho da Classe — soma 'pesada' ao conjunto já calculado (sem
-  // remover nenhuma categoria que o personagem já tivesse por outro meio).
+  let resultado = ['leve', 'media', 'pesada'];
+  if (temMaestriaAprimorada) resultado = [...resultado, 'mega'];
+  // "Mulgore" (Origem, Tauren) e "Colosso" (Origem, Troll): já garantiam
+  // acesso a Armas Pesadas independente da Classe — agora redundante (Pesada
+  // já é livre pra todos), mas mantido sem custo extra, inofensivo.
   const temMulgore = p.origemId === 'tauren_origem_mulgore';
   if (temMulgore && !resultado.includes('pesada')) {
     resultado = [...resultado, 'pesada'];
   }
-  // "Colosso" (Origem, Troll): mesma ideia da Mulgore — soma 'pesada' ao
-  // conjunto já calculado, independente do caminho da Classe.
   const temColosso = p.origemId === 'troll_origem_colosso';
   if (temColosso && !resultado.includes('pesada')) {
     resultado = [...resultado, 'pesada'];
