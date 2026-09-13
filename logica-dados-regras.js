@@ -1690,7 +1690,7 @@ function construirSkillEncantamento(encantamentoItem, itemInventarioId) {
 }
 
 // ═══════════════════════════════════════
-// NOVO SISTEMA DE MUNIÇÃO (Set 12, revisado) — substitui de vez o antigo
+// NOVO SISTEMA DE MUNIÇÃO (Set 12, revisado 2x) — substitui de vez o antigo
 // "Pente/Bolsa/Aljava ativa a luta inteira + custoRecarga em Dinheiro" das
 // Armas/Instrumentos. Cada item marcado com `precisaMunicao` (Longo
 // Alcance, ou Arremesso específico do catálogo) tem seu PRÓPRIO dado de
@@ -1698,19 +1698,19 @@ function construirSkillEncantamento(encantamentoItem, itemInventarioId) {
 //   Normal: 1d6 → 1d4 → 1d2 → acaba. Repor custa 20 de Dinheiro (CUSTO_REPOR_MUNICAO).
 //   Exótica (peso 'exotica', uso marcado municaoExotica): 1d10 → 1d8 → 1d6 →
 //     1d4 → 1d2 → acaba. Repor custa 25 (CUSTO_REPOR_MUNICAO_EXOTICA).
-// A Munição só é testada quando o personagem DÁ UM ATAQUE de verdade com a
-// Arma/Instrumento — nunca por tempo (não existe mais rolagem automática no
-// fim da Luta). Dois gatilhos: (1) rolarDanoArma — cobre "Ataque com Arma"/
-// "Ataque com 2 Armas" (testa a principal e, se for o caso, a secundária),
-// Arremesso (jogar a própria arma), Ataque Giratório, Corrente de Vento e
-// qualquer outro fluxo que role Dano de verdade da Arma; (2) usarArmaUso —
-// cobre as Habilidades Exóticas próprias (Feixe Perfurante, Carga Elétrica,
-// Campo Harmônico), marcadas `municaoExotica` no uso, testadas ao clicar
-// "Usar". Ambos chamam rolarMunicaoItemNoFeed (logica-rolagens.js), com
-// rolagem visível no feed de dados. Sair 1 no dado atual não custa o ataque
-// em si — só degrada o dado 1 passo (1d6→1d4→..., 1d10→1d8→...).
-// Aprimoramento Dourado "Carregamento Aprimorado": item nunca degrada (ver
-// temCarregamentoAprimorado) — Munição infinita, sem repor.
+// Fluxo em 2 passos: (1) durante a Luta, atacar de verdade com a Arma só
+// MARCA `item.municaoUsadaNestaLuta = true` — em rolarDanoArma (Ataque com
+// Arma/2 Armas, Arremesso...) pra Munição normal, e em usarArmaUso (uso
+// marcado municaoExotica — Feixe Perfurante, Carga Elétrica, Campo
+// Harmônico) pra Munição Exótica. Nada é rolado nesse momento. (2) só no
+// Reset de Luta/Encerrar Combate (ver rolarMunicaoFimDeLuta, chamada em
+// resetLuta) é que o dado É de fato testado — 1x por item, só pros que
+// foram marcados como usados — com rolagem visível no feed de dados (ver
+// rolarMunicaoItemNoFeed, em logica-rolagens.js); a marca é limpa em
+// seguida. Sair 1 no dado atual não desfaz nada do que já aconteceu na
+// Luta — só degrada o dado 1 passo pra próxima vez (1d6→1d4→...,
+// 1d10→1d8→...). Aprimoramento Dourado "Carregamento Aprimorado": item
+// nunca degrada (ver temCarregamentoAprimorado) — Munição infinita, sem repor.
 const MUNICAO_DADO_SEQ = [6, 4, 2];
 const MUNICAO_DADO_SEQ_EXOTICA = [10, 8, 6, 4, 2];
 const CUSTO_REPOR_MUNICAO = 20;
@@ -1759,6 +1759,20 @@ function reporMunicaoItem(pid, itemId) {
   item.municaoDado = getMunicaoSeq(item)[0];
   saveState();
   renderAll();
+}
+// (Set 12, revisado) Reset de Luta/Encerrar Combate: testa a Munição (normal
+// OU Exótica) de toda Arma/Instrumento que foi de fato USADA nesta Luta
+// (ver item.municaoUsadaNestaLuta, marcada em rolarDanoArma/usarArmaUso) —
+// quem não atacou com aquela Arma não gasta Munição. Publica cada rolagem
+// no feed de dados (ver rolarMunicaoItemNoFeed, em logica-rolagens.js) e
+// limpa a marca de uso em seguida, esteja o item ainda com Munição ou não.
+function rolarMunicaoFimDeLuta(p) {
+  (p.inventario || []).forEach(item => {
+    if ((item.tipo === 'arma' || item.tipo === 'instrumento') && itemUsaMunicaoAutomatica(item) && item.municaoUsadaNestaLuta) {
+      rolarMunicaoItemNoFeed(p, item, 'Teste de Munição — Fim de Luta');
+      item.municaoUsadaNestaLuta = false;
+    }
+  });
 }
 
 // ═══════════════════════════════════════
@@ -1857,7 +1871,7 @@ function usarArmaUso(pid, itemId, usoIdx) {
   const infinito = !!(uso.custoRecarga && item && temCarregamentoAprimorado(item));
   if (!infinito && uso.usosAtuais <= 0) return;
   // (Set 12) Munição Exótica: precisa de pelo menos 1 no dado atual do item
-  // pra poder usar — ver getMunicaoDadoAtual/rolarTesteMunicaoExotica.
+  // pra poder usar — ver getMunicaoDadoAtual.
   if (uso.municaoExotica && getMunicaoDadoAtual(item) <= 0 && !temCarregamentoAprimorado(item)) {
     alert(`Munição Exótica esgotada em "${item.name}"! Reponha pagando ${CUSTO_REPOR_MUNICAO_EXOTICA} de Dinheiro antes de usar de novo.`);
     return;
@@ -1909,11 +1923,11 @@ function usarArmaUso(pid, itemId, usoIdx) {
   if (custoCristal > 0) {
     p.cristais = Math.max(0, (p.cristais || 0) - custoCristal);
   }
-  // (Set 12) Munição Exótica: rola o "Teste de Munição" a cada uso — ver
-  // rolarTesteMunicaoExotica (logica-rolagens.js). Substitui custoCristal
-  // nos equipamentos Exóticos migrados pro novo sistema.
+  // (Set 12, revisado) Munição Exótica: só marca como "usada nesta Luta" —
+  // o Teste de verdade só rola no fim da Luta (ver rolarMunicaoFimDeLuta,
+  // chamada em resetLuta), igual a Munição normal agora.
   if (uso.municaoExotica) {
-    rolarTesteMunicaoExotica(p, item);
+    item.municaoUsadaNestaLuta = true;
   }
   saveState();
   renderAll();

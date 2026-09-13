@@ -1817,10 +1817,6 @@ function rolarMunicaoItemNoFeed(p, item, motivo) {
   });
 }
 
-function rolarTesteMunicaoExotica(p, item) {
-  rolarMunicaoItemNoFeed(p, item, 'Teste de Munição');
-}
-
 function rolarDanoEncantamentoRochoso(pid, formula, label) {
   if (!currentUser) return;
   const p = PLAYERS.find(x => x.id === pid);

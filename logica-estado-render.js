@@ -707,15 +707,15 @@ function rolarDanoArma(pid, itemId, opts) {
   const item = p && resolverArmaOuInstrumento(p, itemId);
   if (!p || !item) return null;
 
-  // (Set 12) Testa a Munição (normal ou Exótica) da Arma/Instrumento
-  // envolvida neste ataque — é aqui que um ataque de verdade acontece, não
-  // mais no fim da Luta. Com "Ataque com 2 Armas" (opts.forcarAmbidestro),
-  // testa a principal E a secundária, já que o Dano soma as duas — ver
-  // rolarMunicaoItemNoFeed, em logica-rolagens.js.
-  if (itemUsaMunicaoAutomatica(item)) rolarMunicaoItemNoFeed(p, item, 'Teste de Munição');
+  // (Set 12, revisado) Marca a Arma/Instrumento como "usada nesta Luta" —
+  // não rola o dado de Munição agora, só no fim da Luta (ver
+  // rolarMunicaoFimDeLuta, chamada em resetLuta), e só pras Armas realmente
+  // usadas (essa marca). Com "Ataque com 2 Armas" (opts.forcarAmbidestro),
+  // marca a principal E a secundária, já que o Dano soma as duas.
+  if (itemUsaMunicaoAutomatica(item)) item.municaoUsadaNestaLuta = true;
   if (opts.forcarAmbidestro) {
     const secundaria = getArmaSecundariaEquipada(p);
-    if (secundaria && itemUsaMunicaoAutomatica(secundaria)) rolarMunicaoItemNoFeed(p, secundaria, 'Teste de Munição');
+    if (secundaria && itemUsaMunicaoAutomatica(secundaria)) secundaria.municaoUsadaNestaLuta = true;
   }
 
   const r = construirRolagemDanoArma(p, item, opts);
@@ -1683,6 +1683,9 @@ function resetLuta() {
     });
     // Usos de Arma ("Usar Nx") com escopo "Por Luta" ou "Por Turno"
     resetUsosArmaPorEscopo(p, ['luta','turno']);
+    // (Set 12, revisado) Testa a Munição das Armas/Instrumentos que foram
+    // de fato usadas nesta Luta — ver rolarMunicaoFimDeLuta.
+    rolarMunicaoFimDeLuta(p);
     // Notas do Bardo: resetar no início de cada luta
     if (p.classeBase === 'Bardo' && p.notasBardo) {
       NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
