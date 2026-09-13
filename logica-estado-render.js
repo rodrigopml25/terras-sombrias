@@ -697,15 +697,27 @@ function construirRolagemDanoArma(p, item, opts) {
 
 // Rola o Dano de uma Arma/Instrumento e publica no feed de dados, igual a
 // um Teste — chamado pela Habilidade Geral "Ataque com Arma"/"Ataque com 2
-// Armas" (ver useSkill), sempre sobre a Arma/Instrumento atualmente
-// equipado. opts.forcarAmbidestro/opts.labelPrefixo: ver
-// construirRolagemDanoArma.
+// Armas" (ver useSkill), Arremesso, Ataque Giratório e qualquer outro
+// ataque real feito com a Arma/Instrumento equipado. opts.forcarAmbidestro/
+// opts.labelPrefixo: ver construirRolagemDanoArma.
 function rolarDanoArma(pid, itemId, opts) {
   opts = opts || {};
   if (!currentUser) return null;
   const p = PLAYERS.find(x => x.id === pid);
   const item = p && resolverArmaOuInstrumento(p, itemId);
   if (!p || !item) return null;
+
+  // (Set 12) Testa a Munição (normal ou Exótica) da Arma/Instrumento
+  // envolvida neste ataque — é aqui que um ataque de verdade acontece, não
+  // mais no fim da Luta. Com "Ataque com 2 Armas" (opts.forcarAmbidestro),
+  // testa a principal E a secundária, já que o Dano soma as duas — ver
+  // rolarMunicaoItemNoFeed, em logica-rolagens.js.
+  if (itemUsaMunicaoAutomatica(item)) rolarMunicaoItemNoFeed(p, item, 'Teste de Munição');
+  if (opts.forcarAmbidestro) {
+    const secundaria = getArmaSecundariaEquipada(p);
+    if (secundaria && itemUsaMunicaoAutomatica(secundaria)) rolarMunicaoItemNoFeed(p, secundaria, 'Teste de Munição');
+  }
+
   const r = construirRolagemDanoArma(p, item, opts);
   if (!r) return null;
 
@@ -1671,9 +1683,6 @@ function resetLuta() {
     });
     // Usos de Arma ("Usar Nx") com escopo "Por Luta" ou "Por Turno"
     resetUsosArmaPorEscopo(p, ['luta','turno']);
-    // (Set 12) Munição Normal (não Exótica): rola 1x por item ao fim da Luta
-    // — ver rolarMunicaoFimDeLuta. Munição Exótica é testada a cada uso, não aqui.
-    rolarMunicaoFimDeLuta(p);
     // Notas do Bardo: resetar no início de cada luta
     if (p.classeBase === 'Bardo' && p.notasBardo) {
       NOTAS_MUSICAIS.forEach(n => { p.notasBardo[n] = false; });
