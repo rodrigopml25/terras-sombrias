@@ -1787,13 +1787,12 @@ function resolverEncantamentoRochoso(pid, acertouAparo) {
 // publica no feed — reaproveita o parser de fórmulas avançadas que já
 // existe (parseFormula), então "(1d4)d6"/"(1d2)d6" funcionam de verdade
 // (rola o d4/d2 primeiro, e o resultado vira a quantidade de d6 a rolar).
-// (Set 12) "Teste de Munição" — chamado a cada uso de uma Habilidade/Uso de
-// equipamento Exótico marcada `municaoExotica` (ver usarArmaUso, em
-// logica-dados-regras.js). Rola o dado de Munição Exótica atual do item
-// (1d10 → 1d8 → ... conforme degrada) e publica no feed de dados, igual
-// qualquer outra rolagem — se sair 1, o dado degrada 1 passo (ver
-// degradarMunicaoDado). Não faz nada se "Carregamento Aprimorado" (Munição infinita).
-function rolarTesteMunicaoExotica(p, item) {
+// (Set 12) Rola o dado de Munição atual do item e publica no feed de dados
+// pra todo mundo ver — usado tanto pelo "Teste de Munição" da Exótica (a
+// cada uso, ver usarArmaUso) quanto pelo Reset de Luta pra Munição normal
+// (rótulo muda conforme `motivo`). Se sair 1, degrada o dado 1 passo. Não
+// faz nada com "Carregamento Aprimorado" (Munição infinita) nem se já tiver acabado.
+function rolarMunicaoItemNoFeed(p, item, motivo) {
   if (!currentUser || temCarregamentoAprimorado(item)) return;
   const atual = getMunicaoDadoAtual(item);
   if (atual <= 0) return;
@@ -1804,7 +1803,7 @@ function rolarTesteMunicaoExotica(p, item) {
     playerName: currentUser.name || (IS_NARRADOR ? 'Narrador' : 'Jogador'),
     charName: p.name,
     isNarrator: !!IS_NARRADOR,
-    formula: `Teste de Munição (${item.name})`,
+    formula: `${motivo} (${item.name})`,
     tree: { type: 'sum', terms: [{ sign: '+', node: parsed.node }] },
     total: parsed.value,
     hidden: hiddenPadrao(p),
@@ -1816,6 +1815,10 @@ function rolarTesteMunicaoExotica(p, item) {
     setTimeout(() => finishRollEntry(key), ROLL_ANIM_MS);
     setTimeout(() => spinDiceFab(false), ROLL_ANIM_MS);
   });
+}
+
+function rolarTesteMunicaoExotica(p, item) {
+  rolarMunicaoItemNoFeed(p, item, 'Teste de Munição');
 }
 
 function rolarDanoEncantamentoRochoso(pid, formula, label) {

@@ -1757,16 +1757,14 @@ function reporMunicaoItem(pid, itemId) {
   renderAll();
 }
 // Reset de Luta: rola a Munição NORMAL (não Exótica) de toda Arma/
-// Instrumento do personagem que precise — 1x por item, silenciosamente
-// (sem log de dados). Munição Exótica não passa por aqui — ver
-// rolarTesteMunicaoExotica (logica-rolagens.js), testada a cada uso.
+// Instrumento do personagem que precise — 1x por item, publicando cada
+// rolagem no feed de dados (visível pra todo mundo, igual o Teste de
+// Munição Exótica) — ver rolarMunicaoItemNoFeed, em logica-rolagens.js.
+// Munição Exótica não passa por aqui — é testada a cada uso, não no fim da Luta.
 function rolarMunicaoFimDeLuta(p) {
   (p.inventario || []).forEach(item => {
-    if ((item.tipo === 'arma' || item.tipo === 'instrumento') && itemUsaMunicaoNormal(item) && !temCarregamentoAprimorado(item)) {
-      const atual = getMunicaoDadoAtual(item);
-      if (atual <= 0) return;
-      const rolagem = Math.floor(Math.random() * atual) + 1;
-      if (rolagem === 1) degradarMunicaoDado(item);
+    if ((item.tipo === 'arma' || item.tipo === 'instrumento') && itemUsaMunicaoNormal(item)) {
+      rolarMunicaoItemNoFeed(p, item, 'Munição — Fim de Luta');
     }
   });
 }
