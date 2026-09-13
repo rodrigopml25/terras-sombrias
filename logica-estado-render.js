@@ -206,6 +206,21 @@ function applyData(data) {
       const algumArmaDefinido = itensArma.some(i => typeof i.equipado === 'boolean');
       if (!algumArmaDefinido && itensArma.length) itensArma[0].equipado = true;
     }
+    // Migração (Set 12): itens de Arma/Instrumento criados ANTES do novo
+    // sistema de Munição não têm o campo `precisaMunicao` — sem ele,
+    // `itemUsaMunicaoAutomatica` nunca retorna true e o item nunca é
+    // marcado/testado (é por isso que o Teste de Munição não aparecia pra
+    // fichas antigas). Preenche com a mesma regra padrão de saveInvItem:
+    // Longo Alcance sempre precisa; Curto Alcance só nos itens específicos
+    // do catálogo (Adagas, Adagas Mágicas, Microfone-Adaga — Arremesso).
+    p.inventario.forEach(i => {
+      if ((i.tipo === 'arma' || i.tipo === 'instrumento') && typeof i.precisaMunicao !== 'boolean') {
+        const nomesArremessoComMunicao = ['Adagas', 'Adagas Mágicas', 'Microfone-Adaga'];
+        const nomesIsentosDeMunicao = ['Grimório do Conhecimento', 'Varinha', 'Harpa-Grimório', 'Clarinete Encantado'];
+        i.precisaMunicao = !nomesIsentosDeMunicao.includes(i.name)
+          && (i.alcance === 'longo' || nomesArremessoComMunicao.includes(i.name));
+      }
+    });
     recomputeProtMax(p);
     // Migração: testes — fichas antigas que ainda não têm o campo
     getTestePersonagem(p);
