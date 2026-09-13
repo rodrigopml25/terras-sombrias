@@ -578,24 +578,22 @@ function renderInvCatalogo() {
   const termoNorm = termo.trim().toLowerCase();
   const subAtivo = tipo === 'protecao' ? _invSelectedSub() : null;
   const pOwner = modalInvPid != null ? PLAYERS.find(x => x.id === modalInvPid) : null;
-  const temEncantado = pOwner ? temAcessoEquipamentoEncantado(pOwner) : false;
-  const temExotico   = pOwner ? temAcessoEquipamentoExotico(pOwner) : false;
+  // (Set 12) Encantada/Exótica/Mega Pesada — pra Armadura E Arma/Instrumento
+  // — não dependem mais de Talento Inferior. Passam a exigir só a Maestria
+  // correspondente: Encantada → Intelecto 5; Exótica → Agilidade 5; Mega
+  // Pesada → Força 5 (ver temAcessoEquipEncantado/Exotico/MegaPesado).
+  const temEquipEncantado = pOwner ? temAcessoEquipEncantado(pOwner) : false;
+  const temEquipExotico   = pOwner ? temAcessoEquipExotico(pOwner) : false;
   // "Multifunções" (Campeão): sabe usar TODAS as Armas e Instrumentos, de
-  // qualquer categoria — inclusive Exótica e Encantada — sem precisar dos
-  // Talentos Inferiores "Equipamento Exótico"/"Equipamento Encantado". Só
-  // vale pro tipo 'arma'/'instrumento', nunca pra Armadura/Elmo.
+  // qualquer categoria — inclusive Exótica, Encantada e Mega Pesada — sem
+  // precisar de Maestria. Só vale pro tipo 'arma'/'instrumento', nunca pra
+  // Armadura/Elmo.
   const temMultifuncoesAqui = pOwner && (tipo === 'arma' || tipo === 'instrumento') && temMultifuncoesArma(pOwner);
-  const temEncantadoAqui = temEncantado || temMultifuncoesAqui;
-  const temExoticoAqui = temExotico || temMultifuncoesAqui;
-  // (Set 12) Armadura/Elmo Encantada/Exótica não dependem mais dos Talentos
-  // Inferiores acima — passam a exigir só a Maestria correspondente. Vale
-  // só pro catálogo de Proteção (tipo === 'protecao'); Arma/Instrumento
-  // Encantado/Exótico continuam pelo Talento normal (temEncantadoAqui/temExoticoAqui).
-  const temArmaduraEncantada = pOwner ? temAcessoArmaduraEncantada(pOwner) : false;
-  const temArmaduraExotica   = pOwner ? temAcessoArmaduraExotica(pOwner) : false;
+  const temEncantadoAqui = temEquipEncantado || temMultifuncoesAqui;
+  const temExoticoAqui = temEquipExotico || temMultifuncoesAqui;
   // NPC: Narrador pode dar qualquer item pro NPC — Encantado, Exótico ou
-  // qualquer categoria de peso (inclusive Mega) — sem depender de Talento
-  // Inferior nem de Maestria, que só valem pra fichas de jogador.
+  // qualquer categoria de peso (inclusive Mega) — sem depender de Maestria,
+  // que só vale pra fichas de jogador.
   const isNPCOwner = !!(pOwner && pOwner.isNPC);
 
   const filtrados = banco.filter(item => {
@@ -605,12 +603,12 @@ function renderInvCatalogo() {
       if (!isNPCOwner && pOwner && !temAcessoPesoArmaduraOuElmo(pOwner, item.peso)) return false;
       if (!isNPCOwner && !pOwner && item.peso === 'mega') return false;
       // Encantada exige Maestria de Intelecto 5; Exótica exige Maestria de Agilidade 5.
-      if (!isNPCOwner && item.peso === 'encantada' && (!pOwner || !temArmaduraEncantada)) return false;
-      if (!isNPCOwner && item.peso === 'exotica' && (!pOwner || !temArmaduraExotica)) return false;
+      if (!isNPCOwner && item.peso === 'encantada' && (!pOwner || !temEquipEncantado)) return false;
+      if (!isNPCOwner && item.peso === 'exotica' && (!pOwner || !temEquipExotico)) return false;
     } else {
-      // Arma e Instrumento: o acesso por peso é EXCLUSIVO por atributo (só 1
-      // categoria), e o Talento Inferior "Maestria de Peso Aprimorada" libera
-      // também a categoria seguinte — ver getPesosArmaPermitidosPersonagem/temAcessoPesoArma.
+      // (Set 12) Arma e Instrumento agora seguem a MESMA regra da Armadura:
+      // Leve/Média/Pesada livres; Mega Pesada/Exótica/Encantada por Maestria
+      // (ou pela passiva Multifunções do Campeão) — ver temAcessoPesoArma.
       if (!isNPCOwner && item.peso === 'encantada' && !temEncantadoAqui) return false;
       if (!isNPCOwner && item.peso === 'exotica' && !temExoticoAqui) return false;
       if (!isNPCOwner && pOwner && !temAcessoPesoArma(pOwner, item.peso)) return false;
@@ -1113,8 +1111,8 @@ function _buildEncantamentoListHtml(subtipoAlvo) {
   const p = PLAYERS.find(x => x.id === modalInvPid);
   if (!p) return '';
 
-  if (!temAcessoEquipamentoEncantado(p) && !(subtipoAlvo === 'arma' && temMultifuncoesArma(p))) {
-    return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Requer o Talento Inferior <strong>"Equipamento Encantado"</strong>.</div>`;
+  if (!temAcessoEquipEncantado(p) && !(subtipoAlvo === 'arma' && temMultifuncoesArma(p))) {
+    return `<div style="font-size:11px;color:var(--text3);padding:4px 2px">⚠ Requer 5 de <strong>Maestria de Intelecto</strong>.</div>`;
   }
 
   const catalogo = subtipoAlvo === 'elmo' ? ENCANTAMENTOS_ELMO
@@ -1288,19 +1286,18 @@ function saveInvItem(cobrarDinheiro) {
   const peso    = _invSelectedPeso();
   // "Multifunções" (Campeão) só permite GANHAR Armas/Instrumentos Mega
   // Pesados/Exóticos/Encantados — não comprar. Se o acesso a essa categoria
-  // vier só da passiva (sem o Talento Inferior/atributo correspondente),
-  // bloqueia o botão "Comprar" (cobrarDinheiro === true); "Ganhar" continua liberado.
+  // vier só da passiva (sem a Maestria correspondente — Set 12), bloqueia o
+  // botão "Comprar" (cobrarDinheiro === true); "Ganhar" continua liberado.
   if (!modalInvId && (tipo === 'arma' || tipo === 'instrumento') && cobrarDinheiro === true && temMultifuncoesArma(p)) {
-    const semMultifuncoesMega = getPesosArmaPermitidosPersonagem(p, true).includes('mega');
-    if (peso === 'mega' && !semMultifuncoesMega) {
+    if (peso === 'mega' && !temAcessoEquipMegaPesado(p)) {
       alert('Multifunções só permite GANHAR Armas/Instrumentos Mega Pesados, não comprar. Use o botão "Ganhar".');
       return;
     }
-    if (peso === 'exotica' && !temAcessoEquipamentoExotico(p)) {
+    if (peso === 'exotica' && !temAcessoEquipExotico(p)) {
       alert('Multifunções só permite GANHAR Armas/Instrumentos Exóticos, não comprar. Use o botão "Ganhar".');
       return;
     }
-    if (peso === 'encantada' && !temAcessoEquipamentoEncantado(p)) {
+    if (peso === 'encantada' && !temAcessoEquipEncantado(p)) {
       alert('Multifunções só permite GANHAR Armas/Instrumentos Encantados, não comprar. Use o botão "Ganhar".');
       return;
     }

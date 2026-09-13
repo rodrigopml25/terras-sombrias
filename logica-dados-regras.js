@@ -1583,15 +1583,16 @@ function temMultifuncoesArma(p) {
   return getSubclassePassivas(p).some(pas => pas.id === 'campeao_multifuncoes');
 }
 
-// O personagem tem o Talento Inferior "Equipamento Encantado"? Sem ele, não
-// pode aplicar (nem manter) Encantamentos em seus equipamentos.
+// (Set 12) DORMENTE: Encantada/Exótica agora liberam por Maestria (ver
+// temAcessoEquipEncantado/temAcessoEquipExotico), não mais pelo Talento
+// Inferior. Este Talento ainda pode existir na lista de Talentos Inferiores
+// (não mexi na ficha de Talentos em si), só não trava mais nada no código.
 function temAcessoEquipamentoEncantado(p) {
   if (p.isNPC) return true; // NPC: Narrador libera Equipamento Encantado sem precisar do Talento
   return getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'equipamento_encantado');
 }
 
-// O personagem tem o Talento Inferior "Equipamento Exótico"? Sem ele, não
-// tem acesso à compra de armaduras/elmos/armas exóticas no catálogo.
+// (Set 12) DORMENTE — ver comentário de temAcessoEquipamentoEncantado acima.
 function temAcessoEquipamentoExotico(p) {
   if (p.isNPC) return true; // NPC: Narrador libera Equipamento Exótico sem precisar do Talento
   return getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'equipamento_exotico');
@@ -1626,15 +1627,16 @@ function temSegundaArmaHabilitada(p) {
 }
 
 // Retorna true se o personagem precisa escolher o Estilo de Encantamento
-// agora (tem o Talento Inferior "Equipamento Encantado" mas ainda não
-// escolheu Arcano ou Místico) — ver renderEscolhaEstiloEncantamentoModal.
+// agora (já tem 5 de Maestria de Intelecto — Set 12 — ou a passiva
+// Multifunções, mas ainda não escolheu Arcano ou Místico) — ver
+// renderEscolhaEstiloEncantamentoModal.
 function precisaEscolherEstiloEncantamento(p) {
-  return (temAcessoEquipamentoEncantado(p) || temMultifuncoesArma(p)) && !p.estiloEncantamentoId;
+  return (temAcessoEquipEncantado(p) || temMultifuncoesArma(p)) && !p.estiloEncantamentoId;
 }
 
 // Define o Estilo de Encantamento do personagem (Arcano ou Místico) — escolha
-// permanente feita assim que o Talento Inferior "Equipamento Encantado" é
-// adquirido. Vale para TODOS os equipamentos encantados do personagem.
+// permanente feita assim que o personagem chega em 5 de Maestria de
+// Intelecto (Set 12). Vale para TODOS os equipamentos encantados do personagem.
 function escolherEstiloEncantamento(pid, estilo) {
   const p = PLAYERS.find(x => x.id === pid);
   if (!p || (estilo !== 'arcano' && estilo !== 'mistico')) return;
@@ -6713,12 +6715,15 @@ function renderWizardArmaStep() {
     return;
   }
 
-  const pesosPermitidos = wizardIsNPC ? ORDEM_PESO_ARMADURA.slice() : ['leve', 'media', 'pesada'];
+  // (Set 12) Mesma liberação por Maestria da Armadura/Elmo agora vale pra
+  // Arma/Instrumento também — ver getPesosArmaduraDisponiveisWizard.
+  const pesosPermitidos = getPesosArmaduraDisponiveisWizard();
   const opcoesArma = CATALOGO_ITENS.arma.filter(item => pesosPermitidos.includes(item.peso)).map(item => ({ ...item, _tipo: 'arma' }));
   const opcoesInstrumento = CATALOGO_ITENS.instrumento.filter(item => pesosPermitidos.includes(item.peso)).map(item => ({ ...item, _tipo: 'instrumento' }));
   const opcoes = [...opcoesArma, ...opcoesInstrumento];
 
-  // Descarta uma escolha antiga que não seja mais válida (ex.: trocou de subclasse).
+  // Descarta uma escolha antiga que não seja mais válida (ex.: baixou os
+  // Atributos e perdeu acesso a Mega Pesada/Exótica/Encantada).
   if (wizardArmaEscolhidaId && !opcoes.some(o => o.id === wizardArmaEscolhidaId && o._tipo === wizardArmaEscolhidaTipo)) {
     wizardArmaEscolhidaId = null;
     wizardArmaEscolhidaTipo = null;
@@ -6728,7 +6733,7 @@ function renderWizardArmaStep() {
     aviso.style.display = '';
     aviso.textContent = wizardIsNPC
       ? 'NPC: todas as categorias de peso de Arma/Instrumento estão liberadas.'
-      : `Escolha livre entre Leve/Média/Pesada (Set 12), independente da Classe.`;
+      : `Escolha livre entre Leve/Média/Pesada. Mega Pesada/Exótica/Encantada exigem 5 de Maestria de Força/Agilidade/Intelecto — liberadas: ${pesosPermitidos.map(p => INV_PESO_LABEL[p] || p).join(', ')}.`;
   }
 
   if (!opcoes.length) {
@@ -7342,84 +7347,52 @@ function getPesosArmaPermitidos(subclasseName) {
 
 const ORDEM_PESO_ARMADURA = ['leve', 'media', 'pesada', 'mega'];
 
-// (Set 12) NOVA REGRA DE ARMADURA/ELMO: a escolha de peso Leve/Média/Pesada
-// passou a ser LIVRE — não depende mais do atributo principal da subclasse
-// nem do Talento Inferior "Maestria de Peso Aprimorada" (esse talento
-// continua valendo só pra Arma/Instrumento, ver
-// getPesosArmaPermitidosPersonagem, mais abaixo). Só as categorias mais
+// (Set 12) NOVA REGRA DE ARMADURA/ELMO/ARMA/INSTRUMENTO: a escolha de peso
+// Leve/Média/Pesada passou a ser LIVRE — não depende mais do atributo
+// principal da subclasse nem de Talento Inferior. Só as categorias mais
 // raras exigem uma Maestria mínima (5): Mega Pesada → Maestria de Força;
-// Encantada → Maestria de Intelecto (ver temAcessoArmaduraEncantada);
-// Exótica → Maestria de Agilidade (ver temAcessoArmaduraExotica) — essas
+// Encantada → Maestria de Intelecto (ver temAcessoEquipEncantado);
+// Exótica → Maestria de Agilidade (ver temAcessoEquipExotico) — essas
 // duas substituem os antigos Talentos Inferiores "Equipamento
-// Encantado"/"Equipamento Exótico" (que continuam existindo só pra
-// Arma/Instrumento). NPC sempre libera tudo, sem checar Maestria.
-function temAcessoArmaduraMegaPesada(p) {
+// Encantado"/"Equipamento Exótico" (agora dormentes, ver
+// temAcessoEquipamentoEncantado/temAcessoEquipamentoExotico). NPC sempre
+// libera tudo, sem checar Maestria. "Multifunções" (Campeão) também libera
+// tudo pra Arma/Instrumento, sem precisar de Maestria — ver temAcessoPesoArma.
+function temAcessoEquipMegaPesado(p) {
   if (p.isNPC) return true;
   return maestriaDe(p, 'forca') >= 5;
 }
-function temAcessoArmaduraEncantada(p) {
+function temAcessoEquipEncantado(p) {
   if (p.isNPC) return true;
   return maestriaDe(p, 'intel') >= 5;
 }
-function temAcessoArmaduraExotica(p) {
+function temAcessoEquipExotico(p) {
   if (p.isNPC) return true;
   return maestriaDe(p, 'agi') >= 5;
 }
 
-// Categorias de peso de Arma/Instrumento liberadas pro personagem. (Set 12)
-// Leve/Média/Pesada agora são LIVRES pra qualquer subclasse — não dependem
-// mais do atributo principal (getPesosArmaPermitidos, mantida só como
-// referência histórica/uso no wizard de criação — ver abaixo). Com o
-// Talento Inferior "Maestria de Peso Aprimorada", o personagem ganha também
-// acesso a Mega Pesada (Exótica/Encantada continuam pelos Talentos
-// "Equipamento Exótico"/"Equipamento Encantado", à parte).
-function getPesosArmaPermitidosPersonagem(p, ignorarMultifuncoes) {
-  // "Multifunções" (passiva fixa do Campeão): sabe usar TODAS as Armas,
-  // incluindo Mega Pesada de cara (sem depender da Maestria de Peso
-  // Aprimorada — essa só serve pra outras classes chegarem em Mega). Porém,
-  // só pode GANHAR essas categorias extras, não comprar — ver saveInvItem,
-  // que usa `ignorarMultifuncoes=true` pra saber o que o personagem teria
-  // "de direito próprio" (sem contar a passiva) na hora de validar a compra.
-  const temMultifuncoes = !ignorarMultifuncoes && getSubclassePassivas(p).some(pas => pas.id === 'campeao_multifuncoes');
-  const temMaestriaAprimorada = getTalentosInferioresEscolhidos(p).some(pas => pas.talentoInferiorId === 'maestria_de_peso_aprimorada');
-  if (temMultifuncoes) {
-    return ['leve', 'media', 'pesada', 'mega'];
-  }
-  let resultado = ['leve', 'media', 'pesada'];
-  if (temMaestriaAprimorada) resultado = [...resultado, 'mega'];
-  // "Mulgore" (Origem, Tauren) e "Colosso" (Origem, Troll): já garantiam
-  // acesso a Armas Pesadas independente da Classe — agora redundante (Pesada
-  // já é livre pra todos), mas mantido sem custo extra, inofensivo.
-  const temMulgore = p.origemId === 'tauren_origem_mulgore';
-  if (temMulgore && !resultado.includes('pesada')) {
-    resultado = [...resultado, 'pesada'];
-  }
-  const temColosso = p.origemId === 'troll_origem_colosso';
-  if (temColosso && !resultado.includes('pesada')) {
-    resultado = [...resultado, 'pesada'];
-  }
-  return resultado;
-}
-
 // O personagem pode comprar/vestir uma Arma/Instrumento de peso `peso`
-// (leve/media/pesada/mega), considerando getPesosArmaPermitidosPersonagem?
-// Não se aplica a Exótica/Encantada, que têm suas próprias travas por
-// Talento — ver temAcessoEquipamentoExotico/temAcessoEquipamentoEncantado.
+// (leve/media/pesada/mega)? (Set 12) Mesma regra da Armadura agora: Leve/
+// Média/Pesada sempre livres; Mega Pesada exige Maestria de Força 5 — ver
+// temAcessoEquipMegaPesado — ou a passiva Multifunções (Campeão), que
+// libera na hora sem precisar de Maestria. Não se aplica a Exótica/
+// Encantada, que têm suas próprias travas de Maestria — ver
+// temAcessoEquipExotico/temAcessoEquipEncantado.
 function temAcessoPesoArma(p, peso) {
-  if (p.isNPC) return true; // NPC: qualquer categoria de peso, sem depender do atributo da subclasse
-  if (!ORDEM_PESO_ARMADURA.includes(peso)) return true;
-  return getPesosArmaPermitidosPersonagem(p).includes(peso);
+  if (p.isNPC) return true; // NPC: qualquer categoria de peso, sem checar Maestria
+  if (peso === 'mega') return temMultifuncoesArma(p) || temAcessoEquipMegaPesado(p);
+  return true;
 }
 
 // O personagem pode comprar/vestir uma peça de Armadura/Elmo de peso `peso`
 // (leve/media/pesada/mega)? Leve/Média/Pesada: sempre true (escolha livre,
 // Set 12). Mega Pesada: exige Maestria de Força 5 — ver
-// temAcessoArmaduraMegaPesada. Não se aplica a Exótica/Encantada, que têm
+// temAcessoEquipMegaPesado. Não se aplica a Exótica/Encantada, que têm
 // suas próprias travas de Maestria — ver
-// temAcessoArmaduraExotica/temAcessoArmaduraEncantada.
+// temAcessoEquipExotico/temAcessoEquipEncantado.
 function temAcessoPesoArmaduraOuElmo(p, peso) {
   if (p.isNPC) return true; // NPC: qualquer categoria de peso, sem checar Maestria
-  if (peso === 'mega') return temAcessoArmaduraMegaPesada(p);
+  if (peso === 'mega') return temAcessoEquipMegaPesado(p);
   return true;
 }
 
