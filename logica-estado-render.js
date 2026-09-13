@@ -221,6 +221,49 @@ function applyData(data) {
           && (i.alcance === 'longo' || nomesArremessoComMunicao.includes(i.name));
       }
     });
+    // Migração (Set 12): remove as habilidades antigas de "Pente/Bolsa/
+    // Aljava" que ainda estejam congeladas em itens já comprados (viravam
+    // `precisaMunicao` automático, sem precisar de uma habilidade separada
+    // pra "ativar" a munição).
+    const NOMES_USO_MUNICAO_ANTIGA = ['Bolsa de Adagas', 'Aljava', 'Pente de Balas', 'Pente de Cartuchos', 'Pente de Granadas', 'Pente de Munição', 'Bolsa de Microfone-Adaga'];
+    p.inventario.forEach(i => {
+      if (Array.isArray(i.usos) && i.usos.some(u => NOMES_USO_MUNICAO_ANTIGA.includes(u.name))) {
+        i.usos = i.usos.filter(u => !NOMES_USO_MUNICAO_ANTIGA.includes(u.name));
+      }
+    });
+    // Migração (Set 12): "Invisibilidade da Runa" (Adagas Mágicas) e "Disparo
+    // de Energia" (Orbe Tecnológico) perderam o custoRecarga (Munição virou
+    // automática) e passaram de escopo "arma" (nunca recarrega sozinho) pra
+    // "luta" (recarrega toda Luta, já que quem trava agora é o dado de Munição).
+    p.inventario.forEach(i => {
+      if (!Array.isArray(i.usos)) return;
+      i.usos.forEach(u => {
+        if ((u.name === 'Invisibilidade da Runa' || u.name === 'Disparo de Energia') && u.custoRecarga) {
+          delete u.custoRecarga;
+          u.escopo = 'luta';
+        }
+      });
+    });
+    // Migração (Set 12): as 3 Armas/Instrumentos Exóticos que usavam Cristal
+    // (custoCristal, via p.cristais) migraram pro novo sistema de Munição
+    // Exótica (municaoExotica, dado próprio do item) — mas itens JÁ
+    // comprados antes da mudança ainda têm o "usos" antigo congelado com
+    // custoCristal. Migra pra municaoExotica nesses 3 itens específicos.
+    const MIGRACAO_MUNICAO_EXOTICA = {
+      'Lança Elétrica': 'Carga Elétrica',
+      'Orbe Cristalino': 'Feixe Perfurante',
+      'Teclado Constelação': 'Campo Harmônico',
+    };
+    p.inventario.forEach(i => {
+      const usoNome = MIGRACAO_MUNICAO_EXOTICA[i.name];
+      if (!usoNome || !Array.isArray(i.usos)) return;
+      const uso = i.usos.find(u => u.name === usoNome);
+      if (uso && uso.custoCristal) {
+        delete uso.custoCristal;
+        delete uso.semMunicao;
+        uso.municaoExotica = true;
+      }
+    });
     recomputeProtMax(p);
     // Migração: testes — fichas antigas que ainda não têm o campo
     getTestePersonagem(p);
