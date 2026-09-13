@@ -49,6 +49,10 @@ function encerrarCombate() {
   INITIATIVE = [];
   turnoAtualId = null;
   combatAtivo = false;
+  // (Set 12) Testa a Munição das Armas/Instrumentos usados durante o
+  // combate que está sendo encerrado — mesma lógica do "Reset Luta" (ver
+  // rolarMunicaoFimDeLuta), já que aqui também é um fim de combate de verdade.
+  PLAYERS.forEach(p => rolarMunicaoFimDeLuta(p));
   saveState();
   renderAll();
 }
